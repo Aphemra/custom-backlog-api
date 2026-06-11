@@ -1,5 +1,9 @@
+import { useState } from "react";
 import type { Bucket, GameEntry } from "../../../domain/backlog";
-import { formatPlayStatus, formatTrophyStatus, getPlatformShortName } from "../../../domain/display";
+import type { GameEntryUpdate } from "../store/useBacklogStore";
+import { useBacklogStore } from "../store/useBacklogStore";
+import { BacklogEntryEditForm } from "./BacklogEntryEditForm";
+import { BacklogEntryReadOnly } from "./BacklogEntryReadOnly";
 
 interface BacklogEntryDetailsProps {
   game: GameEntry;
@@ -7,58 +11,17 @@ interface BacklogEntryDetailsProps {
 }
 
 export function BacklogEntryDetails({ game, buckets }: BacklogEntryDetailsProps) {
-  const platformLabels = game.platformIds.map(getPlatformShortName).join(" / ");
+  const [isEditing, setIsEditing] = useState(false);
+  const updateGameEntry = useBacklogStore((state) => state.updateGameEntry);
 
-  const gameBuckets = buckets.filter((bucket) => game.bucketIds.includes(bucket.id));
+  function handleSave(updates: GameEntryUpdate) {
+    updateGameEntry(game.id, updates);
+    setIsEditing(false);
+  }
 
-  const bucketText = gameBuckets.length > 0 ? gameBuckets.map((bucket) => bucket.name).join(", ") : "No bucket assigned";
+  if (isEditing) {
+    return <BacklogEntryEditForm game={game} onCancel={() => setIsEditing(false)} onSave={handleSave} />;
+  }
 
-  const trophyProgress = game.trophyProgress;
-
-  const completionText = trophyProgress.completionPercent !== undefined ? `${trophyProgress.completionPercent}%` : "Unknown";
-
-  const trophyCountText =
-    trophyProgress.earnedTrophies !== undefined && trophyProgress.totalTrophies !== undefined
-      ? `${trophyProgress.earnedTrophies}/${trophyProgress.totalTrophies}`
-      : "Unknown";
-
-  return (
-    <div className="backlog-entry-details">
-      <div className="details-grid">
-        <DetailItem label="Play Status" value={formatPlayStatus(game.playStatus)} />
-        <DetailItem label="Trophy Status" value={formatTrophyStatus(game.trophyStatus)} />
-        <DetailItem label="Platforms" value={platformLabels} />
-        <DetailItem label="Buckets" value={bucketText} />
-        <DetailItem label="Completion" value={completionText} />
-        <DetailItem label="Trophies" value={trophyCountText} />
-        <DetailItem label="Platinum" value={trophyProgress.platinumEarned ? "Earned" : "Not earned"} />
-        <DetailItem label="Rating" value={game.rating !== undefined ? `${game.rating}/10` : "Unrated"} />
-      </div>
-
-      <section className="details-section">
-        <h3>Notes</h3>
-        <p>{game.notes ?? "No notes added yet."}</p>
-      </section>
-
-      {trophyProgress.psnProfilesUrl ? (
-        <a className="button details-link" href={trophyProgress.psnProfilesUrl} target="_blank" rel="noreferrer">
-          Open on PSNProfiles
-        </a>
-      ) : null}
-    </div>
-  );
-}
-
-interface DetailItemProps {
-  label: string;
-  value: string;
-}
-
-function DetailItem({ label, value }: DetailItemProps) {
-  return (
-    <div className="detail-item">
-      <span className="detail-item__label">{label}</span>
-      <span className="detail-item__value">{value}</span>
-    </div>
-  );
+  return <BacklogEntryReadOnly game={game} buckets={buckets} onEdit={() => setIsEditing(true)} />;
 }

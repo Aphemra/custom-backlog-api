@@ -1,6 +1,7 @@
+import { mockBuckets, mockGameEntries } from "../../../data/mock/mockBacklogData";
 import { BacklogControls } from "../components/BacklogControls";
 import { BacklogHeader } from "../components/BacklogHeader";
-import { BacklogListPlaceholder } from "../components/BacklogListPlaceholder";
+import { BacklogList } from "../components/BacklogList";
 import { BacklogStatsStrip } from "../components/BacklogStatsStrip";
 
 export function BacklogPage() {
@@ -13,7 +14,7 @@ export function BacklogPage() {
           <BacklogControls />
         </div>
 
-        <BacklogListPlaceholder />
+        <BacklogList games={mockGameEntries} buckets={mockBuckets} />
       </section>
     </main>
   );

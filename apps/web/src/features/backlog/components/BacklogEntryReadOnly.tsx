@@ -5,9 +5,10 @@ interface BacklogEntryReadOnlyProps {
   game: GameEntry;
   buckets: Bucket[];
   onEdit: () => void;
+  onDelete: () => void;
 }
 
-export function BacklogEntryReadOnly({ game, buckets, onEdit }: BacklogEntryReadOnlyProps) {
+export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete }: BacklogEntryReadOnlyProps) {
   const platformLabels = game.platformIds.map(getPlatformShortName).join(" / ");
 
   const gameBuckets = buckets.filter((bucket) => game.bucketIds.includes(bucket.id));
@@ -31,9 +32,15 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit }: BacklogEntryRead
           <p>Current backlog and trophy tracking information.</p>
         </div>
 
-        <button className="button button--primary" type="button" onClick={onEdit}>
-          Edit
-        </button>
+        <div className="form-actions">
+          <button className="button button--danger" type="button" onClick={onDelete}>
+            Delete
+          </button>
+
+          <button className="button button--primary" type="button" onClick={onEdit}>
+            Edit
+          </button>
+        </div>
       </div>
 
       <div className="details-grid">

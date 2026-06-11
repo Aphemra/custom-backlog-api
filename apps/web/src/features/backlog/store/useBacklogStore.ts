@@ -38,6 +38,7 @@ interface BacklogState {
 
   addGameEntry: (input: CreateGameEntryInput) => void;
   updateGameEntry: (gameEntryId: string, updates: GameEntryUpdate) => void;
+  deleteGameEntry: (gameEntryId: string) => void;
 
   resetBacklogData: () => void;
 }
@@ -136,6 +137,20 @@ export const useBacklogStore = create<BacklogState>()(
               updatedAt: new Date().toISOString(),
             };
           }),
+        }));
+      },
+
+      deleteGameEntry: (gameEntryId) => {
+        set((state) => ({
+          gameEntries: state.gameEntries.filter((gameEntry) => gameEntry.id !== gameEntryId),
+
+          buckets: state.buckets.map((bucket) => ({
+            ...bucket,
+            gameOrder: bucket.gameOrder.filter((orderedGameId) => orderedGameId !== gameEntryId),
+            updatedAt: new Date().toISOString(),
+          })),
+
+          selectedGameEntryId: state.selectedGameEntryId === gameEntryId ? null : state.selectedGameEntryId,
         }));
       },
 

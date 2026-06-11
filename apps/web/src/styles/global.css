@@ -199,7 +199,38 @@ button {
 
 .backlog-controls {
   display: flex;
+  flex-direction: column;
   gap: var(--space-3);
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-3);
+}
+
+.filter-select {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  background: var(--color-bg-soft);
+  color: var(--color-text);
+}
+
+.filter-select:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+
+.button:disabled:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
 }
 
 .search-input {
@@ -231,6 +262,24 @@ button {
   flex-direction: column;
   gap: var(--space-3);
   padding-bottom: var(--space-6);
+}
+
+.empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  background: rgba(23, 29, 43, 0.55);
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.empty-state p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
 }
 
 .backlog-row {
@@ -527,8 +576,8 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .backlog-controls {
-    flex-direction: column;
+  .filter-row {
+    grid-template-columns: 1fr;
   }
 
   .control-buttons {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { mockBacklog, mockBuckets, mockGameEntries, mockUser } from "../../../data/mock/mockBacklogData";
+import type { BacklogFilters, BacklogStatusFilter } from "../types/backlogFilters";
 import type { BacklogBackup } from "../../importExport/types/backup";
 import type { Backlog, Bucket, GameEntry, PlayStatus, User } from "../../../domain/backlog";
 import type { PlatformId } from "../../../domain/platform";
@@ -30,12 +31,17 @@ interface BacklogState {
 
   selectedGameEntryId: string | null;
   isAddGamePanelOpen: boolean;
+  filters: BacklogFilters;
 
   selectGameEntry: (gameEntryId: string) => void;
   closeSelectedGameEntry: () => void;
 
   openAddGamePanel: () => void;
   closeAddGamePanel: () => void;
+
+  setSearchText: (searchText: string) => void;
+  setStatusFilter: (statusFilter: BacklogStatusFilter) => void;
+  clearFilters: () => void;
 
   addGameEntry: (input: CreateGameEntryInput) => void;
   updateGameEntry: (gameEntryId: string, updates: GameEntryUpdate) => void;
@@ -52,6 +58,11 @@ const initialBacklogData = {
   buckets: mockBuckets,
 };
 
+const initialFilters: BacklogFilters = {
+  searchText: "",
+  statusFilter: "all",
+};
+
 export const useBacklogStore = create<BacklogState>()(
   persist(
     (set, get) => ({
@@ -59,6 +70,7 @@ export const useBacklogStore = create<BacklogState>()(
 
       selectedGameEntryId: null,
       isAddGamePanelOpen: false,
+      filters: initialFilters,
 
       selectGameEntry: (gameEntryId) => {
         set((state) => ({
@@ -82,6 +94,30 @@ export const useBacklogStore = create<BacklogState>()(
       closeAddGamePanel: () => {
         set({
           isAddGamePanelOpen: false,
+        });
+      },
+
+      setSearchText: (searchText) => {
+        set({
+          filters: {
+            ...get().filters,
+            searchText,
+          },
+        });
+      },
+
+      setStatusFilter: (statusFilter) => {
+        set({
+          filters: {
+            ...get().filters,
+            statusFilter,
+          },
+        });
+      },
+
+      clearFilters: () => {
+        set({
+          filters: initialFilters,
         });
       },
 
@@ -172,6 +208,7 @@ export const useBacklogStore = create<BacklogState>()(
           ...initialBacklogData,
           selectedGameEntryId: null,
           isAddGamePanelOpen: false,
+          filters: initialFilters,
         });
       },
     }),

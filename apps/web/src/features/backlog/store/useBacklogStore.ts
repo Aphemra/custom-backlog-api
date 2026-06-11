@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { mockBacklog, mockBuckets, mockGameEntries, mockUser } from "../../../data/mock/mockBacklogData";
+import type { BacklogBackup } from "../../importExport/types/backup";
 import type { Backlog, Bucket, GameEntry, PlayStatus, User } from "../../../domain/backlog";
 import type { PlatformId } from "../../../domain/platform";
 import type { TrophyProgress, TrophyStatus } from "../../../domain/trophy";
@@ -40,6 +41,7 @@ interface BacklogState {
   updateGameEntry: (gameEntryId: string, updates: GameEntryUpdate) => void;
   deleteGameEntry: (gameEntryId: string) => void;
 
+  replaceBacklogData: (backup: BacklogBackup) => void;
   resetBacklogData: () => void;
 }
 
@@ -152,6 +154,17 @@ export const useBacklogStore = create<BacklogState>()(
 
           selectedGameEntryId: state.selectedGameEntryId === gameEntryId ? null : state.selectedGameEntryId,
         }));
+      },
+
+      replaceBacklogData: (backup) => {
+        set({
+          user: backup.user,
+          backlog: backup.backlog,
+          gameEntries: backup.gameEntries,
+          buckets: backup.buckets,
+          selectedGameEntryId: null,
+          isAddGamePanelOpen: false,
+        });
       },
 
       resetBacklogData: () => {

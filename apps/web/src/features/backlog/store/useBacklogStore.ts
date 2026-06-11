@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { mockBacklog, mockBuckets, mockGameEntries, mockUser } from "../../../data/mock/mockBacklogData";
 import type { Backlog, Bucket, GameEntry, User } from "../../../domain/backlog";
 
@@ -19,47 +20,72 @@ interface BacklogState {
   selectGameEntry: (gameEntryId: string) => void;
   closeSelectedGameEntry: () => void;
   updateGameEntry: (gameEntryId: string, updates: GameEntryUpdate) => void;
+  resetBacklogData: () => void;
 }
 
-export const useBacklogStore = create<BacklogState>((set) => ({
+const initialBacklogData = {
   user: mockUser,
   backlog: mockBacklog,
   gameEntries: mockGameEntries,
   buckets: mockBuckets,
+};
 
-  selectedGameEntryId: null,
+export const useBacklogStore = create<BacklogState>()(
+  persist(
+    (set) => ({
+      ...initialBacklogData,
 
-  selectGameEntry: (gameEntryId) => {
-    set((state) => ({
-      selectedGameEntryId: state.selectedGameEntryId === gameEntryId ? null : gameEntryId,
-    }));
-  },
-
-  closeSelectedGameEntry: () => {
-    set({
       selectedGameEntryId: null,
-    });
-  },
 
-  updateGameEntry: (gameEntryId, updates) => {
-    set((state) => ({
-      gameEntries: state.gameEntries.map((gameEntry) => {
-        if (gameEntry.id !== gameEntryId) {
-          return gameEntry;
-        }
+      selectGameEntry: (gameEntryId) => {
+        set((state) => ({
+          selectedGameEntryId: state.selectedGameEntryId === gameEntryId ? null : gameEntryId,
+        }));
+      },
 
-        const { trophyProgress, ...gameEntryUpdates } = updates;
+      closeSelectedGameEntry: () => {
+        set({
+          selectedGameEntryId: null,
+        });
+      },
 
-        return {
-          ...gameEntry,
-          ...gameEntryUpdates,
-          trophyProgress: {
-            ...gameEntry.trophyProgress,
-            ...(trophyProgress ?? {}),
-          },
-          updatedAt: new Date().toISOString(),
-        };
+      updateGameEntry: (gameEntryId, updates) => {
+        set((state) => ({
+          gameEntries: state.gameEntries.map((gameEntry) => {
+            if (gameEntry.id !== gameEntryId) {
+              return gameEntry;
+            }
+
+            const { trophyProgress, ...gameEntryUpdates } = updates;
+
+            return {
+              ...gameEntry,
+              ...gameEntryUpdates,
+              trophyProgress: {
+                ...gameEntry.trophyProgress,
+                ...(trophyProgress ?? {}),
+              },
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+        }));
+      },
+
+      resetBacklogData: () => {
+        set({
+          ...initialBacklogData,
+          selectedGameEntryId: null,
+        });
+      },
+    }),
+    {
+      name: "custom-backlog-app:backlog-store",
+      partialize: (state) => ({
+        user: state.user,
+        backlog: state.backlog,
+        gameEntries: state.gameEntries,
+        buckets: state.buckets,
       }),
-    }));
-  },
-}));
+    },
+  ),
+);

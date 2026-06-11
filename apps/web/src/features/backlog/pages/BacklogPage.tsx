@@ -1,3 +1,4 @@
+import { AddGamePanel } from "../components/AddGamePanel";
 import { BacklogControls } from "../components/BacklogControls";
 import { BacklogHeader } from "../components/BacklogHeader";
 import { BacklogList } from "../components/BacklogList";
@@ -9,6 +10,7 @@ export function BacklogPage() {
   const gameEntries = useBacklogStore((state) => state.gameEntries);
   const buckets = useBacklogStore((state) => state.buckets);
   const selectedGameEntryId = useBacklogStore((state) => state.selectedGameEntryId);
+  const isAddGamePanelOpen = useBacklogStore((state) => state.isAddGamePanelOpen);
   const selectGameEntry = useBacklogStore((state) => state.selectGameEntry);
 
   const backlogStats = calculateBacklogStats(gameEntries);
@@ -21,6 +23,8 @@ export function BacklogPage() {
           <BacklogStatsStrip stats={backlogStats} />
           <BacklogControls />
         </div>
+
+        {isAddGamePanelOpen ? <AddGamePanel /> : null}
 
         <BacklogList games={gameEntries} buckets={buckets} selectedGameEntryId={selectedGameEntryId} onSelectGame={selectGameEntry} />
       </section>

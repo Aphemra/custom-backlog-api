@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { playstationPlatforms } from "../../../data/mock/playstationPlatforms";
-import { parseOptionalNumber } from "../services/parseOptionalNumber";
-import type { GameEntryUpdate } from "../store/useBacklogStore";
-import type { GameEntry, PlayStatus } from "../../../domain/backlog";
+import type { PlayStatus } from "../../../domain/backlog";
+import { formatPlayStatus, formatTrophyStatus } from "../../../domain/display";
 import type { PlatformId } from "../../../domain/platform";
 import type { TrophyStatus } from "../../../domain/trophy";
-import { formatPlayStatus, formatTrophyStatus } from "../../../domain/display";
+import { parseOptionalNumber } from "../services/parseOptionalNumber";
+import { useBacklogStore } from "../store/useBacklogStore";
 
 const playStatusOptions: PlayStatus[] = ["backlog", "playing", "beaten", "completed", "shelved", "abandoned"];
 
@@ -20,24 +20,20 @@ const trophyStatusOptions: TrophyStatus[] = [
   "not_applicable",
 ];
 
-interface BacklogEntryEditFormProps {
-  game: GameEntry;
-  onCancel: () => void;
-  onSave: (updates: GameEntryUpdate) => void;
-}
+export function AddGamePanel() {
+  const addGameEntry = useBacklogStore((state) => state.addGameEntry);
+  const closeAddGamePanel = useBacklogStore((state) => state.closeAddGamePanel);
 
-export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEditFormProps) {
-  const [title, setTitle] = useState(game.title);
-  const [platformIds, setPlatformIds] = useState<PlatformId[]>(game.platformIds);
-  const [playStatus, setPlayStatus] = useState<PlayStatus>(game.playStatus);
-  const [trophyStatus, setTrophyStatus] = useState<TrophyStatus>(game.trophyStatus);
-  const [completionPercent, setCompletionPercent] = useState(game.trophyProgress.completionPercent?.toString() ?? "");
-  const [earnedTrophies, setEarnedTrophies] = useState(game.trophyProgress.earnedTrophies?.toString() ?? "");
-  const [totalTrophies, setTotalTrophies] = useState(game.trophyProgress.totalTrophies?.toString() ?? "");
-  const [platinumEarned, setPlatinumEarned] = useState(game.trophyProgress.platinumEarned ?? false);
-  const [psnProfilesUrl, setPsnProfilesUrl] = useState(game.trophyProgress.psnProfilesUrl ?? "");
-  const [rating, setRating] = useState(game.rating?.toString() ?? "");
-  const [notes, setNotes] = useState(game.notes ?? "");
+  const [title, setTitle] = useState("");
+  const [platformIds, setPlatformIds] = useState<PlatformId[]>(["ps5"]);
+  const [playStatus, setPlayStatus] = useState<PlayStatus>("backlog");
+  const [trophyStatus, setTrophyStatus] = useState<TrophyStatus>("not_started");
+  const [completionPercent, setCompletionPercent] = useState("");
+  const [earnedTrophies, setEarnedTrophies] = useState("");
+  const [totalTrophies, setTotalTrophies] = useState("");
+  const [platinumEarned, setPlatinumEarned] = useState(false);
+  const [psnProfilesUrl, setPsnProfilesUrl] = useState("");
+  const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   function togglePlatform(platformId: PlatformId) {
@@ -66,7 +62,6 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
     const parsedCompletionPercent = parseOptionalNumber(completionPercent);
     const parsedEarnedTrophies = parseOptionalNumber(earnedTrophies);
     const parsedTotalTrophies = parseOptionalNumber(totalTrophies);
-    const parsedRating = parseOptionalNumber(rating);
 
     if (parsedCompletionPercent !== undefined && (parsedCompletionPercent < 0 || parsedCompletionPercent > 100)) {
       setFormError("Completion percent must be between 0 and 100.");
@@ -78,14 +73,9 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
       return;
     }
 
-    if (parsedRating !== undefined && (parsedRating < 0 || parsedRating > 10)) {
-      setFormError("Rating must be between 0 and 10.");
-      return;
-    }
-
     setFormError(null);
 
-    onSave({
+    addGameEntry({
       title: trimmedTitle,
       platformIds,
       playStatus,
@@ -97,26 +87,25 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
         platinumEarned,
         psnProfilesUrl: psnProfilesUrl.trim() || undefined,
       },
-      rating: parsedRating,
       notes: notes.trim() || undefined,
     });
   }
 
   return (
-    <form className="backlog-entry-details edit-form" onSubmit={handleSubmit}>
+    <form className="add-game-panel" onSubmit={handleSubmit}>
       <div className="details-toolbar">
         <div>
-          <h3>Edit Game</h3>
-          <p>Changes are stored in memory for now. Persistence comes next.</p>
+          <h3>Add Game</h3>
+          <p>Create a manual backlog entry. IGDB import comes later.</p>
         </div>
 
         <div className="form-actions">
-          <button className="button" type="button" onClick={onCancel}>
+          <button className="button" type="button" onClick={closeAddGamePanel}>
             Cancel
           </button>
 
           <button className="button button--primary" type="submit">
-            Save
+            Save Game
           </button>
         </div>
       </div>
@@ -126,7 +115,7 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
       <div className="form-grid">
         <label className="field field--wide">
           <span>Game Title</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} />
+          <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
 
         <label className="field">
@@ -166,11 +155,6 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
           <input inputMode="numeric" value={totalTrophies} onChange={(event) => setTotalTrophies(event.target.value)} />
         </label>
 
-        <label className="field">
-          <span>Rating</span>
-          <input inputMode="decimal" placeholder="0-10" value={rating} onChange={(event) => setRating(event.target.value)} />
-        </label>
-
         <label className="field field--wide">
           <span>PSNProfiles URL</span>
           <input value={psnProfilesUrl} onChange={(event) => setPsnProfilesUrl(event.target.value)} />
@@ -196,7 +180,7 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
 
         <label className="field field--wide">
           <span>Notes</span>
-          <textarea rows={5} value={notes} onChange={(event) => setNotes(event.target.value)} />
+          <textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} />
         </label>
       </div>
     </form>

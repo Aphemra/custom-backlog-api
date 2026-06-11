@@ -389,6 +389,17 @@ button {
   font-size: 0.85rem;
 }
 
+.add-game-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(23, 29, 43, 0.96));
+  box-shadow: var(--shadow-soft);
+}
+
 .form-actions {
   display: flex;
   flex: 0 0 auto;

@@ -34,6 +34,9 @@ export function BacklogControls() {
   const replaceBacklogData = useBacklogStore((state) => state.replaceBacklogData);
   const resetBacklogData = useBacklogStore((state) => state.resetBacklogData);
 
+  const isBucketPanelOpen = useBacklogStore((state) => state.isBucketPanelOpen);
+  const toggleBucketPanel = useBacklogStore((state) => state.toggleBucketPanel);
+
   const hasActiveFilters = filters.searchText.trim().length > 0 || filters.statusFilter !== "all";
 
   function handleExportClick() {
@@ -119,7 +122,7 @@ export function BacklogControls() {
       <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={handleImportFileChange} />
 
       <div className="control-buttons">
-        <button className="button" type="button">
+        <button className={`button ${isBucketPanelOpen ? "button--active" : ""}`} type="button" onClick={toggleBucketPanel}>
           Buckets
         </button>
 

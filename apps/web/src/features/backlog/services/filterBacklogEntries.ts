@@ -9,7 +9,9 @@ export function filterBacklogEntries(gameEntries: GameEntry[], filters: BacklogF
 
     const matchesStatusFilter = doesGameMatchStatusFilter(gameEntry, filters.statusFilter);
 
-    return matchesSearchText && matchesStatusFilter;
+    const matchesBucketFilter = filters.bucketId === null || gameEntry.bucketIds.includes(filters.bucketId);
+
+    return matchesSearchText && matchesStatusFilter && matchesBucketFilter;
   });
 }
 

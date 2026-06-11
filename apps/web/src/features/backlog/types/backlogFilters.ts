@@ -3,4 +3,5 @@ export type BacklogStatusFilter = "all" | "not_completed" | "in_progress" | "com
 export interface BacklogFilters {
   searchText: string;
   statusFilter: BacklogStatusFilter;
+  bucketId: string | null;
 }

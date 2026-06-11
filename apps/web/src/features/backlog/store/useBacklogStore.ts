@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { mockBacklog, mockBuckets, mockGameEntries, mockUser } from "../../../data/mock/mockBacklogData";
-import type { BacklogFilters, BacklogStatusFilter } from "../types/backlogFilters";
-import type { BacklogBackup } from "../../importExport/types/backup";
 import type { Backlog, Bucket, GameEntry, PlayStatus, User } from "../../../domain/backlog";
 import type { PlatformId } from "../../../domain/platform";
 import type { TrophyProgress, TrophyStatus } from "../../../domain/trophy";
+import type { BacklogBackup } from "../../importExport/types/backup";
+import type { BacklogFilters, BacklogStatusFilter } from "../types/backlogFilters";
 
 export type GameEntryUpdate = Partial<
   Pick<GameEntry, "title" | "sortTitle" | "platformIds" | "playStatus" | "trophyStatus" | "priorityOrder" | "bucketIds" | "notes" | "rating">
@@ -31,6 +31,7 @@ interface BacklogState {
 
   selectedGameEntryId: string | null;
   isAddGamePanelOpen: boolean;
+  isBucketPanelOpen: boolean;
   filters: BacklogFilters;
 
   selectGameEntry: (gameEntryId: string) => void;
@@ -39,9 +40,17 @@ interface BacklogState {
   openAddGamePanel: () => void;
   closeAddGamePanel: () => void;
 
+  toggleBucketPanel: () => void;
+  closeBucketPanel: () => void;
+
   setSearchText: (searchText: string) => void;
   setStatusFilter: (statusFilter: BacklogStatusFilter) => void;
+  setBucketFilter: (bucketId: string | null) => void;
   clearFilters: () => void;
+
+  createBucket: (name: string) => void;
+  renameBucket: (bucketId: string, name: string) => void;
+  deleteBucket: (bucketId: string) => void;
 
   addGameEntry: (input: CreateGameEntryInput) => void;
   updateGameEntry: (gameEntryId: string, updates: GameEntryUpdate) => void;
@@ -61,6 +70,7 @@ const initialBacklogData = {
 const initialFilters: BacklogFilters = {
   searchText: "",
   statusFilter: "all",
+  bucketId: null,
 };
 
 export const useBacklogStore = create<BacklogState>()(
@@ -70,6 +80,7 @@ export const useBacklogStore = create<BacklogState>()(
 
       selectedGameEntryId: null,
       isAddGamePanelOpen: false,
+      isBucketPanelOpen: false,
       filters: initialFilters,
 
       selectGameEntry: (gameEntryId) => {
@@ -97,6 +108,18 @@ export const useBacklogStore = create<BacklogState>()(
         });
       },
 
+      toggleBucketPanel: () => {
+        set((state) => ({
+          isBucketPanelOpen: !state.isBucketPanelOpen,
+        }));
+      },
+
+      closeBucketPanel: () => {
+        set({
+          isBucketPanelOpen: false,
+        });
+      },
+
       setSearchText: (searchText) => {
         set({
           filters: {
@@ -115,10 +138,91 @@ export const useBacklogStore = create<BacklogState>()(
         });
       },
 
+      setBucketFilter: (bucketId) => {
+        set({
+          filters: {
+            ...get().filters,
+            bucketId,
+          },
+          selectedGameEntryId: null,
+        });
+      },
+
       clearFilters: () => {
         set({
           filters: initialFilters,
         });
+      },
+
+      createBucket: (name) => {
+        const trimmedName = name.trim();
+
+        if (!trimmedName) {
+          return;
+        }
+
+        const state = get();
+        const now = new Date().toISOString();
+
+        const nextBucketOrder = state.buckets.length > 0 ? Math.max(...state.buckets.map((bucket) => bucket.order)) + 1 : 1;
+
+        const newBucket: Bucket = {
+          id: createBucketId(),
+          userId: state.user.id,
+          backlogId: state.backlog.id,
+          name: trimmedName,
+          order: nextBucketOrder,
+          gameOrder: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((currentState) => ({
+          buckets: [...currentState.buckets, newBucket],
+          filters: {
+            ...currentState.filters,
+            bucketId: newBucket.id,
+          },
+        }));
+      },
+
+      renameBucket: (bucketId, name) => {
+        const trimmedName = name.trim();
+
+        if (!trimmedName) {
+          return;
+        }
+
+        set((state) => ({
+          buckets: state.buckets.map((bucket) =>
+            bucket.id === bucketId
+              ? {
+                  ...bucket,
+                  name: trimmedName,
+                  updatedAt: new Date().toISOString(),
+                }
+              : bucket,
+          ),
+        }));
+      },
+
+      deleteBucket: (bucketId) => {
+        set((state) => ({
+          buckets: state.buckets.filter((bucket) => bucket.id !== bucketId),
+
+          gameEntries: state.gameEntries.map((gameEntry) => ({
+            ...gameEntry,
+            bucketIds: gameEntry.bucketIds.filter((currentBucketId) => currentBucketId !== bucketId),
+            updatedAt: gameEntry.bucketIds.includes(bucketId) ? new Date().toISOString() : gameEntry.updatedAt,
+          })),
+
+          filters: {
+            ...state.filters,
+            bucketId: state.filters.bucketId === bucketId ? null : state.filters.bucketId,
+          },
+
+          selectedGameEntryId: null,
+        }));
       },
 
       addGameEntry: (input) => {
@@ -200,6 +304,8 @@ export const useBacklogStore = create<BacklogState>()(
           buckets: backup.buckets,
           selectedGameEntryId: null,
           isAddGamePanelOpen: false,
+          isBucketPanelOpen: false,
+          filters: initialFilters,
         });
       },
 
@@ -208,6 +314,7 @@ export const useBacklogStore = create<BacklogState>()(
           ...initialBacklogData,
           selectedGameEntryId: null,
           isAddGamePanelOpen: false,
+          isBucketPanelOpen: false,
           filters: initialFilters,
         });
       },
@@ -229,4 +336,11 @@ function createGameEntryId(): string {
     typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   return `game-${randomPart}`;
+}
+
+function createBucketId(): string {
+  const randomPart =
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  return `bucket-${randomPart}`;
 }

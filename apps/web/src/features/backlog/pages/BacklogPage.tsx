@@ -3,6 +3,7 @@ import { BacklogControls } from "../components/BacklogControls";
 import { BacklogHeader } from "../components/BacklogHeader";
 import { BacklogList } from "../components/BacklogList";
 import { BacklogStatsStrip } from "../components/BacklogStatsStrip";
+import { BucketPanel } from "../components/BucketPanel";
 import { calculateBacklogStats } from "../services/calculateBacklogStats";
 import { filterBacklogEntries } from "../services/filterBacklogEntries";
 import { useBacklogStore } from "../store/useBacklogStore";
@@ -12,6 +13,7 @@ export function BacklogPage() {
   const buckets = useBacklogStore((state) => state.buckets);
   const selectedGameEntryId = useBacklogStore((state) => state.selectedGameEntryId);
   const isAddGamePanelOpen = useBacklogStore((state) => state.isAddGamePanelOpen);
+  const isBucketPanelOpen = useBacklogStore((state) => state.isBucketPanelOpen);
   const filters = useBacklogStore((state) => state.filters);
   const selectGameEntry = useBacklogStore((state) => state.selectGameEntry);
 
@@ -28,6 +30,7 @@ export function BacklogPage() {
         </div>
 
         {isAddGamePanelOpen ? <AddGamePanel /> : null}
+        {isBucketPanelOpen ? <BucketPanel /> : null}
 
         <BacklogList games={filteredGameEntries} buckets={buckets} selectedGameEntryId={selectedGameEntryId} onSelectGame={selectGameEntry} />
       </section>

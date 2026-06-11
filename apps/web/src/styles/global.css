@@ -55,7 +55,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: radial-gradient(circle at top left, rgba(139, 92, 246, 0.14), transparent 34rem), var(--color-bg);
+  background: var(--color-bg);
   color: var(--color-text);
 }
 
@@ -68,6 +68,12 @@ textarea {
 
 button {
   cursor: pointer;
+}
+
+.button--active {
+  border-color: var(--color-accent);
+  background: rgba(139, 92, 246, 0.18);
+  color: white;
 }
 
 .app-shell {
@@ -250,6 +256,73 @@ button {
 .search-input:focus {
   border-color: var(--color-accent);
   outline: none;
+}
+
+.bucket-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(23, 29, 43, 0.96));
+  box-shadow: var(--shadow-soft);
+}
+
+.bucket-create-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.bucket-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bucket-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: rgba(17, 22, 34, 0.72);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.bucket-list-item--active {
+  border-color: rgba(139, 92, 246, 0.7);
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.bucket-list-item > button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bucket-list-item strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.bucket-list-item small {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.bucket-list-item__actions {
+  display: flex;
+  gap: var(--space-2);
 }
 
 .control-buttons {
@@ -618,5 +691,18 @@ button {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .bucket-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .bucket-list-item {
+    grid-template-columns: 1fr;
+  }
+
+  .bucket-list-item__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

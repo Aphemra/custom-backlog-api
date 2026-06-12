@@ -15,6 +15,7 @@ export function BacklogEntryDetails({ game, buckets }: BacklogEntryDetailsProps)
 
   const updateGameEntry = useBacklogStore((state) => state.updateGameEntry);
   const deleteGameEntry = useBacklogStore((state) => state.deleteGameEntry);
+  const moveGameEntry = useBacklogStore((state) => state.moveGameEntry);
 
   function handleSave(updates: GameEntryUpdate) {
     updateGameEntry(game.id, updates);
@@ -33,5 +34,14 @@ export function BacklogEntryDetails({ game, buckets }: BacklogEntryDetailsProps)
     return <BacklogEntryEditForm game={game} buckets={buckets} onCancel={() => setIsEditing(false)} onSave={handleSave} />;
   }
 
-  return <BacklogEntryReadOnly game={game} buckets={buckets} onEdit={() => setIsEditing(true)} onDelete={handleDelete} />;
+  return (
+    <BacklogEntryReadOnly
+      game={game}
+      buckets={buckets}
+      onEdit={() => setIsEditing(true)}
+      onDelete={handleDelete}
+      onMoveUp={() => moveGameEntry(game.id, "up")}
+      onMoveDown={() => moveGameEntry(game.id, "down")}
+    />
+  );
 }

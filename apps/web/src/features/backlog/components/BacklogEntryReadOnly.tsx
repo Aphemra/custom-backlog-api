@@ -6,9 +6,11 @@ interface BacklogEntryReadOnlyProps {
   buckets: Bucket[];
   onEdit: () => void;
   onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }
 
-export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete }: BacklogEntryReadOnlyProps) {
+export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp, onMoveDown }: BacklogEntryReadOnlyProps) {
   const platformLabels = game.platformIds.map(getPlatformShortName).join(" / ");
 
   const gameBuckets = buckets.filter((bucket) => game.bucketIds.includes(bucket.id));
@@ -53,6 +55,26 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete }: Backlo
         <DetailItem label="Platinum" value={trophyProgress.platinumEarned ? "Earned" : "Not earned"} />
         <DetailItem label="Rating" value={game.rating !== undefined ? `${game.rating}/10` : "Unrated"} />
       </div>
+
+      <section className="details-section">
+        <h3>Priority Order</h3>
+
+        <div className="priority-actions">
+          <p>
+            Current main backlog priority: <strong>#{game.priorityOrder}</strong>
+          </p>
+
+          <div className="form-actions">
+            <button className="button" type="button" onClick={onMoveUp}>
+              Move Up
+            </button>
+
+            <button className="button" type="button" onClick={onMoveDown}>
+              Move Down
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="details-section">
         <h3>Notes</h3>

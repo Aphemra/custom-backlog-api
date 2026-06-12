@@ -553,6 +553,22 @@ button {
   line-height: 1.5;
 }
 
+.priority-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.priority-actions p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.priority-actions strong {
+  color: var(--color-text);
+}
+
 .form-actions {
   display: flex;
   flex: 0 0 auto;
@@ -711,5 +727,10 @@ button {
   .bucket-list-item__actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .priority-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

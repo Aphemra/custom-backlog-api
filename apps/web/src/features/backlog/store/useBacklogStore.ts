@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { applyGameBucketMembership } from "../services/applyGameBucketMembership";
+import { moveGameEntryInPriorityOrder, type PriorityMoveDirection } from "../services/moveGameEntryInPriorityOrder";
 import { mockBacklog, mockBuckets, mockGameEntries, mockUser } from "../../../data/mock/mockBacklogData";
 import type { Backlog, Bucket, GameEntry, PlayStatus, User } from "../../../domain/backlog";
 import type { PlatformId } from "../../../domain/platform";
@@ -56,6 +57,7 @@ interface BacklogState {
 
   addGameEntry: (input: CreateGameEntryInput) => void;
   updateGameEntry: (gameEntryId: string, updates: GameEntryUpdate) => void;
+  moveGameEntry: (gameEntryId: string, direction: PriorityMoveDirection) => void;
   deleteGameEntry: (gameEntryId: string) => void;
 
   replaceBacklogData: (backup: BacklogBackup) => void;
@@ -305,6 +307,19 @@ export const useBacklogStore = create<BacklogState>()(
                 : state.buckets,
           };
         });
+      },
+
+      moveGameEntry: (gameEntryId, direction) => {
+        const now = new Date().toISOString();
+
+        set((state) => ({
+          gameEntries: moveGameEntryInPriorityOrder({
+            gameEntries: state.gameEntries,
+            gameEntryId,
+            direction,
+            updatedAt: now,
+          }),
+        }));
       },
 
       deleteGameEntry: (gameEntryId) => {

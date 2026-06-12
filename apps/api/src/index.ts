@@ -1,11 +1,10 @@
-import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-
-dotenv.config();
+import "dotenv/config";
+import express from "express";
+import { apiRoutes } from "./routes/apiRoutes.js";
 
 const app = express();
-const port = Number(process.env.PORT ?? 3001);
+const port = process.env.PORT ?? 3001;
 
 app.use(
   cors({
@@ -15,19 +14,19 @@ app.use(
 
 app.use(express.json());
 
-app.get("/", (_req, res) => {
-  res.json({
+app.get("/", (_request, response) => {
+  response.json({
     ok: true,
     service: "custom-backlog-api",
   });
 });
 
-app.get("/health", (_req, res) => {
-  res.json({
-    ok: true,
-  });
+app.get("/health", (_request, response) => {
+  response.json({ ok: true });
 });
 
+app.use("/api", apiRoutes);
+
 app.listen(port, () => {
-  console.log(`API listening on http://localhost:${port}`);
+  console.log(`Custom backlog API listening on port ${port}`);
 });

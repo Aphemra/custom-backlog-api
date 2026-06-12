@@ -1,5 +1,6 @@
 import type { PlatformId } from "./platform";
 import type { TrophyProgress, TrophyStatus } from "./trophy";
+import type { GameExternalMetadata } from "./externalMetadata";
 
 export type PlayStatus = "backlog" | "playing" | "beaten" | "completed" | "shelved" | "abandoned";
 
@@ -37,6 +38,8 @@ export interface GameEntry {
 
   title: string;
   sortTitle?: string;
+
+  externalMetadata?: GameExternalMetadata;
 
   platformIds: PlatformId[];
 

@@ -8,9 +8,13 @@ import type { PlatformId } from "../../../domain/platform";
 import type { TrophyProgress, TrophyStatus } from "../../../domain/trophy";
 import type { BacklogBackup } from "../../importExport/types/backup";
 import type { BacklogFilters, BacklogRatingFilter, BacklogSortMode, BacklogStatusFilter } from "../types/backlogFilters";
+import type { GameExternalMetadata } from "../../../domain/externalMetadata";
 
 export type GameEntryUpdate = Partial<
-  Pick<GameEntry, "title" | "sortTitle" | "platformIds" | "playStatus" | "trophyStatus" | "priorityOrder" | "bucketIds" | "notes" | "rating">
+  Pick<
+    GameEntry,
+    "title" | "sortTitle" | "externalMetadata" | "platformIds" | "playStatus" | "trophyStatus" | "priorityOrder" | "bucketIds" | "notes" | "rating"
+  >
 > & {
   trophyProgress?: Partial<GameEntry["trophyProgress"]>;
 };
@@ -22,6 +26,7 @@ export interface CreateGameEntryInput {
   trophyStatus: TrophyStatus;
   trophyProgress: TrophyProgress;
   bucketIds: string[];
+  externalMetadata?: GameExternalMetadata;
   notes?: string;
   rating?: number;
 }
@@ -267,6 +272,7 @@ export const useBacklogStore = create<BacklogState>()(
           backlogId: state.backlog.id,
 
           title: input.title,
+          ...(input.externalMetadata ? { externalMetadata: input.externalMetadata } : {}),
           platformIds: input.platformIds,
 
           playStatus: input.playStatus,

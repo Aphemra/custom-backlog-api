@@ -64,6 +64,24 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
         <DetailItem label="Last Updated" value={formatShortDateTime(game.updatedAt)} />
       </div>
 
+      {game.externalMetadata?.igdb ? (
+        <section className="details-section">
+          <h3>External Metadata</h3>
+
+          <div className="details-grid">
+            <DetailItem label="Source" value="Mock IGDB" />
+            <DetailItem label="IGDB ID" value={game.externalMetadata.igdb.igdbId.toString()} />
+            <DetailItem label="IGDB Name" value={game.externalMetadata.igdb.name} />
+            <DetailItem label="Release Year" value={game.externalMetadata.igdb.firstReleaseYear?.toString() ?? "Unknown"} />
+            <DetailItem
+              label="IGDB Platforms"
+              value={game.externalMetadata.igdb.platformNames.length > 0 ? game.externalMetadata.igdb.platformNames.join(" / ") : "Unknown"}
+            />
+            <DetailItem label="Imported" value={formatShortDateTime(game.externalMetadata.igdb.importedAt)} />
+          </div>
+        </section>
+      ) : null}
+
       <section className="details-section">
         <h3>Rating</h3>
         <RatingDisplay rating={game.rating} />

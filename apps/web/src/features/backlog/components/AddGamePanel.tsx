@@ -10,6 +10,8 @@ import { useBacklogStore } from "../store/useBacklogStore";
 import type { IgdbGameSearchResult } from "../../../services/api/igdbApi";
 import { mapIgdbPlatformsToPlatformIds } from "../services/mapIgdbPlatformsToPlatformIds";
 import { IgdbSearchPanel } from "./IgdbSearchPanel";
+import type { GameExternalMetadata } from "../../../domain/externalMetadata";
+import { createIgdbMetadataSnapshot } from "../services/createIgdbMetadataSnapshot";
 
 const playStatusOptions: PlayStatus[] = ["backlog", "playing", "beaten", "completed", "shelved", "abandoned"];
 
@@ -31,6 +33,7 @@ export function AddGamePanel() {
   const filters = useBacklogStore((state) => state.filters);
 
   const [title, setTitle] = useState("");
+  const [externalMetadata, setExternalMetadata] = useState<GameExternalMetadata>();
   const [platformIds, setPlatformIds] = useState<PlatformId[]>(["ps5"]);
   const [bucketIds, setBucketIds] = useState<string[]>(filters.bucketId ? [filters.bucketId] : []);
   const [playStatus, setPlayStatus] = useState<PlayStatus>("backlog");
@@ -61,6 +64,7 @@ export function AddGamePanel() {
     const mappedPlatformIds = mapIgdbPlatformsToPlatformIds(game.platforms);
 
     setTitle(game.name);
+    setExternalMetadata(createIgdbMetadataSnapshot(game));
 
     if (mappedPlatformIds.length > 0) {
       setPlatformIds(mappedPlatformIds);
@@ -113,6 +117,7 @@ export function AddGamePanel() {
         psnProfilesUrl: psnProfilesUrl.trim() || undefined,
       },
       bucketIds,
+      externalMetadata,
       notes: notes.trim() || undefined,
     });
   }
@@ -137,6 +142,13 @@ export function AddGamePanel() {
       </div>
 
       <IgdbSearchPanel onSelectGame={handleSelectIgdbGame} />
+
+      {externalMetadata?.igdb ? (
+        <p className="helper-text">
+          Prefilled from mock IGDB: {externalMetadata.igdb.name}
+          {externalMetadata.igdb.firstReleaseYear ? ` (${externalMetadata.igdb.firstReleaseYear})` : ""}
+        </p>
+      ) : null}
 
       {formError ? <p className="form-error">{formError}</p> : null}
 

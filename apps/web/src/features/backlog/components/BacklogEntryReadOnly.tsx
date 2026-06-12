@@ -1,5 +1,9 @@
 import type { Bucket, GameEntry } from "../../../domain/backlog";
+import { formatShortDateTime } from "../../../domain/date";
 import { formatPlayStatus, formatTrophyStatus, getPlatformShortName } from "../../../domain/display";
+import { formatCompletionPercent, formatTrophyCount } from "../services/formatTrophyProgress";
+import { RatingDisplay } from "./RatingDisplay";
+import { TrophyProgressBar } from "./TrophyProgressBar";
 
 interface BacklogEntryReadOnlyProps {
   game: GameEntry;
@@ -18,13 +22,6 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
   const bucketText = gameBuckets.length > 0 ? gameBuckets.map((bucket) => bucket.name).join(", ") : "No bucket assigned";
 
   const trophyProgress = game.trophyProgress;
-
-  const completionText = trophyProgress.completionPercent !== undefined ? `${trophyProgress.completionPercent}%` : "Unknown";
-
-  const trophyCountText =
-    trophyProgress.earnedTrophies !== undefined && trophyProgress.totalTrophies !== undefined
-      ? `${trophyProgress.earnedTrophies}/${trophyProgress.totalTrophies}`
-      : "Unknown";
 
   return (
     <div className="backlog-entry-details">
@@ -45,16 +42,32 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
         </div>
       </div>
 
+      <section className="details-highlight-card">
+        <div>
+          <span className="detail-item__label">Trophy Progress</span>
+          <TrophyProgressBar trophyProgress={trophyProgress} />
+        </div>
+
+        <div className="details-highlight-card__stats">
+          <DetailItem label="Completion" value={formatCompletionPercent(trophyProgress)} />
+          <DetailItem label="Trophies" value={formatTrophyCount(trophyProgress)} />
+          <DetailItem label="Platinum" value={trophyProgress.platinumEarned ? "Earned" : "Not earned"} />
+        </div>
+      </section>
+
       <div className="details-grid">
         <DetailItem label="Play Status" value={formatPlayStatus(game.playStatus)} />
         <DetailItem label="Trophy Status" value={formatTrophyStatus(game.trophyStatus)} />
         <DetailItem label="Platforms" value={platformLabels} />
         <DetailItem label="Buckets" value={bucketText} />
-        <DetailItem label="Completion" value={completionText} />
-        <DetailItem label="Trophies" value={trophyCountText} />
-        <DetailItem label="Platinum" value={trophyProgress.platinumEarned ? "Earned" : "Not earned"} />
-        <DetailItem label="Rating" value={game.rating !== undefined ? `${game.rating}/10` : "Unrated"} />
+        <DetailItem label="Created" value={formatShortDateTime(game.createdAt)} />
+        <DetailItem label="Last Updated" value={formatShortDateTime(game.updatedAt)} />
       </div>
+
+      <section className="details-section">
+        <h3>Rating</h3>
+        <RatingDisplay rating={game.rating} />
+      </section>
 
       <section className="details-section">
         <h3>Priority Order</h3>
@@ -83,9 +96,11 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
 
       {trophyProgress.psnProfilesUrl ? (
         <a className="button details-link" href={trophyProgress.psnProfilesUrl} target="_blank" rel="noreferrer">
-          Open on PSNProfiles
+          Open Trophy List on PSNProfiles
         </a>
-      ) : null}
+      ) : (
+        <p className="helper-text">No PSNProfiles link added yet.</p>
+      )}
     </div>
   );
 }

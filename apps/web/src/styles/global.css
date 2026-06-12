@@ -465,6 +465,69 @@ button {
   background: rgba(13, 16, 23, 0.34);
 }
 
+.details-highlight-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 1fr);
+  gap: var(--space-4);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(17, 22, 34, 0.82));
+}
+
+.details-highlight-card__stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.trophy-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  margin-top: var(--space-3);
+}
+
+.trophy-progress__track {
+  overflow: hidden;
+  height: 0.8rem;
+  border-radius: 999px;
+  background: rgba(13, 16, 23, 0.78);
+}
+
+.trophy-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+}
+
+.trophy-progress__label {
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.rating-display {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  color: var(--color-text);
+}
+
+.rating-display strong {
+  font-size: 1.35rem;
+}
+
+.rating-display span {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.rating-display--empty {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
 .details-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -732,5 +795,17 @@ button {
   .priority-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .details-highlight-card {
+    grid-template-columns: 1fr;
+  }
+
+  .trophy-progress {
+    grid-template-columns: 1fr;
+  }
+
+  .trophy-progress__label {
+    justify-self: end;
   }
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { playstationPlatforms } from "../../../data/mock/playstationPlatforms";
 import type { PlayStatus } from "../../../domain/backlog";
 import { formatPlayStatus, formatTrophyStatus } from "../../../domain/display";
+import { BucketCheckboxList } from "./BucketCheckboxList";
 import type { PlatformId } from "../../../domain/platform";
 import type { TrophyStatus } from "../../../domain/trophy";
 import { parseOptionalNumber } from "../services/parseOptionalNumber";
@@ -23,9 +24,12 @@ const trophyStatusOptions: TrophyStatus[] = [
 export function AddGamePanel() {
   const addGameEntry = useBacklogStore((state) => state.addGameEntry);
   const closeAddGamePanel = useBacklogStore((state) => state.closeAddGamePanel);
+  const buckets = useBacklogStore((state) => state.buckets);
+  const filters = useBacklogStore((state) => state.filters);
 
   const [title, setTitle] = useState("");
   const [platformIds, setPlatformIds] = useState<PlatformId[]>(["ps5"]);
+  const [bucketIds, setBucketIds] = useState<string[]>(filters.bucketId ? [filters.bucketId] : []);
   const [playStatus, setPlayStatus] = useState<PlayStatus>("backlog");
   const [trophyStatus, setTrophyStatus] = useState<TrophyStatus>("not_started");
   const [completionPercent, setCompletionPercent] = useState("");
@@ -41,6 +45,12 @@ export function AddGamePanel() {
       currentPlatformIds.includes(platformId)
         ? currentPlatformIds.filter((currentId) => currentId !== platformId)
         : [...currentPlatformIds, platformId],
+    );
+  }
+
+  function toggleBucket(bucketId: string) {
+    setBucketIds((currentBucketIds) =>
+      currentBucketIds.includes(bucketId) ? currentBucketIds.filter((currentId) => currentId !== bucketId) : [...currentBucketIds, bucketId],
     );
   }
 
@@ -87,6 +97,7 @@ export function AddGamePanel() {
         platinumEarned,
         psnProfilesUrl: psnProfilesUrl.trim() || undefined,
       },
+      bucketIds,
       notes: notes.trim() || undefined,
     });
   }
@@ -171,6 +182,12 @@ export function AddGamePanel() {
               </label>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset className="field field--wide checkbox-group">
+          <legend>Buckets</legend>
+
+          <BucketCheckboxList buckets={buckets} selectedBucketIds={bucketIds} onToggleBucket={toggleBucket} />
         </fieldset>
 
         <label className="checkbox-field field--wide">

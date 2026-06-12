@@ -30,7 +30,7 @@ export function BacklogEntryDetails({ game, buckets }: BacklogEntryDetailsProps)
   }
 
   if (isEditing) {
-    return <BacklogEntryEditForm game={game} onCancel={() => setIsEditing(false)} onSave={handleSave} />;
+    return <BacklogEntryEditForm game={game} buckets={buckets} onCancel={() => setIsEditing(false)} onSave={handleSave} />;
   }
 
   return <BacklogEntryReadOnly game={game} buckets={buckets} onEdit={() => setIsEditing(true)} onDelete={handleDelete} />;

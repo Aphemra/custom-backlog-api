@@ -2,10 +2,11 @@ import { useState } from "react";
 import { playstationPlatforms } from "../../../data/mock/playstationPlatforms";
 import { parseOptionalNumber } from "../services/parseOptionalNumber";
 import type { GameEntryUpdate } from "../store/useBacklogStore";
-import type { GameEntry, PlayStatus } from "../../../domain/backlog";
+import type { GameEntry, PlayStatus, Bucket } from "../../../domain/backlog";
 import type { PlatformId } from "../../../domain/platform";
 import type { TrophyStatus } from "../../../domain/trophy";
 import { formatPlayStatus, formatTrophyStatus } from "../../../domain/display";
+import { BucketCheckboxList } from "./BucketCheckboxList";
 
 const playStatusOptions: PlayStatus[] = ["backlog", "playing", "beaten", "completed", "shelved", "abandoned"];
 
@@ -22,13 +23,15 @@ const trophyStatusOptions: TrophyStatus[] = [
 
 interface BacklogEntryEditFormProps {
   game: GameEntry;
+  buckets: Bucket[];
   onCancel: () => void;
   onSave: (updates: GameEntryUpdate) => void;
 }
 
-export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEditFormProps) {
+export function BacklogEntryEditForm({ game, buckets, onCancel, onSave }: BacklogEntryEditFormProps) {
   const [title, setTitle] = useState(game.title);
   const [platformIds, setPlatformIds] = useState<PlatformId[]>(game.platformIds);
+  const [bucketIds, setBucketIds] = useState<string[]>(game.bucketIds);
   const [playStatus, setPlayStatus] = useState<PlayStatus>(game.playStatus);
   const [trophyStatus, setTrophyStatus] = useState<TrophyStatus>(game.trophyStatus);
   const [completionPercent, setCompletionPercent] = useState(game.trophyProgress.completionPercent?.toString() ?? "");
@@ -45,6 +48,12 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
       currentPlatformIds.includes(platformId)
         ? currentPlatformIds.filter((currentId) => currentId !== platformId)
         : [...currentPlatformIds, platformId],
+    );
+  }
+
+  function toggleBucket(bucketId: string) {
+    setBucketIds((currentBucketIds) =>
+      currentBucketIds.includes(bucketId) ? currentBucketIds.filter((currentId) => currentId !== bucketId) : [...currentBucketIds, bucketId],
     );
   }
 
@@ -90,6 +99,7 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
       platformIds,
       playStatus,
       trophyStatus,
+      bucketIds,
       trophyProgress: {
         completionPercent: parsedCompletionPercent,
         earnedTrophies: parsedEarnedTrophies,
@@ -187,6 +197,12 @@ export function BacklogEntryEditForm({ game, onCancel, onSave }: BacklogEntryEdi
               </label>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset className="field field--wide checkbox-group">
+          <legend>Buckets</legend>
+
+          <BucketCheckboxList buckets={buckets} selectedBucketIds={bucketIds} onToggleBucket={toggleBucket} />
         </fieldset>
 
         <label className="checkbox-field field--wide">

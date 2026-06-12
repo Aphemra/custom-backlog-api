@@ -546,6 +546,13 @@ button {
   box-shadow: var(--shadow-soft);
 }
 
+.helper-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .form-actions {
   display: flex;
   flex: 0 0 auto;

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { applyGameBucketMembership } from "../services/applyGameBucketMembership";
 import { mockBacklog, mockBuckets, mockGameEntries, mockUser } from "../../../data/mock/mockBacklogData";
 import type { Backlog, Bucket, GameEntry, PlayStatus, User } from "../../../domain/backlog";
 import type { PlatformId } from "../../../domain/platform";
@@ -19,6 +20,7 @@ export interface CreateGameEntryInput {
   playStatus: PlayStatus;
   trophyStatus: TrophyStatus;
   trophyProgress: TrophyProgress;
+  bucketIds: string[];
   notes?: string;
   rating?: number;
 }
@@ -244,7 +246,7 @@ export const useBacklogStore = create<BacklogState>()(
           trophyProgress: input.trophyProgress,
 
           priorityOrder: nextPriorityOrder,
-          bucketIds: [],
+          bucketIds: input.bucketIds,
 
           notes: input.notes,
           rating: input.rating,
@@ -255,14 +257,22 @@ export const useBacklogStore = create<BacklogState>()(
 
         set((currentState) => ({
           gameEntries: [...currentState.gameEntries, newGameEntry],
+          buckets: applyGameBucketMembership({
+            buckets: currentState.buckets,
+            gameEntryId: newGameEntry.id,
+            nextBucketIds: newGameEntry.bucketIds,
+            updatedAt: now,
+          }),
           selectedGameEntryId: newGameEntry.id,
           isAddGamePanelOpen: false,
         }));
       },
 
       updateGameEntry: (gameEntryId, updates) => {
-        set((state) => ({
-          gameEntries: state.gameEntries.map((gameEntry) => {
+        const now = new Date().toISOString();
+
+        set((state) => {
+          const updatedGameEntries = state.gameEntries.map((gameEntry) => {
             if (gameEntry.id !== gameEntryId) {
               return gameEntry;
             }
@@ -276,10 +286,25 @@ export const useBacklogStore = create<BacklogState>()(
                 ...gameEntry.trophyProgress,
                 ...(trophyProgress ?? {}),
               },
-              updatedAt: new Date().toISOString(),
+              updatedAt: now,
             };
-          }),
-        }));
+          });
+
+          const updatedGameEntry = updatedGameEntries.find((gameEntry) => gameEntry.id === gameEntryId);
+
+          return {
+            gameEntries: updatedGameEntries,
+            buckets:
+              updatedGameEntry && updates.bucketIds !== undefined
+                ? applyGameBucketMembership({
+                    buckets: state.buckets,
+                    gameEntryId,
+                    nextBucketIds: updatedGameEntry.bucketIds,
+                    updatedAt: now,
+                  })
+                : state.buckets,
+          };
+        });
       },
 
       deleteGameEntry: (gameEntryId) => {

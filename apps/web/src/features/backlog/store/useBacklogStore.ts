@@ -7,7 +7,7 @@ import type { Backlog, Bucket, GameEntry, PlayStatus, User } from "../../../doma
 import type { PlatformId } from "../../../domain/platform";
 import type { TrophyProgress, TrophyStatus } from "../../../domain/trophy";
 import type { BacklogBackup } from "../../importExport/types/backup";
-import type { BacklogFilters, BacklogStatusFilter } from "../types/backlogFilters";
+import type { BacklogFilters, BacklogRatingFilter, BacklogSortMode, BacklogStatusFilter } from "../types/backlogFilters";
 
 export type GameEntryUpdate = Partial<
   Pick<GameEntry, "title" | "sortTitle" | "platformIds" | "playStatus" | "trophyStatus" | "priorityOrder" | "bucketIds" | "notes" | "rating">
@@ -48,7 +48,9 @@ interface BacklogState {
 
   setSearchText: (searchText: string) => void;
   setStatusFilter: (statusFilter: BacklogStatusFilter) => void;
+  setRatingFilter: (ratingFilter: BacklogRatingFilter) => void;
   setBucketFilter: (bucketId: string | null) => void;
+  setSortMode: (sortMode: BacklogSortMode) => void;
   clearFilters: () => void;
 
   createBucket: (name: string) => void;
@@ -74,7 +76,9 @@ const initialBacklogData = {
 const initialFilters: BacklogFilters = {
   searchText: "",
   statusFilter: "all",
+  ratingFilter: "all",
   bucketId: null,
+  sortMode: "priority",
 };
 
 export const useBacklogStore = create<BacklogState>()(
@@ -139,6 +143,17 @@ export const useBacklogStore = create<BacklogState>()(
             ...get().filters,
             statusFilter,
           },
+          selectedGameEntryId: null,
+        });
+      },
+
+      setRatingFilter: (ratingFilter) => {
+        set({
+          filters: {
+            ...get().filters,
+            ratingFilter,
+          },
+          selectedGameEntryId: null,
         });
       },
 
@@ -152,9 +167,20 @@ export const useBacklogStore = create<BacklogState>()(
         });
       },
 
+      setSortMode: (sortMode) => {
+        set({
+          filters: {
+            ...get().filters,
+            sortMode,
+          },
+          selectedGameEntryId: null,
+        });
+      },
+
       clearFilters: () => {
         set({
           filters: initialFilters,
+          selectedGameEntryId: null,
         });
       },
 

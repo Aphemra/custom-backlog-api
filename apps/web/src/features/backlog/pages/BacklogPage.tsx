@@ -7,6 +7,7 @@ import { BucketPanel } from "../components/BucketPanel";
 import { calculateBacklogStats } from "../services/calculateBacklogStats";
 import { filterBacklogEntries } from "../services/filterBacklogEntries";
 import { useBacklogStore } from "../store/useBacklogStore";
+import { sortBacklogEntries } from "../services/sortBacklogEntries";
 
 export function BacklogPage() {
   const gameEntries = useBacklogStore((state) => state.gameEntries);
@@ -19,6 +20,7 @@ export function BacklogPage() {
 
   const backlogStats = calculateBacklogStats(gameEntries);
   const filteredGameEntries = filterBacklogEntries(gameEntries, filters);
+  const sortedGameEntries = sortBacklogEntries(filteredGameEntries, filters.sortMode);
 
   return (
     <main className="app-shell">
@@ -32,7 +34,7 @@ export function BacklogPage() {
         {isAddGamePanelOpen ? <AddGamePanel /> : null}
         {isBucketPanelOpen ? <BucketPanel /> : null}
 
-        <BacklogList games={filteredGameEntries} buckets={buckets} selectedGameEntryId={selectedGameEntryId} onSelectGame={selectGameEntry} />
+        <BacklogList games={sortedGameEntries} buckets={buckets} selectedGameEntryId={selectedGameEntryId} onSelectGame={selectGameEntry} />
       </section>
     </main>
   );

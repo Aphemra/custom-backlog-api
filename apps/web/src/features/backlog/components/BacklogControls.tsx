@@ -3,7 +3,7 @@ import { createBacklogBackup } from "../../importExport/services/createBacklogBa
 import { downloadJsonFile } from "../../importExport/services/downloadJsonFile";
 import { readJsonFile } from "../../importExport/services/readJsonFile";
 import { validateBacklogBackup } from "../../importExport/services/validateBacklogBackup";
-import type { BacklogStatusFilter } from "../types/backlogFilters";
+import type { BacklogRatingFilter, BacklogSortMode, BacklogStatusFilter } from "../types/backlogFilters";
 import { useBacklogStore } from "../store/useBacklogStore";
 
 const statusFilterOptions: {
@@ -18,6 +18,25 @@ const statusFilterOptions: {
   { value: "hundred_percent", label: "100% Complete" },
 ];
 
+const ratingFilterOptions: {
+  value: BacklogRatingFilter;
+  label: string;
+}[] = [
+  { value: "all", label: "All Ratings" },
+  { value: "rated", label: "Rated Only" },
+  { value: "unrated", label: "Unrated Only" },
+];
+
+const sortModeOptions: {
+  value: BacklogSortMode;
+  label: string;
+}[] = [
+  { value: "priority", label: "Priority Order" },
+  { value: "title_az", label: "Title A-Z" },
+  { value: "rating_high_to_low", label: "Rating High-Low" },
+  { value: "rating_low_to_high", label: "Rating Low-High" },
+];
+
 export function BacklogControls() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -29,6 +48,8 @@ export function BacklogControls() {
   const filters = useBacklogStore((state) => state.filters);
   const setSearchText = useBacklogStore((state) => state.setSearchText);
   const setStatusFilter = useBacklogStore((state) => state.setStatusFilter);
+  const setRatingFilter = useBacklogStore((state) => state.setRatingFilter);
+  const setSortMode = useBacklogStore((state) => state.setSortMode);
   const clearFilters = useBacklogStore((state) => state.clearFilters);
 
   const replaceBacklogData = useBacklogStore((state) => state.replaceBacklogData);
@@ -37,7 +58,12 @@ export function BacklogControls() {
   const isBucketPanelOpen = useBacklogStore((state) => state.isBucketPanelOpen);
   const toggleBucketPanel = useBacklogStore((state) => state.toggleBucketPanel);
 
-  const hasActiveFilters = filters.searchText.trim().length > 0 || filters.statusFilter !== "all";
+  const hasActiveFilters =
+    filters.searchText.trim().length > 0 ||
+    filters.statusFilter !== "all" ||
+    filters.ratingFilter !== "all" ||
+    filters.bucketId !== null ||
+    filters.sortMode !== "priority";
 
   function handleExportClick() {
     const backup = createBacklogBackup({
@@ -108,6 +134,32 @@ export function BacklogControls() {
           onChange={(event) => setStatusFilter(event.target.value as BacklogStatusFilter)}
         >
           {statusFilterOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="filter-select"
+          aria-label="Filter backlog by rating"
+          value={filters.ratingFilter}
+          onChange={(event) => setRatingFilter(event.target.value as BacklogRatingFilter)}
+        >
+          {ratingFilterOptions.map((option) => (
+            <option value={option.value} key={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="filter-select"
+          aria-label="Sort backlog"
+          value={filters.sortMode}
+          onChange={(event) => setSortMode(event.target.value as BacklogSortMode)}
+        >
+          {sortModeOptions.map((option) => (
             <option value={option.value} key={option.value}>
               {option.label}
             </option>

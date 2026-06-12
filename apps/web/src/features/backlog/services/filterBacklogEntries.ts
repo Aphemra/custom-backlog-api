@@ -9,9 +9,11 @@ export function filterBacklogEntries(gameEntries: GameEntry[], filters: BacklogF
 
     const matchesStatusFilter = doesGameMatchStatusFilter(gameEntry, filters.statusFilter);
 
+    const matchesRatingFilter = doesGameMatchRatingFilter(gameEntry, filters.ratingFilter);
+
     const matchesBucketFilter = filters.bucketId === null || gameEntry.bucketIds.includes(filters.bucketId);
 
-    return matchesSearchText && matchesStatusFilter && matchesBucketFilter;
+    return matchesSearchText && matchesStatusFilter && matchesRatingFilter && matchesBucketFilter;
   });
 }
 
@@ -34,6 +36,19 @@ function doesGameMatchStatusFilter(gameEntry: GameEntry, statusFilter: BacklogFi
 
     case "hundred_percent":
       return isGameHundredPercentComplete(gameEntry);
+  }
+}
+
+function doesGameMatchRatingFilter(gameEntry: GameEntry, ratingFilter: BacklogFilters["ratingFilter"]): boolean {
+  switch (ratingFilter) {
+    case "all":
+      return true;
+
+    case "rated":
+      return gameEntry.rating !== undefined;
+
+    case "unrated":
+      return gameEntry.rating === undefined;
   }
 }
 

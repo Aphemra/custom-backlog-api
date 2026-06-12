@@ -7,6 +7,9 @@ import type { PlatformId } from "../../../domain/platform";
 import type { TrophyStatus } from "../../../domain/trophy";
 import { parseOptionalNumber } from "../services/parseOptionalNumber";
 import { useBacklogStore } from "../store/useBacklogStore";
+import type { IgdbGameSearchResult } from "../../../services/api/igdbApi";
+import { mapIgdbPlatformsToPlatformIds } from "../services/mapIgdbPlatformsToPlatformIds";
+import { IgdbSearchPanel } from "./IgdbSearchPanel";
 
 const playStatusOptions: PlayStatus[] = ["backlog", "playing", "beaten", "completed", "shelved", "abandoned"];
 
@@ -52,6 +55,18 @@ export function AddGamePanel() {
     setBucketIds((currentBucketIds) =>
       currentBucketIds.includes(bucketId) ? currentBucketIds.filter((currentId) => currentId !== bucketId) : [...currentBucketIds, bucketId],
     );
+  }
+
+  function handleSelectIgdbGame(game: IgdbGameSearchResult) {
+    const mappedPlatformIds = mapIgdbPlatformsToPlatformIds(game.platforms);
+
+    setTitle(game.name);
+
+    if (mappedPlatformIds.length > 0) {
+      setPlatformIds(mappedPlatformIds);
+    }
+
+    setFormError(null);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -107,7 +122,7 @@ export function AddGamePanel() {
       <div className="details-toolbar">
         <div>
           <h3>Add Game</h3>
-          <p>Create a manual backlog entry. IGDB import comes later.</p>
+          <p>Create a manual backlog entry or prefill one from mock IGDB.</p>
         </div>
 
         <div className="form-actions">
@@ -120,6 +135,8 @@ export function AddGamePanel() {
           </button>
         </div>
       </div>
+
+      <IgdbSearchPanel onSelectGame={handleSelectIgdbGame} />
 
       {formError ? <p className="form-error">{formError}</p> : null}
 

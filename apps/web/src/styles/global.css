@@ -681,6 +681,50 @@ button {
   color: var(--color-text);
 }
 
+.duplicate-warning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.duplicate-warning h3 {
+  margin: 0;
+  color: #fde68a;
+  font-size: 1rem;
+}
+
+.duplicate-warning p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+}
+
+.duplicate-warning ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.duplicate-warning li {
+  color: var(--color-text);
+}
+
+.duplicate-warning strong {
+  display: block;
+}
+
+.duplicate-warning span {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
 .form-actions {
   display: flex;
   flex: 0 0 auto;

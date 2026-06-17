@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import { playstationPlatforms } from "../../../data/mock/playstationPlatforms";
 import type { PlayStatus } from "../../../domain/backlog";
 import { formatPlayStatus, formatTrophyStatus } from "../../../domain/display";
@@ -12,6 +12,8 @@ import { mapIgdbPlatformsToPlatformIds } from "../services/mapIgdbPlatformsToPla
 import { IgdbSearchPanel } from "./IgdbSearchPanel";
 import type { GameExternalMetadata } from "../../../domain/externalMetadata";
 import { createIgdbMetadataSnapshot } from "../services/createIgdbMetadataSnapshot";
+import { DuplicateWarning } from "./DuplicateWarning";
+import { findPotentialDuplicateGameEntries } from "../services/findPotentialDuplicateGameEntries";
 
 const playStatusOptions: PlayStatus[] = ["backlog", "playing", "beaten", "completed", "shelved", "abandoned"];
 
@@ -31,6 +33,7 @@ export function AddGamePanel() {
   const closeAddGamePanel = useBacklogStore((state) => state.closeAddGamePanel);
   const buckets = useBacklogStore((state) => state.buckets);
   const filters = useBacklogStore((state) => state.filters);
+  const gameEntries = useBacklogStore((state) => state.gameEntries);
 
   const [title, setTitle] = useState("");
   const [externalMetadata, setExternalMetadata] = useState<GameExternalMetadata>();
@@ -45,6 +48,16 @@ export function AddGamePanel() {
   const [psnProfilesUrl, setPsnProfilesUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+
+  const potentialDuplicateGames = useMemo(
+    () =>
+      findPotentialDuplicateGameEntries(gameEntries, {
+        title,
+        platformIds,
+        externalMetadata,
+      }),
+    [externalMetadata, gameEntries, platformIds, title],
+  );
 
   function togglePlatform(platformId: PlatformId) {
     setPlatformIds((currentPlatformIds) =>
@@ -73,7 +86,7 @@ export function AddGamePanel() {
     setFormError(null);
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmedTitle = title.trim();
@@ -103,6 +116,22 @@ export function AddGamePanel() {
     }
 
     setFormError(null);
+
+    const duplicateGames = findPotentialDuplicateGameEntries(gameEntries, {
+      title: trimmedTitle,
+      platformIds,
+      externalMetadata,
+    });
+
+    if (duplicateGames.length > 0) {
+      const duplicateSummary = duplicateGames.map((duplicate) => `- ${duplicate.gameEntry.title}: ${duplicate.reasons.join(", ")}`).join("\n");
+
+      const shouldSaveAnyway = window.confirm(`This may already exist in your backlog:\n\n${duplicateSummary}\n\nSave it anyway?`);
+
+      if (!shouldSaveAnyway) {
+        return;
+      }
+    }
 
     addGameEntry({
       title: trimmedTitle,
@@ -149,6 +178,8 @@ export function AddGamePanel() {
           {externalMetadata.igdb.firstReleaseYear ? ` (${externalMetadata.igdb.firstReleaseYear})` : ""}
         </p>
       ) : null}
+
+      <DuplicateWarning duplicates={potentialDuplicateGames} />
 
       {formError ? <p className="form-error">{formError}</p> : null}
 

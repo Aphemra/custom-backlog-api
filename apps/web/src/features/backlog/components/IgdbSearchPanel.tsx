@@ -85,6 +85,14 @@ export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
         <div className="igdb-result-list">
           {results.map((game) => (
             <article className="igdb-result-item" key={game.id}>
+              {game.coverUrl ? (
+                <img className="igdb-result-item__cover" src={game.coverUrl} alt={`Cover for ${game.name}`} />
+              ) : (
+                <div className="igdb-result-item__cover-placeholder" aria-hidden="true">
+                  No Cover
+                </div>
+              )}
+
               <div>
                 <strong>{game.name}</strong>
 

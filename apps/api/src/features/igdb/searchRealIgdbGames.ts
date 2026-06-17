@@ -40,7 +40,12 @@ export async function searchRealIgdbGames({ query, limit = 10 }: SearchRealIgdbG
 function buildGameSearchQuery(query: string, limit: number): string {
   const escapedQuery = escapeIgdbSearchText(query);
 
-  return [`search "${escapedQuery}";`, "fields name, platforms.name, first_release_date, cover.image_id;", `limit ${limit};`].join("\n");
+  return [
+    `search "${escapedQuery}";`,
+    "fields name, platforms.name, first_release_date, cover.image_id;",
+    "where version_parent = null;",
+    `limit ${limit};`,
+  ].join("\n");
 }
 
 function parseRawIgdbGames(data: unknown): IgdbGameSearchResult[] {

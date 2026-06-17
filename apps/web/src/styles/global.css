@@ -823,6 +823,17 @@ a {
   color: var(--color-text);
 }
 
+.external-metadata-cover {
+  display: block;
+  width: min(10rem, 100%);
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  background: rgba(13, 16, 23, 0.72);
+  object-fit: cover;
+}
+
 /* ==========================================================================
    Section 14: Bucket Panel
    ========================================================================== */
@@ -928,13 +939,37 @@ a {
 
 .igdb-result-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
   gap: var(--space-3);
   align-items: center;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   background: rgba(17, 22, 34, 0.72);
+}
+
+.igdb-result-item__cover,
+.igdb-result-item__cover-placeholder {
+  width: 3.5rem;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgba(13, 16, 23, 0.72);
+}
+
+.igdb-result-item__cover {
+  object-fit: cover;
+}
+
+.igdb-result-item__cover-placeholder {
+  display: grid;
+  place-items: center;
+  padding: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .igdb-result-item strong {
@@ -1111,6 +1146,15 @@ a {
   }
 
   .igdb-result-item {
-    grid-template-columns: 1fr;
+    grid-template-columns: 4rem minmax(0, 1fr);
+  }
+
+  .igdb-result-item .button {
+    grid-column: 1 / -1;
+  }
+
+  .igdb-result-item__cover,
+  .igdb-result-item__cover-placeholder {
+    width: 4rem;
   }
 }

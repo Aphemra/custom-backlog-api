@@ -4,6 +4,7 @@ import type { IgdbGameSearchResult } from "../../../services/api/igdbApi";
 export function createIgdbMetadataSnapshot(game: IgdbGameSearchResult): GameExternalMetadata {
   return {
     igdb: {
+      source: game.source,
       igdbId: game.id,
       name: game.name,
       platformNames: game.platforms,

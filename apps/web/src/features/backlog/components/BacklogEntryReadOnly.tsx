@@ -69,7 +69,7 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
           <h3>External Metadata</h3>
 
           <div className="details-grid">
-            <DetailItem label="Source" value="Mock IGDB" />
+            <DetailItem label="Source" value={game.externalMetadata.igdb.source === "igdb" ? "IGDB" : "Mock IGDB"} />
             <DetailItem label="IGDB ID" value={game.externalMetadata.igdb.igdbId.toString()} />
             <DetailItem label="IGDB Name" value={game.externalMetadata.igdb.name} />
             <DetailItem label="Release Year" value={game.externalMetadata.igdb.firstReleaseYear?.toString() ?? "Unknown"} />

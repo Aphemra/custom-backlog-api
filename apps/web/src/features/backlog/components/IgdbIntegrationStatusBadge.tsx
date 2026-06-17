@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getIgdbIntegrationStatus, type IgdbIntegrationStatus } from "../../../services/api/igdbApi";
 
-type StatusState = "checking" | "mock" | "ready" | "offline";
+type StatusState = "checking" | "mock" | "ready" | "real" | "offline";
 
 export function IgdbIntegrationStatusBadge() {
   const [statusState, setStatusState] = useState<StatusState>("checking");
@@ -19,7 +19,14 @@ export function IgdbIntegrationStatusBadge() {
         }
 
         setStatus(response);
-        setStatusState(response.configured ? "ready" : "mock");
+
+        if (response.realSearchEnabled) {
+          setStatusState("real");
+        } else if (response.configured) {
+          setStatusState("ready");
+        } else {
+          setStatusState("mock");
+        }
       } catch {
         if (!isMounted) {
           return;
@@ -53,6 +60,8 @@ function getStatusLabel(statusState: StatusState): string {
       return "Mock IGDB";
     case "ready":
       return "IGDB Ready";
+    case "real":
+      return "Real IGDB";
     case "offline":
       return "IGDB Offline";
   }
@@ -65,7 +74,9 @@ function getFallbackTitle(statusState: StatusState): string {
     case "mock":
       return "Mock IGDB search is active.";
     case "ready":
-      return "IGDB credentials appear to be configured.";
+      return "IGDB credentials are configured, but mock search is still active.";
+    case "real":
+      return "Real IGDB search is enabled.";
     case "offline":
       return "Could not reach the API server to check IGDB status.";
   }

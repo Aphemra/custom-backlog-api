@@ -43,8 +43,8 @@ export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
     <section className="igdb-search-panel" aria-label="Mock IGDB search">
       <div className="igdb-search-panel__header">
         <div>
-          <h3>Search Mock IGDB</h3>
-          <p>Search the local mock endpoint and use a result to prefill this game.</p>
+          <h3>Search IGDB Source</h3>
+          <p>Search the backend metadata endpoint and use a result to prefill this game.</p>
         </div>
 
         <IgdbIntegrationStatusBadge />
@@ -103,11 +103,13 @@ export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
 }
 
 function formatIgdbGameMeta(game: IgdbGameSearchResult): string {
+  const sourceText = game.source === "igdb" ? "IGDB" : "Mock IGDB";
+
   const platformText = game.platforms.length > 0 ? game.platforms.join(" / ") : "Platforms unknown";
 
   if (game.firstReleaseYear === undefined) {
-    return platformText;
+    return `${sourceText} • ${platformText}`;
   }
 
-  return `${platformText} • ${game.firstReleaseYear}`;
+  return `${sourceText} • ${platformText} • ${game.firstReleaseYear}`;
 }

@@ -151,6 +151,10 @@ export function AddGamePanel() {
     });
   }
 
+  function getIgdbSourceLabel(source: "mock" | "igdb" | undefined): string {
+    return source === "igdb" ? "IGDB" : "mock IGDB";
+  }
+
   return (
     <form className="add-game-panel" onSubmit={handleSubmit}>
       <div className="details-toolbar">
@@ -174,7 +178,7 @@ export function AddGamePanel() {
 
       {externalMetadata?.igdb ? (
         <p className="helper-text">
-          Prefilled from mock IGDB: {externalMetadata.igdb.name}
+          Prefilled from {getIgdbSourceLabel(externalMetadata.igdb.source)}: {externalMetadata.igdb.name}
           {externalMetadata.igdb.firstReleaseYear ? ` (${externalMetadata.igdb.firstReleaseYear})` : ""}
         </p>
       ) : null}

@@ -1,5 +1,7 @@
 const requiredIgdbEnvVars = ["IGDB_CLIENT_ID", "IGDB_CLIENT_SECRET"] as const;
 
+export type IgdbSearchMode = "mock" | "real";
+
 export interface IgdbConfig {
   clientId: string;
   clientSecret: string;
@@ -8,6 +10,12 @@ export interface IgdbConfig {
 export interface IgdbConfigStatus {
   configured: boolean;
   missingEnvVars: string[];
+}
+
+export function getIgdbSearchMode(): IgdbSearchMode {
+  const searchMode = process.env.IGDB_SEARCH_MODE?.trim().toLowerCase();
+
+  return searchMode === "real" ? "real" : "mock";
 }
 
 export function getIgdbConfigStatus(): IgdbConfigStatus {

@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { searchMockIgdbGames } from "../features/igdb/searchMockIgdbGames.js";
+import { getIgdbIntegrationStatus } from "../features/igdb/getIgdbIntegrationStatus.js";
 
 export const igdbRoutes = Router();
+
+igdbRoutes.get("/status", (_request, response) => {
+  response.json(getIgdbIntegrationStatus());
+});
 
 igdbRoutes.get("/search", (request, response) => {
   const query = typeof request.query.query === "string" ? request.query.query : "";

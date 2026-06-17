@@ -800,6 +800,65 @@ button {
   font-size: 0.85rem;
 }
 
+.igdb-search-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.igdb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.4rem 0.65rem;
+  background: rgba(17, 22, 34, 0.82);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.igdb-status__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--color-text-muted);
+}
+
+.igdb-status--checking .igdb-status__dot {
+  background: #f59e0b;
+}
+
+.igdb-status--mock {
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #bfdbfe;
+}
+
+.igdb-status--mock .igdb-status__dot {
+  background: #3b82f6;
+}
+
+.igdb-status--ready {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #bbf7d0;
+}
+
+.igdb-status--ready .igdb-status__dot {
+  background: #22c55e;
+}
+
+.igdb-status--offline {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fecaca;
+}
+
+.igdb-status--offline .igdb-status__dot {
+  background: #ef4444;
+}
+
 .field {
   display: flex;
   min-width: 0;
@@ -970,5 +1029,14 @@ button {
 
   .igdb-result-item {
     grid-template-columns: 1fr;
+  }
+
+  .igdb-search-panel__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .igdb-status {
+    justify-content: center;
   }
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { searchIgdbGames, type IgdbGameSearchResult } from "../../../services/api/igdbApi";
+import { IgdbIntegrationStatusBadge } from "./IgdbIntegrationStatusBadge";
 
 type IgdbSearchStatus = "idle" | "loading" | "success" | "error";
 
@@ -40,9 +41,13 @@ export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
 
   return (
     <section className="igdb-search-panel" aria-label="Mock IGDB search">
-      <div>
-        <h3>Search Mock IGDB</h3>
-        <p>Search the local mock endpoint and use a result to prefill this game.</p>
+      <div className="igdb-search-panel__header">
+        <div>
+          <h3>Search Mock IGDB</h3>
+          <p>Search the local mock endpoint and use a result to prefill this game.</p>
+        </div>
+
+        <IgdbIntegrationStatusBadge />
       </div>
 
       <div className="igdb-search-form">

@@ -1,25 +1,25 @@
-const requiredIgdbEnvVars = ["IGDB_CLIENT_ID", "IGDB_ACCESS_TOKEN"] as const;
+import { getIgdbConfigStatus } from "./igdbConfig.js";
 
 export interface IgdbIntegrationStatus {
   provider: "igdb";
   configured: boolean;
   realSearchEnabled: boolean;
+  authStrategy: "twitch_client_credentials";
   missingEnvVars: string[];
   message: string;
 }
 
 export function getIgdbIntegrationStatus(): IgdbIntegrationStatus {
-  const missingEnvVars = requiredIgdbEnvVars.filter((envVarName) => !process.env[envVarName]?.trim());
-
-  const configured = missingEnvVars.length === 0;
+  const configStatus = getIgdbConfigStatus();
 
   return {
     provider: "igdb",
-    configured,
+    configured: configStatus.configured,
     realSearchEnabled: false,
-    missingEnvVars,
-    message: configured
-      ? "IGDB credentials are configured. Real IGDB search is not enabled yet."
-      : "IGDB credentials are not configured. Mock IGDB search is currently active.",
+    authStrategy: "twitch_client_credentials",
+    missingEnvVars: configStatus.missingEnvVars,
+    message: configStatus.configured
+      ? "IGDB client credentials are configured. Real IGDB search is not enabled yet."
+      : "IGDB client credentials are not configured. Mock IGDB search is currently active.",
   };
 }

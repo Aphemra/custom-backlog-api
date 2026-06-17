@@ -18,6 +18,7 @@ export interface IgdbIntegrationStatus {
   provider: "igdb";
   configured: boolean;
   realSearchEnabled: boolean;
+  authStrategy: "twitch_client_credentials";
   missingEnvVars: string[];
   message: string;
 }

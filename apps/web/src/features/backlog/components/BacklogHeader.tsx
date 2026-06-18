@@ -1,5 +1,7 @@
 import { useBacklogStore } from "../store/useBacklogStore";
 import { BackendStatusBadge } from "./BackendStatusBadge";
+import { IgdbIntegrationStatusBadge } from "./IgdbIntegrationStatusBadge";
+import { PsnProfilesStatusBadge } from "./PsnProfilesStatusBadge";
 
 export function BacklogHeader() {
   const openAddGamePanel = useBacklogStore((state) => state.openAddGamePanel);
@@ -13,7 +15,8 @@ export function BacklogHeader() {
 
       <div className="backlog-header__actions">
         <BackendStatusBadge />
-
+        <IgdbIntegrationStatusBadge />
+        <PsnProfilesStatusBadge />
         <button className="button button--primary" type="button" onClick={openAddGamePanel}>
           Add Game
         </button>

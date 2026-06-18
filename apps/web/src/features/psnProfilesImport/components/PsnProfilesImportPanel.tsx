@@ -9,17 +9,18 @@ import { matchPsnProfilesImportToBacklog } from "../services/matchPsnProfilesImp
 import type { PsnProfilesBacklogMatch, PsnProfilesImportedGameProgress, PsnProfilesImportResult } from "../types/psnProfilesImport";
 
 interface PsnProfilesImportPanelProps {
+  initialImportResult?: PsnProfilesImportResult | null;
   onClose: () => void;
 }
 
-export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps) {
+export function PsnProfilesImportPanel({ initialImportResult, onClose }: PsnProfilesImportPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const gameEntries = useBacklogStore((state) => state.gameEntries);
   const updateGameEntry = useBacklogStore((state) => state.updateGameEntry);
 
   const [sourceText, setSourceText] = useState("");
-  const [importResult, setImportResult] = useState<PsnProfilesImportResult | null>(null);
+  const [importResult, setImportResult] = useState<PsnProfilesImportResult | null>(initialImportResult ?? null);
   const [selectedManualGameEntryIds, setSelectedManualGameEntryIds] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
@@ -169,6 +170,12 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
             Close
           </button>
         </div>
+        {initialImportResult ? (
+          <p className="helper-text">
+            Loaded the latest local PSNProfiles userscript export. Review rows can be manually mapped below; saved PSNProfiles URLs should become
+            exact matches on future updates.
+          </p>
+        ) : null}
       </div>
 
       <div className="form-actions">

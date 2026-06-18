@@ -10,6 +10,7 @@ import type { BacklogBackup } from "../../importExport/types/backup";
 import type { BacklogFilters, BacklogRatingFilter, BacklogSortMode, BacklogStatusFilter } from "../types/backlogFilters";
 import type { GameExternalMetadata } from "../../../domain/externalMetadata";
 import { normalizeTrophyProgress } from "../services/trophyProgressHelpers";
+import type { PsnProfilesImportResult } from "../../psnProfilesImport/types/psnProfilesImport";
 
 export type GameEntryUpdate = Partial<
   Pick<
@@ -44,6 +45,7 @@ interface BacklogState {
   filters: BacklogFilters;
 
   isPsnProfilesImportPanelOpen: boolean;
+  pendingPsnProfilesImportResult: PsnProfilesImportResult | null;
 
   selectGameEntry: (gameEntryId: string) => void;
   closeSelectedGameEntry: () => void;
@@ -65,6 +67,7 @@ interface BacklogState {
   renameBucket: (bucketId: string, name: string) => void;
   deleteBucket: (bucketId: string) => void;
 
+  openPsnProfilesImportPanel: (importResult?: PsnProfilesImportResult) => void;
   togglePsnProfilesImportPanel: () => void;
   closePsnProfilesImportPanel: () => void;
 
@@ -102,6 +105,7 @@ export const useBacklogStore = create<BacklogState>()(
       isBucketPanelOpen: false,
       filters: initialFilters,
       isPsnProfilesImportPanelOpen: false,
+      pendingPsnProfilesImportResult: null,
 
       selectGameEntry: (gameEntryId) => {
         set((state) => ({
@@ -196,9 +200,19 @@ export const useBacklogStore = create<BacklogState>()(
         });
       },
 
+      openPsnProfilesImportPanel: (importResult) => {
+        set({
+          isPsnProfilesImportPanelOpen: true,
+          pendingPsnProfilesImportResult: importResult ?? null,
+          isAddGamePanelOpen: false,
+          selectedGameEntryId: null,
+        });
+      },
+
       togglePsnProfilesImportPanel: () => {
         set((state) => ({
           isPsnProfilesImportPanelOpen: !state.isPsnProfilesImportPanelOpen,
+          pendingPsnProfilesImportResult: null,
           isAddGamePanelOpen: false,
           selectedGameEntryId: null,
         }));
@@ -207,6 +221,7 @@ export const useBacklogStore = create<BacklogState>()(
       closePsnProfilesImportPanel: () => {
         set({
           isPsnProfilesImportPanelOpen: false,
+          pendingPsnProfilesImportResult: null,
         });
       },
 
@@ -408,6 +423,7 @@ export const useBacklogStore = create<BacklogState>()(
           isBucketPanelOpen: false,
           filters: initialFilters,
           isPsnProfilesImportPanelOpen: false,
+          pendingPsnProfilesImportResult: null,
         });
       },
 
@@ -425,6 +441,7 @@ export const useBacklogStore = create<BacklogState>()(
           isBucketPanelOpen: false,
           filters: initialFilters,
           isPsnProfilesImportPanelOpen: false,
+          pendingPsnProfilesImportResult: null,
         });
       },
     }),

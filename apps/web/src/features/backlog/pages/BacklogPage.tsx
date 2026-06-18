@@ -20,6 +20,7 @@ export function BacklogPage() {
   const selectGameEntry = useBacklogStore((state) => state.selectGameEntry);
   const isPsnProfilesImportPanelOpen = useBacklogStore((state) => state.isPsnProfilesImportPanelOpen);
   const closePsnProfilesImportPanel = useBacklogStore((state) => state.closePsnProfilesImportPanel);
+  const pendingPsnProfilesImportResult = useBacklogStore((state) => state.pendingPsnProfilesImportResult);
 
   const backlogStats = calculateBacklogStats(gameEntries);
   const filteredGameEntries = filterBacklogEntries(gameEntries, filters);
@@ -36,7 +37,13 @@ export function BacklogPage() {
 
         {isAddGamePanelOpen ? <AddGamePanel /> : null}
         {isBucketPanelOpen ? <BucketPanel /> : null}
-        {isPsnProfilesImportPanelOpen ? <PsnProfilesImportPanel onClose={closePsnProfilesImportPanel} /> : null}
+        {isPsnProfilesImportPanelOpen ? (
+          <PsnProfilesImportPanel
+            key={pendingPsnProfilesImportResult?.importedAt ?? "manual-psnprofiles-import"}
+            initialImportResult={pendingPsnProfilesImportResult}
+            onClose={closePsnProfilesImportPanel}
+          />
+        ) : null}
 
         <BacklogList games={sortedGameEntries} buckets={buckets} selectedGameEntryId={selectedGameEntryId} onSelectGame={selectGameEntry} />
       </section>

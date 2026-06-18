@@ -68,6 +68,7 @@ export function BacklogControls() {
 
   const isPsnProfilesImportPanelOpen = useBacklogStore((state) => state.isPsnProfilesImportPanelOpen);
   const togglePsnProfilesImportPanel = useBacklogStore((state) => state.togglePsnProfilesImportPanel);
+  const openPsnProfilesImportPanel = useBacklogStore((state) => state.openPsnProfilesImportPanel);
 
   const updateGameEntry = useBacklogStore((state) => state.updateGameEntry);
 
@@ -144,10 +145,14 @@ export function BacklogControls() {
 
       setLatestPsnProfilesSavedAt(latestImport.savedAt ?? null);
 
-      window.alert(
-        `Applied ${applyableMatches.length} high-confidence PSNProfiles update(s).\n\n` +
-          `${matches.length - applyableMatches.length} imported row(s) were left for manual review/import.`,
-      );
+      const manualReviewCount = matches.length - applyableMatches.length;
+
+      if (manualReviewCount > 0) {
+        openPsnProfilesImportPanel(importResult);
+        return;
+      }
+
+      window.alert(`Applied ${applyableMatches.length} high-confidence PSNProfiles update(s). No imported rows were left for manual review.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not apply the latest PSNProfiles export.";
 

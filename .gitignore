@@ -5,3 +5,6 @@ build
 .env.local
 .DS_Store
 .vscode
+
+# Local PSNProfiles userscript exports
+apps/api/data/*.json

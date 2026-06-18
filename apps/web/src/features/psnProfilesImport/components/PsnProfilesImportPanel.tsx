@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import type { GameEntry } from "../../../domain/backlog";
 import { formatShortDateTime } from "../../../domain/date";
+import { getPlatformShortName } from "../../../domain/display";
 import { useBacklogStore } from "../../backlog/store/useBacklogStore";
 import { normalizeTrophyProgress } from "../../backlog/services/trophyProgressHelpers";
 import { parsePsnProfilesImportSourceText } from "../services/parsePsnProfilesImportSourceText";
 import { matchPsnProfilesImportToBacklog } from "../services/matchPsnProfilesImportToBacklog";
-import type { PsnProfilesImportResult } from "../types/psnProfilesImport";
+import type { PsnProfilesBacklogMatch, PsnProfilesImportedGameProgress, PsnProfilesImportResult } from "../types/psnProfilesImport";
 
 interface PsnProfilesImportPanelProps {
   onClose: () => void;
@@ -18,6 +20,7 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
 
   const [sourceText, setSourceText] = useState("");
   const [importResult, setImportResult] = useState<PsnProfilesImportResult | null>(null);
+  const [selectedManualGameEntryIds, setSelectedManualGameEntryIds] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
@@ -32,6 +35,7 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
   const matchedCount = matches.filter((match) => match.gameEntryId !== undefined).length;
   const highConfidenceCount = matches.filter((match) => isHighConfidenceMatch(match.score)).length;
   const reviewCount = matches.filter((match) => isReviewMatch(match.score)).length;
+  const unmatchedCount = matches.filter((match) => match.score === 0).length;
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0];
@@ -44,10 +48,19 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
 
     setSourceText(fileText);
     setImportResult(null);
+    setSelectedManualGameEntryIds({});
     setApplyMessage(null);
     setErrorMessage(null);
 
     event.target.value = "";
+  }
+
+  function handleSourceTextChange(value: string) {
+    setSourceText(value);
+    setImportResult(null);
+    setSelectedManualGameEntryIds({});
+    setApplyMessage(null);
+    setErrorMessage(null);
   }
 
   function handleParse() {
@@ -55,11 +68,13 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
       const nextImportResult = parsePsnProfilesImportSourceText(sourceText);
 
       setImportResult(nextImportResult);
+      setSelectedManualGameEntryIds({});
       setErrorMessage(null);
       setApplyMessage(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not parse the PSNProfiles import.";
       setImportResult(null);
+      setSelectedManualGameEntryIds({});
       setApplyMessage(null);
       setErrorMessage(message);
     }
@@ -67,27 +82,75 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
 
   function handleApplyMatchedUpdates() {
     const applyableMatches = matches.filter((match) => match.gameEntryId !== undefined && isHighConfidenceMatch(match.score));
+    let appliedCount = 0;
 
     for (const match of applyableMatches) {
-      const gameEntry = gameEntries.find((entry) => entry.id === match.gameEntryId);
-
-      if (!gameEntry) {
+      if (!match.gameEntryId) {
         continue;
       }
 
-      updateGameEntry(gameEntry.id, {
-        trophyProgress: normalizeTrophyProgress({
-          ...gameEntry.trophyProgress,
-          earnedTrophies: match.importedGame.earnedTrophies,
-          totalTrophies: match.importedGame.totalTrophies,
-          completionPercent: match.importedGame.completionPercent,
-          ...(match.importedGame.sourceUrl ? { psnProfilesUrl: match.importedGame.sourceUrl } : {}),
-          lastSyncedAt: new Date().toISOString(),
-        }),
-      });
+      const appliedTitle = applyImportedProgressToGameEntry(match.gameEntryId, match.importedGame);
+
+      if (appliedTitle) {
+        appliedCount += 1;
+      }
     }
 
-    setApplyMessage(`Applied ${applyableMatches.length} high-confidence PSNProfiles update(s).`);
+    setApplyMessage(`Applied ${appliedCount} high-confidence PSNProfiles update(s).`);
+  }
+
+  function handleManualMappingChange(matchKey: string, gameEntryId: string) {
+    setSelectedManualGameEntryIds((currentSelections) => ({
+      ...currentSelections,
+      [matchKey]: gameEntryId,
+    }));
+  }
+
+  function handleApplyManualMatch(match: PsnProfilesBacklogMatch, matchIndex: number) {
+    const matchKey = getMatchKey(match, matchIndex);
+    const selectedGameEntryId = getSelectedManualGameEntryId(match, matchKey);
+
+    if (!selectedGameEntryId) {
+      setErrorMessage("Choose a backlog entry before applying this manual PSNProfiles match.");
+      return;
+    }
+
+    const appliedTitle = applyImportedProgressToGameEntry(selectedGameEntryId, match.importedGame);
+
+    if (!appliedTitle) {
+      setErrorMessage("The selected backlog entry could not be found.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setApplyMessage(
+      `Applied manual PSNProfiles mapping: ${match.importedGame.sourceTitle} → ${appliedTitle}. Future imports can use the saved PSNProfiles URL for an exact match.`,
+    );
+  }
+
+  function applyImportedProgressToGameEntry(gameEntryId: string, importedGame: PsnProfilesImportedGameProgress): string | null {
+    const gameEntry = gameEntries.find((entry) => entry.id === gameEntryId);
+
+    if (!gameEntry) {
+      return null;
+    }
+
+    updateGameEntry(gameEntry.id, {
+      trophyProgress: normalizeTrophyProgress({
+        ...gameEntry.trophyProgress,
+        earnedTrophies: importedGame.earnedTrophies,
+        totalTrophies: importedGame.totalTrophies,
+        completionPercent: importedGame.completionPercent,
+        ...(importedGame.sourceUrl ? { psnProfilesUrl: importedGame.sourceUrl } : {}),
+        lastSyncedAt: new Date().toISOString(),
+      }),
+    });
+
+    return gameEntry.title;
+  }
+
+  function getSelectedManualGameEntryId(match: PsnProfilesBacklogMatch, matchKey: string): string {
+    return selectedManualGameEntryIds[matchKey] ?? match.gameEntryId ?? "";
   }
 
   return (
@@ -95,7 +158,10 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
       <div className="details-toolbar">
         <div>
           <h3>Import PSNProfiles Progress</h3>
-          <p>Paste or upload PSNProfiles HTML/text or a userscript JSON export, preview matches, then apply high-confidence updates.</p>
+          <p>
+            Paste or upload PSNProfiles HTML/text or a userscript JSON export, preview matches, then apply high-confidence or manually reviewed
+            updates.
+          </p>
         </div>
 
         <div className="form-actions">
@@ -129,12 +195,7 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
           rows={10}
           value={sourceText}
           placeholder="Paste saved PSNProfiles page HTML, copied page text, or userscript JSON export here..."
-          onChange={(event) => {
-            setSourceText(event.target.value);
-            setImportResult(null);
-            setApplyMessage(null);
-            setErrorMessage(null);
-          }}
+          onChange={(event) => handleSourceTextChange(event.target.value)}
         />
       </label>
 
@@ -150,13 +211,14 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
             <DetailItem label="Matched Games" value={matchedCount.toString()} />
             <DetailItem label="High Confidence" value={highConfidenceCount.toString()} />
             <DetailItem label="Needs Review" value={reviewCount.toString()} />
+            <DetailItem label="Unmatched" value={unmatchedCount.toString()} />
           </div>
 
           {importResult.warnings.length > 0 ? (
             <div className="sync-preview-warning">
               <strong>Warnings</strong>
               <ul>
-                {importResult.warnings.map((warning: string) => (
+                {importResult.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>
@@ -168,32 +230,56 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
           </button>
 
           <div className="psnp-import-match-list">
-            {matches.map((match) => (
-              <article
-                className="psnp-import-match-item"
-                key={
-                  match.importedGame.sourceTrophyListId ??
-                  match.importedGame.sourceUrl ??
-                  `${match.importedGame.sourceTitle}-${match.importedGame.platformText ?? "unknown"}-${match.importedGame.totalTrophies}`
-                }
-              >
-                <div>
-                  <strong>{match.importedGame.sourceTitle}</strong>
-                  <p className="helper-text">
-                    {match.importedGame.earnedTrophies}/{match.importedGame.totalTrophies} trophies • {match.importedGame.completionPercent}%
-                    {match.importedGame.platformText ? ` • ${match.importedGame.platformText}` : ""}
-                    {match.importedGame.rawPlatformText && match.importedGame.rawPlatformText !== match.importedGame.platformText
-                      ? ` (${match.importedGame.rawPlatformText})`
-                      : ""}
-                  </p>
-                </div>
+            {matches.map((match, matchIndex) => {
+              const matchKey = getMatchKey(match, matchIndex);
+              const selectedManualGameEntryId = getSelectedManualGameEntryId(match, matchKey);
+              const needsManualReview = !isHighConfidenceMatch(match.score);
 
-                <div>
-                  <span className={`match-pill ${getMatchPillClassName(match.score)}`}>{getMatchLabel(match.score)}</span>
-                  <p className="helper-text">{match.reason}</p>
-                </div>
-              </article>
-            ))}
+              return (
+                <article className="psnp-import-match-item" key={matchKey}>
+                  <div>
+                    <strong>{match.importedGame.sourceTitle}</strong>
+                    <p className="helper-text">
+                      {match.importedGame.earnedTrophies}/{match.importedGame.totalTrophies} trophies • {match.importedGame.completionPercent}%
+                      {match.importedGame.platformText ? ` • ${match.importedGame.platformText}` : ""}
+                      {match.importedGame.rawPlatformText && match.importedGame.rawPlatformText !== match.importedGame.platformText
+                        ? ` (${match.importedGame.rawPlatformText})`
+                        : ""}
+                    </p>
+                  </div>
+
+                  <div className="psnp-import-match-status">
+                    <span className={`match-pill ${getMatchPillClassName(match.score)}`}>{getMatchLabel(match.score)}</span>
+                    <p className="helper-text">{match.reason}</p>
+                  </div>
+
+                  {needsManualReview ? (
+                    <div className="psnp-import-manual-review">
+                      <label className="field psnp-import-manual-review__field">
+                        <span>Manual backlog match</span>
+                        <select value={selectedManualGameEntryId} onChange={(event) => handleManualMappingChange(matchKey, event.target.value)}>
+                          <option value="">Choose backlog entry...</option>
+                          {gameEntries.map((gameEntry) => (
+                            <option value={gameEntry.id} key={gameEntry.id}>
+                              {formatGameEntryOptionLabel(gameEntry)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <button
+                        className="button"
+                        type="button"
+                        disabled={!selectedManualGameEntryId}
+                        onClick={() => handleApplyManualMatch(match, matchIndex)}
+                      >
+                        Apply Selected Mapping
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -240,4 +326,18 @@ function getMatchPillClassName(score: number): string {
   }
 
   return "match-pill--unmatched";
+}
+
+function getMatchKey(match: PsnProfilesBacklogMatch, matchIndex: number): string {
+  return (
+    match.importedGame.sourceTrophyListId ??
+    match.importedGame.sourceUrl ??
+    `${matchIndex}-${match.importedGame.sourceTitle}-${match.importedGame.platformText ?? "unknown"}-${match.importedGame.totalTrophies}`
+  );
+}
+
+function formatGameEntryOptionLabel(gameEntry: GameEntry): string {
+  const platformLabels = gameEntry.platformIds.map(getPlatformShortName).join(" / ");
+
+  return `#${gameEntry.priorityOrder} • ${gameEntry.title}${platformLabels ? ` • ${platformLabels}` : ""}`;
 }

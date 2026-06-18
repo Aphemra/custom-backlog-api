@@ -1239,10 +1239,24 @@ a {
   min-width: 0;
 }
 
-.psnp-import-match-item > div:last-child {
+.psnp-import-match-status {
   display: grid;
   justify-items: end;
   text-align: right;
+}
+
+.psnp-import-manual-review {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: end;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  padding-top: var(--space-3);
+}
+
+.psnp-import-manual-review__field {
+  min-width: 0;
 }
 
 .match-pill {
@@ -1429,8 +1443,16 @@ a {
     grid-template-columns: 1fr;
   }
 
-  .psnp-import-match-item > div:last-child {
+  .psnp-import-match-status {
     justify-items: start;
     text-align: left;
+  }
+
+  .psnp-import-manual-review {
+    grid-template-columns: 1fr;
+  }
+
+  .psnp-import-manual-review .button {
+    width: 100%;
   }
 }

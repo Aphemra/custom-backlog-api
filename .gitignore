@@ -8,3 +8,4 @@ build
 
 # Local PSNProfiles userscript exports
 apps/api/data/*.json
+!apps/api/data/.gitkeep

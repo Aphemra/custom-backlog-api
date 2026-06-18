@@ -12,6 +12,8 @@ interface RawIgdbGame {
   platforms?: unknown;
   first_release_date?: unknown;
   cover?: unknown;
+  game_type?: unknown;
+  parent_game?: unknown;
 }
 
 interface RawIgdbPlatform {
@@ -42,8 +44,8 @@ function buildGameSearchQuery(query: string, limit: number): string {
 
   return [
     `search "${escapedQuery}";`,
-    "fields name, platforms.name, first_release_date, cover.image_id;",
-    "where version_parent = null;",
+    "fields name, platforms.name, first_release_date, cover.image_id, game_type, parent_game;",
+    "where version_parent = null & parent_game = null & game_type = (0, 8, 9, 10, 11);",
     `limit ${limit};`,
   ].join("\n");
 }
@@ -53,7 +55,10 @@ function parseRawIgdbGames(data: unknown): IgdbGameSearchResult[] {
     throw new Error("IGDB games response was not an array.");
   }
 
-  return data.map(parseRawIgdbGame).filter((game): game is IgdbGameSearchResult => game !== null);
+  return data
+    .filter(isAllowedRawIgdbGame)
+    .map(parseRawIgdbGame)
+    .filter((game): game is IgdbGameSearchResult => game !== null);
 }
 
 function parseRawIgdbGame(data: unknown): IgdbGameSearchResult | null {
@@ -148,4 +153,26 @@ function clampLimit(limit: number): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isAllowedRawIgdbGame(data: unknown): boolean {
+  if (!isRecord(data)) {
+    return false;
+  }
+
+  const rawGame = data as RawIgdbGame;
+
+  if (rawGame.parent_game !== undefined && rawGame.parent_game !== null) {
+    return false;
+  }
+
+  if (typeof rawGame.game_type !== "number") {
+    return true;
+  }
+
+  return isAllowedGameType(rawGame.game_type);
+}
+
+function isAllowedGameType(gameType: number): boolean {
+  return [0, 8, 9, 10, 11].includes(gameType);
 }

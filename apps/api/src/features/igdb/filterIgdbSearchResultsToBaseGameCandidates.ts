@@ -14,6 +14,11 @@ const noisyTitlePhrases = [
   "premium edition",
   "ultimate edition",
   "upgrade",
+  "bgm set",
+  "costume set",
+  "persona set",
+  "soundtrack",
+  "theme set",
 ];
 
 export function filterIgdbSearchResultsToBaseGameCandidates(games: IgdbGameSearchResult[]): IgdbGameSearchResult[] {

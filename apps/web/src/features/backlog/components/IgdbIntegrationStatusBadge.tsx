@@ -61,7 +61,7 @@ function getStatusLabel(statusState: StatusState): string {
     case "ready":
       return "IGDB Ready";
     case "real":
-      return "Real IGDB";
+      return "IGDB Online";
     case "offline":
       return "IGDB Offline";
   }

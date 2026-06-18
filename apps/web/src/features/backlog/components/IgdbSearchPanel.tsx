@@ -2,7 +2,6 @@ import { useState } from "react";
 import type { GameEntry } from "../../../domain/backlog";
 import { searchIgdbGames, type IgdbGameSearchResult } from "../../../services/api/igdbApi";
 import { filterAlreadyImportedIgdbSearchResults } from "../services/filterAlreadyImportedIgdbSearchResults";
-import { IgdbIntegrationStatusBadge } from "./IgdbIntegrationStatusBadge";
 
 type IgdbSearchStatus = "idle" | "loading" | "success" | "error";
 
@@ -69,8 +68,6 @@ export function IgdbSearchPanel({
           <h3>Search PlayStation Metadata</h3>
           <p>Search the backend metadata endpoint for PlayStation-compatible results.</p>
         </div>
-
-        <IgdbIntegrationStatusBadge />
       </div>
 
       <div className="igdb-search-form">

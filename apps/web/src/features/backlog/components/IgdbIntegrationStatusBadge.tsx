@@ -47,24 +47,9 @@ export function IgdbIntegrationStatusBadge() {
   return (
     <div className={`igdb-status igdb-status--${statusState}`} title={status?.message ?? getFallbackTitle(statusState)}>
       <span className="igdb-status__dot" aria-hidden="true" />
-      <span>{getStatusLabel(statusState)}</span>
+      <span>IGDB</span>
     </div>
   );
-}
-
-function getStatusLabel(statusState: StatusState): string {
-  switch (statusState) {
-    case "checking":
-      return "IGDB Checking";
-    case "mock":
-      return "Mock IGDB";
-    case "ready":
-      return "IGDB Ready";
-    case "real":
-      return "IGDB Online";
-    case "offline":
-      return "IGDB Offline";
-  }
 }
 
 function getFallbackTitle(statusState: StatusState): string {

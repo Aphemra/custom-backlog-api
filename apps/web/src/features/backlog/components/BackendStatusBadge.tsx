@@ -37,20 +37,9 @@ export function BackendStatusBadge() {
   return (
     <span className={`backend-status backend-status--${status}`} title={getStatusTitle(status)}>
       <span className="backend-status__dot" aria-hidden="true" />
-      <span>{getStatusLabel(status)}</span>
+      <span>API</span>
     </span>
   );
-}
-
-function getStatusLabel(status: BackendStatus): string {
-  switch (status) {
-    case "checking":
-      return "API Checking";
-    case "online":
-      return "API Online";
-    case "offline":
-      return "API Offline";
-  }
 }
 
 function getStatusTitle(status: BackendStatus): string {

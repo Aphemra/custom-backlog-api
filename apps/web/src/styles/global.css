@@ -266,25 +266,16 @@ a {
 
 .backend-status__dot,
 .igdb-status__dot,
-.psnp-status__dot {
+.platprices-status__dot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 999px;
   background: var(--color-text-muted);
 }
 
-.backend-status__dot {
-  width: 0.55rem;
-  height: 0.55rem;
-}
-
-.igdb-status__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-}
-
 .backend-status--checking .backend-status__dot,
-.igdb-status--checking .igdb-status__dot {
+.igdb-status--checking .igdb-status__dot,
+.backend-status--missing_config .platprices-status__dot {
   background: var(--color-warning);
 }
 
@@ -295,9 +286,22 @@ a {
   color: #bbf7d0;
 }
 
+.backend-status--ready {
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(74, 222, 128, 0.12);
+  color: #bbf7d0;
+}
+
+.backend-status--missing_config {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.12);
+  color: #fde68a;
+}
+
 .backend-status--online .backend-status__dot,
 .igdb-status--ready .igdb-status__dot,
-.igdb-status--real .igdb-status__dot {
+.igdb-status--real .igdb-status__dot,
+.backend-status--ready .platprices-status__dot {
   background: var(--color-success);
 }
 
@@ -308,6 +312,7 @@ a {
 }
 
 .backend-status--offline .backend-status__dot,
+.backend-status--offline .platprices-status__dot,
 .igdb-status--offline .igdb-status__dot {
   background: var(--color-danger);
 }

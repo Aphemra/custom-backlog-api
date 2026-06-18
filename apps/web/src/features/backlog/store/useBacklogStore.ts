@@ -43,6 +43,8 @@ interface BacklogState {
   isBucketPanelOpen: boolean;
   filters: BacklogFilters;
 
+  isPsnProfilesImportPanelOpen: boolean;
+
   selectGameEntry: (gameEntryId: string) => void;
   closeSelectedGameEntry: () => void;
 
@@ -62,6 +64,9 @@ interface BacklogState {
   createBucket: (name: string) => void;
   renameBucket: (bucketId: string, name: string) => void;
   deleteBucket: (bucketId: string) => void;
+
+  togglePsnProfilesImportPanel: () => void;
+  closePsnProfilesImportPanel: () => void;
 
   addGameEntry: (input: CreateGameEntryInput) => void;
   updateGameEntry: (gameEntryId: string, updates: GameEntryUpdate) => void;
@@ -96,6 +101,7 @@ export const useBacklogStore = create<BacklogState>()(
       isAddGamePanelOpen: false,
       isBucketPanelOpen: false,
       filters: initialFilters,
+      isPsnProfilesImportPanelOpen: false,
 
       selectGameEntry: (gameEntryId) => {
         set((state) => ({
@@ -187,6 +193,20 @@ export const useBacklogStore = create<BacklogState>()(
         set({
           filters: initialFilters,
           selectedGameEntryId: null,
+        });
+      },
+
+      togglePsnProfilesImportPanel: () => {
+        set((state) => ({
+          isPsnProfilesImportPanelOpen: !state.isPsnProfilesImportPanelOpen,
+          isAddGamePanelOpen: false,
+          selectedGameEntryId: null,
+        }));
+      },
+
+      closePsnProfilesImportPanel: () => {
+        set({
+          isPsnProfilesImportPanelOpen: false,
         });
       },
 
@@ -387,6 +407,7 @@ export const useBacklogStore = create<BacklogState>()(
           isAddGamePanelOpen: false,
           isBucketPanelOpen: false,
           filters: initialFilters,
+          isPsnProfilesImportPanelOpen: false,
         });
       },
 
@@ -403,6 +424,7 @@ export const useBacklogStore = create<BacklogState>()(
           isAddGamePanelOpen: false,
           isBucketPanelOpen: false,
           filters: initialFilters,
+          isPsnProfilesImportPanelOpen: false,
         });
       },
     }),

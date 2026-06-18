@@ -59,6 +59,9 @@ export function BacklogControls() {
   const isBucketPanelOpen = useBacklogStore((state) => state.isBucketPanelOpen);
   const toggleBucketPanel = useBacklogStore((state) => state.toggleBucketPanel);
 
+  const isPsnProfilesImportPanelOpen = useBacklogStore((state) => state.isPsnProfilesImportPanelOpen);
+  const togglePsnProfilesImportPanel = useBacklogStore((state) => state.togglePsnProfilesImportPanel);
+
   const hasActiveFilters =
     filters.searchText.trim().length > 0 ||
     filters.statusFilter !== "all" ||
@@ -197,6 +200,10 @@ export function BacklogControls() {
 
         <button className="button" type="button" onClick={handleImportClick}>
           Import
+        </button>
+
+        <button className={`button ${isPsnProfilesImportPanelOpen ? "button--active" : ""}`} type="button" onClick={togglePsnProfilesImportPanel}>
+          Import PSNProfile
         </button>
 
         <button className="button" type="button" disabled title="PlatPrices and PSNProfiles sync will be added next.">

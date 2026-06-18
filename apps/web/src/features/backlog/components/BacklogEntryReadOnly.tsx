@@ -67,6 +67,9 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
         <DetailItem label="Buckets" value={bucketText} />
         <DetailItem label="Created" value={formatShortDateTime(game.createdAt)} />
         <DetailItem label="Last Updated" value={formatShortDateTime(game.updatedAt)} />
+        {game.trophyProgress.lastSyncedAt ? (
+          <DetailItem label="Last PSNP Sync" value={formatShortDateTime(game.trophyProgress.lastSyncedAt)} />
+        ) : null}
       </div>
 
       <section className="details-section metadata-link-section">

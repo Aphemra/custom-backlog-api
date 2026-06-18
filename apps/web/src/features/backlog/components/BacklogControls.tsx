@@ -5,6 +5,7 @@ import { readJsonFile } from "../../importExport/services/readJsonFile";
 import { validateBacklogBackup } from "../../importExport/services/validateBacklogBackup";
 import type { BacklogRatingFilter, BacklogSortMode, BacklogStatusFilter } from "../types/backlogFilters";
 import { useBacklogStore } from "../store/useBacklogStore";
+import { confirmDestructiveAction } from "../services/confirmDestructiveAction";
 
 const statusFilterOptions: {
   value: BacklogStatusFilter;
@@ -89,6 +90,16 @@ export function BacklogControls() {
       return;
     }
 
+    const confirmed = confirmDestructiveAction({
+      title: "Import backlog backup?",
+      detail: "This will replace your current local backlog data with the selected backup file.",
+      confirmationText: "IMPORT",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       const jsonData = await readJsonFile(selectedFile);
       const backup = validateBacklogBackup(jsonData);
@@ -108,11 +119,17 @@ export function BacklogControls() {
   }
 
   function handleResetClick() {
-    const shouldReset = window.confirm("Reset the local backlog data back to the mock seed data?");
+    const confirmed = confirmDestructiveAction({
+      title: "Reset backlog data?",
+      detail: "This will replace your current local backlog with the default mock data.",
+      confirmationText: "RESET",
+    });
 
-    if (shouldReset) {
-      resetBacklogData();
+    if (!confirmed) {
+      return;
     }
+
+    resetBacklogData();
   }
 
   return (

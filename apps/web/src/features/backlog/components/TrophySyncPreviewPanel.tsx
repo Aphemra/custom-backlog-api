@@ -3,6 +3,7 @@ import type { GameEntry } from "../../../domain/backlog";
 import type { TrophySyncPreview } from "../types/trophySyncPreview";
 import { createManualTrophySyncPreview } from "../services/createManualTrophySyncPreview";
 import { useBacklogStore } from "../store/useBacklogStore";
+import { normalizeTrophyProgress } from "../services/trophyProgressHelpers";
 
 interface TrophySyncPreviewPanelProps {
   game: GameEntry;
@@ -48,14 +49,14 @@ export function TrophySyncPreviewPanel({ game }: TrophySyncPreviewPanelProps) {
     }
 
     updateGameEntry(game.id, {
-      trophyProgress: {
+      trophyProgress: normalizeTrophyProgress({
         ...game.trophyProgress,
-        completionPercent: calculateCompletePercent(preview.nextData.earnedTrophies, preview.nextData.totalTrophies),
+        completionPercent: preview.nextCompletionPercent,
         earnedTrophies: preview.nextData.earnedTrophies,
         totalTrophies: preview.nextData.totalTrophies,
         psnProfilesUrl: preview.nextData.psnProfilesUrl,
         lastSyncedAt: new Date().toISOString(),
-      },
+      }),
     });
 
     setApplyMessage("Trophy preview applied.");
@@ -115,6 +116,17 @@ export function TrophySyncPreviewPanel({ game }: TrophySyncPreviewPanelProps) {
             </div>
           ) : null}
 
+          {preview.alerts.length > 0 ? (
+            <div className="sync-preview-alert-list">
+              {preview.alerts.map((alert) => (
+                <div className={`sync-preview-alert sync-preview-alert--${alert.severity}`} key={`${alert.title}-${alert.message}`}>
+                  <strong>{alert.title}</strong>
+                  <p>{alert.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           {preview.hasChanges ? (
             <ul className="sync-preview-list">
               {preview.changes.map((change) => (
@@ -152,12 +164,4 @@ function parseNonNegativeInteger(value: string): number | null {
   }
 
   return parsedValue;
-}
-
-function calculateCompletePercent(earnedTrophies: number, totalTrophies: number) {
-  if (totalTrophies <= 0) {
-    return 0;
-  }
-
-  return Math.round((earnedTrophies / totalTrophies) * 100);
 }

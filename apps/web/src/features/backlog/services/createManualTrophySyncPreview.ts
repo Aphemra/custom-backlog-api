@@ -1,5 +1,6 @@
 import type { GameEntry } from "../../../domain/backlog";
-import type { ManualTrophySyncInput, TrophySyncPreview, TrophySyncPreviewChange } from "../types/trophySyncPreview";
+import type { ManualTrophySyncInput, TrophySyncPreview, TrophySyncPreviewAlert, TrophySyncPreviewChange } from "../types/trophySyncPreview";
+import { calculateTrophyCompletionPercent, isTrophyProgressNumericallyComplete, normalizeTrophyProgress } from "./trophyProgressHelpers";
 
 export function createManualTrophySyncPreview(game: GameEntry, input: ManualTrophySyncInput): TrophySyncPreview {
   const normalizedInput: ManualTrophySyncInput = {
@@ -11,9 +12,17 @@ export function createManualTrophySyncPreview(game: GameEntry, input: ManualTrop
   const changes: TrophySyncPreviewChange[] = [];
   const warnings = getTrophySyncWarnings(normalizedInput);
 
-  const currentPsnProfilesUrl = game.trophyProgress.psnProfilesUrl?.trim() ?? "";
-  const currentEarnedTrophies = game.trophyProgress.earnedTrophies ?? 0;
-  const currentTotalTrophies = game.trophyProgress.totalTrophies ?? 0;
+  const currentTrophyProgress = normalizeTrophyProgress(game.trophyProgress);
+
+  const currentPsnProfilesUrl = currentTrophyProgress.psnProfilesUrl?.trim() ?? "";
+  const currentEarnedTrophies = currentTrophyProgress.earnedTrophies;
+  const currentTotalTrophies = currentTrophyProgress.totalTrophies;
+  const currentCompletionPercent = currentTrophyProgress.completionPercent;
+
+  const nextCompletionPercent = calculateTrophyCompletionPercent({
+    earnedTrophies: normalizedInput.earnedTrophies,
+    totalTrophies: normalizedInput.totalTrophies,
+  });
 
   if (currentPsnProfilesUrl !== normalizedInput.psnProfilesUrl) {
     changes.push({
@@ -42,11 +51,28 @@ export function createManualTrophySyncPreview(game: GameEntry, input: ManualTrop
     });
   }
 
+  if (currentCompletionPercent !== nextCompletionPercent) {
+    changes.push({
+      field: "completionPercent",
+      label: "Completion percent",
+      currentValue: `${currentCompletionPercent}%`,
+      nextValue: `${nextCompletionPercent}%`,
+    });
+  }
+
   return {
     hasChanges: changes.length > 0,
     changes,
     warnings,
+    alerts: getTrophySyncAlerts({
+      game,
+      currentTotalTrophies,
+      nextEarnedTrophies: normalizedInput.earnedTrophies,
+      nextTotalTrophies: normalizedInput.totalTrophies,
+      nextCompletionPercent,
+    }),
     nextData: normalizedInput,
+    nextCompletionPercent,
   };
 }
 
@@ -68,6 +94,57 @@ function getTrophySyncWarnings(input: ManualTrophySyncInput): string[] {
   }
 
   return warnings;
+}
+
+function getTrophySyncAlerts({
+  game,
+  currentTotalTrophies,
+  nextEarnedTrophies,
+  nextTotalTrophies,
+  nextCompletionPercent,
+}: {
+  game: GameEntry;
+  currentTotalTrophies: number;
+  nextEarnedTrophies: number;
+  nextTotalTrophies: number;
+  nextCompletionPercent: number;
+}): TrophySyncPreviewAlert[] {
+  const alerts: TrophySyncPreviewAlert[] = [];
+
+  const wasMarkedComplete = game.trophyStatus === "hundred_percent" || game.trophyStatus === "platinumed";
+
+  const wasNumericallyComplete = isTrophyProgressNumericallyComplete(game.trophyProgress);
+
+  const willBeIncomplete = nextTotalTrophies > 0 && nextEarnedTrophies < nextTotalTrophies && nextCompletionPercent < 100;
+
+  const totalTrophiesIncreased = nextTotalTrophies > currentTotalTrophies;
+
+  if ((wasMarkedComplete || wasNumericallyComplete) && willBeIncomplete) {
+    alerts.push({
+      severity: "warning",
+      title: "Completion regression detected",
+      message:
+        "This game appears to have been complete before, but the proposed sync would make it incomplete. This may mean new DLC trophies were added.",
+    });
+  }
+
+  if (totalTrophiesIncreased) {
+    alerts.push({
+      severity: "warning",
+      title: "Total trophy count increased",
+      message: `Total trophies would increase from ${currentTotalTrophies} to ${nextTotalTrophies}. Review this carefully if you were trying to maintain 100%.`,
+    });
+  }
+
+  if (nextCompletionPercent === 100 && game.trophyStatus !== "hundred_percent") {
+    alerts.push({
+      severity: "info",
+      title: "Now appears 100% complete",
+      message: "The proposed trophy counts equal 100%. You may want to update this game’s trophy status to 100% after applying.",
+    });
+  }
+
+  return alerts;
 }
 
 function isLikelyPsnProfilesTrophyUrl(value: string): boolean {

@@ -1,6 +1,10 @@
 import type { GameEntry } from "../../../domain/backlog";
 import type { IgdbGameSearchResult, IgdbGameSearchResultSource } from "../../../services/api/igdbApi";
 
+export interface FilterAlreadyImportedIgdbSearchResultsOptions {
+  ignoredGameEntryId?: string;
+}
+
 export interface FilterAlreadyImportedIgdbSearchResultsResult {
   visibleResults: IgdbGameSearchResult[];
   hiddenResults: IgdbGameSearchResult[];
@@ -9,12 +13,13 @@ export interface FilterAlreadyImportedIgdbSearchResultsResult {
 export function filterAlreadyImportedIgdbSearchResults(
   searchResults: IgdbGameSearchResult[],
   gameEntries: GameEntry[],
+  options: FilterAlreadyImportedIgdbSearchResultsOptions = {},
 ): FilterAlreadyImportedIgdbSearchResultsResult {
   const hiddenResults: IgdbGameSearchResult[] = [];
   const visibleResults: IgdbGameSearchResult[] = [];
 
   for (const searchResult of searchResults) {
-    if (isSearchResultAlreadyImported(searchResult, gameEntries)) {
+    if (isSearchResultAlreadyImported(searchResult, gameEntries, options)) {
       hiddenResults.push(searchResult);
     } else {
       visibleResults.push(searchResult);
@@ -27,8 +32,16 @@ export function filterAlreadyImportedIgdbSearchResults(
   };
 }
 
-function isSearchResultAlreadyImported(searchResult: IgdbGameSearchResult, gameEntries: GameEntry[]): boolean {
+function isSearchResultAlreadyImported(
+  searchResult: IgdbGameSearchResult,
+  gameEntries: GameEntry[],
+  options: FilterAlreadyImportedIgdbSearchResultsOptions,
+): boolean {
   return gameEntries.some((gameEntry) => {
+    if (gameEntry.id === options.ignoredGameEntryId) {
+      return false;
+    }
+
     const igdbMetadata = gameEntry.externalMetadata?.igdb;
 
     if (!igdbMetadata) {

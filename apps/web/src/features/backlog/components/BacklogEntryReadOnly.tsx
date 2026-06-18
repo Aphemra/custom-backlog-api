@@ -4,6 +4,8 @@ import { formatPlayStatus, formatTrophyStatus, getPlatformShortName } from "../.
 import { formatCompletionPercent, formatTrophyCount } from "../services/formatTrophyProgress";
 import { RatingDisplay } from "./RatingDisplay";
 import { TrophyProgressBar } from "./TrophyProgressBar";
+import { useState } from "react";
+import { MetadataLinkPanel } from "./MetadataLinkPanel";
 
 interface BacklogEntryReadOnlyProps {
   game: GameEntry;
@@ -15,6 +17,8 @@ interface BacklogEntryReadOnlyProps {
 }
 
 export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp, onMoveDown }: BacklogEntryReadOnlyProps) {
+  const [isMetadataLinkPanelOpen, setIsMetadataLinkPanelOpen] = useState(false);
+
   const platformLabels = game.platformIds.map(getPlatformShortName).join(" / ");
 
   const gameBuckets = buckets.filter((bucket) => game.bucketIds.includes(bucket.id));
@@ -63,6 +67,26 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
         <DetailItem label="Created" value={formatShortDateTime(game.createdAt)} />
         <DetailItem label="Last Updated" value={formatShortDateTime(game.updatedAt)} />
       </div>
+
+      <section className="details-section metadata-link-section">
+        <div className="metadata-link-header">
+          <div>
+            <h3>Metadata Link</h3>
+
+            <p className="helper-text">
+              {game.externalMetadata?.igdb
+                ? `Linked to ${getMetadataSourceLabel(game.externalMetadata.igdb.source)}: ${game.externalMetadata.igdb.name}`
+                : "No IGDB metadata is linked to this backlog entry yet."}
+            </p>
+          </div>
+
+          <button className="button" type="button" onClick={() => setIsMetadataLinkPanelOpen((currentValue) => !currentValue)}>
+            {isMetadataLinkPanelOpen ? "Close Metadata Search" : game.externalMetadata?.igdb ? "Refresh Metadata" : "Link Metadata"}
+          </button>
+        </div>
+
+        {isMetadataLinkPanelOpen ? <MetadataLinkPanel game={game} onLinked={() => setIsMetadataLinkPanelOpen(false)} /> : null}
+      </section>
 
       {game.externalMetadata?.igdb ? (
         <section className="details-section">
@@ -139,4 +163,8 @@ function DetailItem({ label, value }: DetailItemProps) {
       <span className="detail-item__value">{value}</span>
     </div>
   );
+}
+
+function getMetadataSourceLabel(source: "mock" | "igdb" | undefined): string {
+  return source === "igdb" ? "IGDB" : "Mock IGDB";
 }

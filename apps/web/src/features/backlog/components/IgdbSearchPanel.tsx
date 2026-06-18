@@ -11,11 +11,20 @@ const SEARCH_CANDIDATE_LIMIT = 25;
 
 interface IgdbSearchPanelProps {
   existingGameEntries: GameEntry[];
+  ignoredGameEntryId?: string;
+  initialQuery?: string;
+  selectButtonLabel?: string;
   onSelectGame: (game: IgdbGameSearchResult) => void;
 }
 
-export function IgdbSearchPanel({ existingGameEntries, onSelectGame }: IgdbSearchPanelProps) {
-  const [query, setQuery] = useState("");
+export function IgdbSearchPanel({
+  existingGameEntries,
+  ignoredGameEntryId,
+  initialQuery = "",
+  selectButtonLabel = "Use",
+  onSelectGame,
+}: IgdbSearchPanelProps) {
+  const [query, setQuery] = useState(initialQuery);
   const [status, setStatus] = useState<IgdbSearchStatus>("idle");
   const [results, setResults] = useState<IgdbGameSearchResult[]>([]);
   const [hiddenImportedCount, setHiddenImportedCount] = useState(0);
@@ -38,7 +47,9 @@ export function IgdbSearchPanel({ existingGameEntries, onSelectGame }: IgdbSearc
     try {
       const response = await searchIgdbGames(trimmedQuery, SEARCH_CANDIDATE_LIMIT);
 
-      const filteredResults = filterAlreadyImportedIgdbSearchResults(response.games, existingGameEntries);
+      const filterOptions = ignoredGameEntryId !== undefined ? { ignoredGameEntryId } : undefined;
+
+      const filteredResults = filterAlreadyImportedIgdbSearchResults(response.games, existingGameEntries, filterOptions);
 
       setResults(filteredResults.visibleResults.slice(0, VISIBLE_RESULT_LIMIT));
       setHiddenImportedCount(filteredResults.hiddenResults.length);
@@ -121,7 +132,7 @@ export function IgdbSearchPanel({ existingGameEntries, onSelectGame }: IgdbSearc
               </div>
 
               <button className="button button--primary" type="button" onClick={() => onSelectGame(game)}>
-                Use
+                {selectButtonLabel}
               </button>
             </article>
           ))}

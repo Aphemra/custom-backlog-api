@@ -744,6 +744,27 @@ a {
    Section 13: Details Highlight, Trophy Progress, Rating, Priority
    ========================================================================== */
 
+.metadata-link-section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.metadata-link-header {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.metadata-link-header h3 {
+  margin-bottom: var(--space-1);
+}
+
+.metadata-link-panel {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
 .details-highlight-card {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 1fr);
@@ -1156,5 +1177,13 @@ a {
   .igdb-result-item__cover,
   .igdb-result-item__cover-placeholder {
     width: 4rem;
+  }
+
+  .metadata-link-header {
+    flex-direction: column;
+  }
+
+  .metadata-link-header .button {
+    width: 100%;
   }
 }

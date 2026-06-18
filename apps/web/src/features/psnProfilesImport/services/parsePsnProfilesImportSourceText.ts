@@ -1,3 +1,4 @@
+import type { PlatformId } from "../../../domain/platform";
 import type { PsnProfilesImportedGameProgress, PsnProfilesImportResult, PsnProfilesUserscriptExportPayload } from "../types/psnProfilesImport";
 import { parsePsnProfilesHtmlImport } from "./parsePsnProfilesHtmlImport";
 
@@ -28,7 +29,7 @@ function parsePsnProfilesUserscriptJson(sourceText: string): PsnProfilesImportRe
     throw new Error("This JSON does not look like a Custom Backlog PSNProfiles userscript export.");
   }
 
-  const games = parsedData.games.map(normalizeImportedGame).filter((game): game is PsnProfilesImportedGameProgress => game !== null);
+  const games = parsedData.games.map((game) => normalizeImportedGame(game)).filter((game): game is PsnProfilesImportedGameProgress => game !== null);
 
   return {
     importedAt: parsedData.exportedAt,
@@ -38,29 +39,39 @@ function parsePsnProfilesUserscriptJson(sourceText: string): PsnProfilesImportRe
   };
 }
 
-function normalizeImportedGame(game: PsnProfilesImportedGameProgress): PsnProfilesImportedGameProgress | null {
-  if (!game.sourceTitle.trim()) {
+function normalizeImportedGame(data: unknown): PsnProfilesImportedGameProgress | null {
+  if (!isRecord(data)) {
     return null;
   }
 
-  if (!Number.isInteger(game.earnedTrophies) || !Number.isInteger(game.totalTrophies)) {
+  if (typeof data.sourceTitle !== "string" || !data.sourceTitle.trim()) {
     return null;
   }
 
-  if (game.totalTrophies <= 0 || game.earnedTrophies < 0 || game.earnedTrophies > game.totalTrophies) {
+  if (!Array.isArray(data.platformIds)) {
     return null;
   }
+
+  if (typeof data.earnedTrophies !== "number" || typeof data.totalTrophies !== "number" || typeof data.completionPercent !== "number") {
+    return null;
+  }
+
+  if (data.totalTrophies <= 0 || data.earnedTrophies < 0 || data.earnedTrophies > data.totalTrophies) {
+    return null;
+  }
+
+  const platformIds = data.platformIds.filter(isPlatformId);
 
   return {
-    sourceTitle: game.sourceTitle.trim(),
-    platformIds: game.platformIds,
-    earnedTrophies: game.earnedTrophies,
-    totalTrophies: game.totalTrophies,
-    completionPercent: clampNumber(game.completionPercent, 0, 100),
-    ...(game.sourceTrophyListId !== undefined ? { sourceTrophyListId: game.sourceTrophyListId } : {}),
-    ...(game.sourceUrl !== undefined ? { sourceUrl: game.sourceUrl } : {}),
-    ...(game.platformText !== undefined ? { platformText: game.platformText } : {}),
-    ...(game.rawPlatformText !== undefined ? { rawPlatformText: game.rawPlatformText } : {}),
+    sourceTitle: data.sourceTitle.trim(),
+    platformIds,
+    earnedTrophies: data.earnedTrophies,
+    totalTrophies: data.totalTrophies,
+    completionPercent: clampNumber(data.completionPercent, 0, 100),
+    ...(typeof data.sourceTrophyListId === "string" ? { sourceTrophyListId: data.sourceTrophyListId } : {}),
+    ...(typeof data.sourceUrl === "string" ? { sourceUrl: data.sourceUrl } : {}),
+    ...(typeof data.platformText === "string" ? { platformText: data.platformText } : {}),
+    ...(typeof data.rawPlatformText === "string" ? { rawPlatformText: data.rawPlatformText } : {}),
   };
 }
 
@@ -76,6 +87,20 @@ function isPsnProfilesUserscriptExportPayload(value: unknown): value is PsnProfi
     typeof value.profileUrl === "string" &&
     typeof value.exportedAt === "string" &&
     Array.isArray(value.games)
+  );
+}
+
+function isPlatformId(value: unknown): value is PlatformId {
+  return (
+    value === "ps1" ||
+    value === "ps2" ||
+    value === "ps3" ||
+    value === "ps4" ||
+    value === "ps5" ||
+    value === "psp" ||
+    value === "ps-vita" ||
+    value === "psvr" ||
+    value === "psvr2"
   );
 }
 

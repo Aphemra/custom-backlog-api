@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createBacklogBackup } from "../../importExport/services/createBacklogBackup";
 import { downloadJsonFile } from "../../importExport/services/downloadJsonFile";
 import { readJsonFile } from "../../importExport/services/readJsonFile";
@@ -6,6 +6,10 @@ import { validateBacklogBackup } from "../../importExport/services/validateBackl
 import type { BacklogRatingFilter, BacklogSortMode, BacklogStatusFilter } from "../types/backlogFilters";
 import { useBacklogStore } from "../store/useBacklogStore";
 import { confirmDestructiveAction } from "../services/confirmDestructiveAction";
+import { getLatestPsnProfilesImport } from "../../../services/api/psnProfilesImportApi";
+import { normalizeTrophyProgress } from "../services/trophyProgressHelpers";
+import { matchPsnProfilesImportToBacklog } from "../../psnProfilesImport/services/matchPsnProfilesImportToBacklog";
+import type { PsnProfilesImportResult } from "../../psnProfilesImport/types/psnProfilesImport";
 
 const statusFilterOptions: {
   value: BacklogStatusFilter;
@@ -39,6 +43,9 @@ const sortModeOptions: {
 ];
 
 export function BacklogControls() {
+  const [latestPsnProfilesSavedAt, setLatestPsnProfilesSavedAt] = useState<string | null>(null);
+  const [isPsnProfilesUpdating, setIsPsnProfilesUpdating] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const user = useBacklogStore((state) => state.user);
@@ -62,12 +69,101 @@ export function BacklogControls() {
   const isPsnProfilesImportPanelOpen = useBacklogStore((state) => state.isPsnProfilesImportPanelOpen);
   const togglePsnProfilesImportPanel = useBacklogStore((state) => state.togglePsnProfilesImportPanel);
 
+  const updateGameEntry = useBacklogStore((state) => state.updateGameEntry);
+
   const hasActiveFilters =
     filters.searchText.trim().length > 0 ||
     filters.statusFilter !== "all" ||
     filters.ratingFilter !== "all" ||
     filters.bucketId !== null ||
     filters.sortMode !== "priority";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void getLatestPsnProfilesImport()
+      .then((latestImport) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setLatestPsnProfilesSavedAt(latestImport.hasExport && latestImport.savedAt ? latestImport.savedAt : null);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setLatestPsnProfilesSavedAt(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function handleUpdateClick() {
+    setIsPsnProfilesUpdating(true);
+
+    try {
+      const latestImport = await getLatestPsnProfilesImport();
+
+      if (!latestImport.hasExport || !latestImport.payload) {
+        window.alert("No local PSNProfiles userscript export was found. Open PSNProfiles, click Export Backlog, then try Update again.");
+        return;
+      }
+
+      const importResult: PsnProfilesImportResult = {
+        importedAt: latestImport.payload.exportedAt,
+        sourceLabel: `PSNProfiles userscript export: ${latestImport.payload.psnId}`,
+        games: latestImport.payload.games,
+        warnings: latestImport.payload.warnings ?? [],
+      };
+
+      const matches = matchPsnProfilesImportToBacklog(importResult, gameEntries);
+      const applyableMatches = matches.filter((match) => match.gameEntryId !== undefined && match.score >= 95);
+
+      for (const match of applyableMatches) {
+        const gameEntry = gameEntries.find((entry) => entry.id === match.gameEntryId);
+
+        if (!gameEntry) {
+          continue;
+        }
+
+        updateGameEntry(gameEntry.id, {
+          trophyProgress: normalizeTrophyProgress({
+            ...gameEntry.trophyProgress,
+            earnedTrophies: match.importedGame.earnedTrophies,
+            totalTrophies: match.importedGame.totalTrophies,
+            completionPercent: match.importedGame.completionPercent,
+            ...(match.importedGame.sourceUrl ? { psnProfilesUrl: match.importedGame.sourceUrl } : {}),
+            lastSyncedAt: new Date().toISOString(),
+          }),
+        });
+      }
+
+      setLatestPsnProfilesSavedAt(latestImport.savedAt ?? null);
+
+      window.alert(
+        `Applied ${applyableMatches.length} high-confidence PSNProfiles update(s).\n\n` +
+          `${matches.length - applyableMatches.length} imported row(s) were left for manual review/import.`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not apply the latest PSNProfiles export.";
+
+      window.alert(message);
+    } finally {
+      setIsPsnProfilesUpdating(false);
+    }
+  }
+
+  function getUpdateButtonTitle(): string {
+    if (!latestPsnProfilesSavedAt) {
+      return "No local PSNProfiles userscript export found yet.";
+    }
+
+    return `Latest PSNProfiles export saved ${formatRelativeAge(latestPsnProfilesSavedAt)} ago.`;
+  }
 
   function handleExportClick() {
     const backup = createBacklogBackup({
@@ -206,8 +302,18 @@ export function BacklogControls() {
           Import PSNProfile
         </button>
 
-        <button className="button" type="button" disabled title="PlatPrices and PSNProfiles sync will be added next.">
-          Update
+        <button
+          className="button"
+          type="button"
+          disabled={isPsnProfilesUpdating}
+          title={getUpdateButtonTitle()}
+          onClick={() => void handleUpdateClick()}
+        >
+          {isPsnProfilesUpdating
+            ? "Updating..."
+            : latestPsnProfilesSavedAt
+              ? `Update PSNP (${formatRelativeAge(latestPsnProfilesSavedAt)})`
+              : "Update PSNP"}
         </button>
 
         <button className="button" type="button" onClick={handleResetClick}>
@@ -216,4 +322,33 @@ export function BacklogControls() {
       </div>
     </section>
   );
+}
+
+function formatRelativeAge(value: string): string {
+  const timestamp = Date.parse(value);
+
+  if (!Number.isFinite(timestamp)) {
+    return "unknown";
+  }
+
+  const ageMs = Math.max(0, Date.now() - timestamp);
+  const ageMinutes = Math.floor(ageMs / 60_000);
+
+  if (ageMinutes < 1) {
+    return "just now";
+  }
+
+  if (ageMinutes < 60) {
+    return `${ageMinutes}m`;
+  }
+
+  const ageHours = Math.floor(ageMinutes / 60);
+
+  if (ageHours < 24) {
+    return `${ageHours}h`;
+  }
+
+  const ageDays = Math.floor(ageHours / 24);
+
+  return `${ageDays}d`;
 }

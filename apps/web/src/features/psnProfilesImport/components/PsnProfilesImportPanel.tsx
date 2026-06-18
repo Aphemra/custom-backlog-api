@@ -156,7 +156,7 @@ export function PsnProfilesImportPanel({ onClose }: PsnProfilesImportPanelProps)
             <div className="sync-preview-warning">
               <strong>Warnings</strong>
               <ul>
-                {importResult.warnings.map((warning) => (
+                {importResult.warnings.map((warning: string) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>

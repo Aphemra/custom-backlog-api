@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         Custom Backlog - PSNProfiles Export
 // @namespace    https://github.com/Aphemra/custom-backlog-api
-// @version      0.6.0
+// @version      0.7.0
 // @description  Export PSNProfiles profile trophy progress into compact Custom Backlog JSON.
 // @match        https://psnprofiles.com/*
 // @grant        GM_setClipboard
+// @grant        GM_xmlhttpRequest
+// @connect      localhost
+// @connect      127.0.0.1
 // ==/UserScript==
 
 (function () {
@@ -12,6 +15,8 @@
 
   const EXPORT_SOURCE = "psnprofiles-userscript";
   const EXPORT_VERSION = 1;
+
+  const LOCAL_IMPORT_ENDPOINT = "http://localhost:3001/api/psnprofiles-import/latest";
 
   const SCROLL_DELAY_MS = 900;
   const STABLE_ROUND_LIMIT = 4;
@@ -72,10 +77,9 @@
       const payload = buildExportPayloadFromCurrentDom();
       const jsonText = JSON.stringify(payload, null, 2);
 
-      await copyTextToClipboard(jsonText);
-      downloadJsonFile(`psnprofiles-${payload.psnId}-custom-backlog-export.json`, jsonText);
+      await savePayloadToLocalBacklogApi(payload);
 
-      setButtonState(button, `${payload.games.length} Exported`, false);
+      setButtonState(button, `${payload.games.length} Saved`, false);
 
       window.setTimeout(() => {
         setButtonState(button, originalText, false);
@@ -471,6 +475,50 @@
   function sleep(milliseconds) {
     return new Promise((resolve) => {
       window.setTimeout(resolve, milliseconds);
+    });
+  }
+
+  function savePayloadToLocalBacklogApi(payload) {
+    const jsonText = JSON.stringify(payload);
+
+    if (typeof GM_xmlhttpRequest === "function") {
+      return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+          method: "POST",
+          url: LOCAL_IMPORT_ENDPOINT,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          data: jsonText,
+          timeout: 10_000,
+          onload: (response) => {
+            if (response.status >= 200 && response.status < 300) {
+              resolve();
+              return;
+            }
+
+            reject(new Error(`Local backlog API returned ${response.status}: ${response.responseText}`));
+          },
+          onerror: () => {
+            reject(new Error("Could not reach the local backlog API."));
+          },
+          ontimeout: () => {
+            reject(new Error("Timed out while saving to the local backlog API."));
+          },
+        });
+      });
+    }
+
+    return fetch(LOCAL_IMPORT_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonText,
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error(`Local backlog API returned ${response.status}.`);
+      }
     });
   }
 

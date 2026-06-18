@@ -14,6 +14,7 @@ import type { GameExternalMetadata } from "../../../domain/externalMetadata";
 import { createIgdbMetadataSnapshot } from "../services/createIgdbMetadataSnapshot";
 import { DuplicateWarning } from "./DuplicateWarning";
 import { findPotentialDuplicateGameEntries } from "../services/findPotentialDuplicateGameEntries";
+import { createTrophyProgressFromFormInput } from "../services/createTrophyProgressFromFormInput";
 
 const playStatusOptions: PlayStatus[] = ["backlog", "playing", "beaten", "completed", "shelved", "abandoned"];
 
@@ -138,13 +139,13 @@ export function AddGamePanel() {
       platformIds,
       playStatus,
       trophyStatus,
-      trophyProgress: {
+      trophyProgress: createTrophyProgressFromFormInput({
         completionPercent: parsedCompletionPercent,
         earnedTrophies: parsedEarnedTrophies,
         totalTrophies: parsedTotalTrophies,
         platinumEarned,
-        psnProfilesUrl: psnProfilesUrl.trim() || undefined,
-      },
+        psnProfilesUrl,
+      }),
       bucketIds,
       externalMetadata,
       notes: notes.trim() || undefined,
@@ -160,7 +161,7 @@ export function AddGamePanel() {
       <div className="details-toolbar">
         <div>
           <h3>Add Game</h3>
-          <p>Create a manual backlog entry or prefill one from mock IGDB.</p>
+          <p>Create a manual backlog entry or prefill one from IGDB metadata.</p>
         </div>
 
         <div className="form-actions">

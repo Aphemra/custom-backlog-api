@@ -9,6 +9,7 @@ import type { TrophyProgress, TrophyStatus } from "../../../domain/trophy";
 import type { BacklogBackup } from "../../importExport/types/backup";
 import type { BacklogFilters, BacklogRatingFilter, BacklogSortMode, BacklogStatusFilter } from "../types/backlogFilters";
 import type { GameExternalMetadata } from "../../../domain/externalMetadata";
+import { normalizeTrophyProgress } from "../services/trophyProgressHelpers";
 
 export type GameEntryUpdate = Partial<
   Pick<
@@ -277,13 +278,13 @@ export const useBacklogStore = create<BacklogState>()(
 
           playStatus: input.playStatus,
           trophyStatus: input.trophyStatus,
-          trophyProgress: input.trophyProgress,
+          trophyProgress: normalizeTrophyProgress(input.trophyProgress),
 
           priorityOrder: nextPriorityOrder,
           bucketIds: input.bucketIds,
 
-          notes: input.notes,
-          rating: input.rating,
+          ...(input.notes !== undefined ? { notes: input.notes } : {}),
+          ...(input.rating !== undefined ? { rating: input.rating } : {}),
 
           createdAt: now,
           updatedAt: now,
@@ -313,13 +314,18 @@ export const useBacklogStore = create<BacklogState>()(
 
             const { trophyProgress, ...gameEntryUpdates } = updates;
 
+            const nextTrophyProgress =
+              trophyProgress !== undefined
+                ? normalizeTrophyProgress({
+                    ...gameEntry.trophyProgress,
+                    ...trophyProgress,
+                  })
+                : normalizeTrophyProgress(gameEntry.trophyProgress);
+
             return {
               ...gameEntry,
               ...gameEntryUpdates,
-              trophyProgress: {
-                ...gameEntry.trophyProgress,
-                ...(trophyProgress ?? {}),
-              },
+              trophyProgress: nextTrophyProgress,
               updatedAt: now,
             };
           });
@@ -372,7 +378,10 @@ export const useBacklogStore = create<BacklogState>()(
         set({
           user: backup.user,
           backlog: backup.backlog,
-          gameEntries: backup.gameEntries,
+          gameEntries: backup.gameEntries.map((gameEntry) => ({
+            ...gameEntry,
+            trophyProgress: normalizeTrophyProgress(gameEntry.trophyProgress),
+          })),
           buckets: backup.buckets,
           selectedGameEntryId: null,
           isAddGamePanelOpen: false,
@@ -383,7 +392,13 @@ export const useBacklogStore = create<BacklogState>()(
 
       resetBacklogData: () => {
         set({
-          ...initialBacklogData,
+          user: initialBacklogData.user,
+          backlog: initialBacklogData.backlog,
+          gameEntries: initialBacklogData.gameEntries.map((gameEntry) => ({
+            ...gameEntry,
+            trophyProgress: normalizeTrophyProgress(gameEntry.trophyProgress),
+          })),
+          buckets: initialBacklogData.buckets,
           selectedGameEntryId: null,
           isAddGamePanelOpen: false,
           isBucketPanelOpen: false,

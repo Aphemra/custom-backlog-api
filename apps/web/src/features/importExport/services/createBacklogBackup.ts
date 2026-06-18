@@ -1,5 +1,6 @@
 import type { Backlog, Bucket, GameEntry, User } from "../../../domain/backlog";
 import { BACKLOG_BACKUP_SCHEMA_VERSION, type BacklogBackup } from "../types/backup";
+import { normalizeTrophyProgress } from "../../backlog/services/trophyProgressHelpers";
 
 interface CreateBacklogBackupInput {
   user: User;
@@ -14,7 +15,10 @@ export function createBacklogBackup({ user, backlog, gameEntries, buckets }: Cre
     exportedAt: new Date().toISOString(),
     user,
     backlog,
-    gameEntries,
+    gameEntries: gameEntries.map((gameEntry) => ({
+      ...gameEntry,
+      trophyProgress: normalizeTrophyProgress(gameEntry.trophyProgress),
+    })),
     buckets,
   };
 }

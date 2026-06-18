@@ -1,5 +1,6 @@
 import type { GameEntry } from "../../../domain/backlog";
 import type { BacklogFilters } from "../types/backlogFilters";
+import { isTrophyProgressNumericallyComplete } from "./trophyProgressHelpers";
 
 export function filterBacklogEntries(gameEntries: GameEntry[], filters: BacklogFilters): GameEntry[] {
   const normalizedSearchText = filters.searchText.trim().toLowerCase();
@@ -63,7 +64,9 @@ function isGameCompleted(gameEntry: GameEntry): boolean {
 
 function isGameHundredPercentComplete(gameEntry: GameEntry): boolean {
   return (
-    gameEntry.trophyProgress.completionPercent === 100 || gameEntry.trophyStatus === "platinumed" || gameEntry.trophyStatus === "hundred_percent"
+    isTrophyProgressNumericallyComplete(gameEntry.trophyProgress) ||
+    gameEntry.trophyStatus === "platinumed" ||
+    gameEntry.trophyStatus === "hundred_percent"
   );
 }
 

@@ -4,6 +4,7 @@ import type { GameEntryUpdate } from "../store/useBacklogStore";
 import { useBacklogStore } from "../store/useBacklogStore";
 import { BacklogEntryEditForm } from "./BacklogEntryEditForm";
 import { BacklogEntryReadOnly } from "./BacklogEntryReadOnly";
+import { confirmDestructiveAction } from "../services/confirmDestructiveAction";
 
 interface BacklogEntryDetailsProps {
   game: GameEntry;
@@ -23,11 +24,17 @@ export function BacklogEntryDetails({ game, buckets }: BacklogEntryDetailsProps)
   }
 
   function handleDelete() {
-    const shouldDelete = window.confirm(`Delete "${game.title}" from your backlog? This cannot be undone yet.`);
+    const confirmed = confirmDestructiveAction({
+      title: `Delete ${game.title}?`,
+      detail: "This removes the game from your local backlog.",
+      confirmationText: "DELETE",
+    });
 
-    if (shouldDelete) {
-      deleteGameEntry(game.id);
+    if (!confirmed) {
+      return;
     }
+
+    deleteGameEntry(game.id);
   }
 
   if (isEditing) {

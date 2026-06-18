@@ -104,11 +104,7 @@ export function BacklogControls() {
       const jsonData = await readJsonFile(selectedFile);
       const backup = validateBacklogBackup(jsonData);
 
-      const shouldImport = window.confirm(`Import backup from ${backup.exportedAt}? This will replace your current local backlog data.`);
-
-      if (shouldImport) {
-        replaceBacklogData(backup);
-      }
+      replaceBacklogData(backup);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong while importing the backup.";
 
@@ -203,7 +199,7 @@ export function BacklogControls() {
           Import
         </button>
 
-        <button className="button" type="button">
+        <button className="button" type="button" disabled title="PlatPrices and PSNProfiles sync will be added next.">
           Update
         </button>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { playstationPlatforms } from "../../../data/mock/playstationPlatforms";
 import { parseOptionalNumber } from "../services/parseOptionalNumber";
 import type { GameEntryUpdate } from "../store/useBacklogStore";
@@ -7,6 +7,7 @@ import type { PlatformId } from "../../../domain/platform";
 import type { TrophyStatus } from "../../../domain/trophy";
 import { formatPlayStatus, formatTrophyStatus } from "../../../domain/display";
 import { BucketCheckboxList } from "./BucketCheckboxList";
+import { createTrophyProgressFromFormInput } from "../services/createTrophyProgressFromFormInput";
 
 const playStatusOptions: PlayStatus[] = ["backlog", "playing", "beaten", "completed", "shelved", "abandoned"];
 
@@ -57,7 +58,7 @@ export function BacklogEntryEditForm({ game, buckets, onCancel, onSave }: Backlo
     );
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmedTitle = title.trim();
@@ -100,13 +101,13 @@ export function BacklogEntryEditForm({ game, buckets, onCancel, onSave }: Backlo
       playStatus,
       trophyStatus,
       bucketIds,
-      trophyProgress: {
+      trophyProgress: createTrophyProgressFromFormInput({
         completionPercent: parsedCompletionPercent,
         earnedTrophies: parsedEarnedTrophies,
         totalTrophies: parsedTotalTrophies,
         platinumEarned,
-        psnProfilesUrl: psnProfilesUrl.trim() || undefined,
-      },
+        psnProfilesUrl,
+      }),
       rating: parsedRating,
       notes: notes.trim() || undefined,
     });

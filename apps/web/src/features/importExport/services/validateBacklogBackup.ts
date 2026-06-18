@@ -1,4 +1,5 @@
 import { BACKLOG_BACKUP_SCHEMA_VERSION, type BacklogBackup } from "../types/backup";
+import { normalizeTrophyProgress } from "../../backlog/services/trophyProgressHelpers";
 
 export function validateBacklogBackup(data: unknown): BacklogBackup {
   if (!isRecord(data)) {
@@ -37,7 +38,15 @@ export function validateBacklogBackup(data: unknown): BacklogBackup {
     throw new Error("Backup backlog is missing an id.");
   }
 
-  return data as unknown as BacklogBackup;
+  const backup = data as unknown as BacklogBackup;
+
+  return {
+    ...backup,
+    gameEntries: backup.gameEntries.map((gameEntry) => ({
+      ...gameEntry,
+      trophyProgress: normalizeTrophyProgress(gameEntry.trophyProgress ?? {}),
+    })),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

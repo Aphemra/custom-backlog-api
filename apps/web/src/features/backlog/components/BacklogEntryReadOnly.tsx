@@ -6,6 +6,7 @@ import { RatingDisplay } from "./RatingDisplay";
 import { TrophyProgressBar } from "./TrophyProgressBar";
 import { useState } from "react";
 import { MetadataLinkPanel } from "./MetadataLinkPanel";
+import { TrophySyncPreviewPanel } from "./TrophySyncPreviewPanel";
 
 interface BacklogEntryReadOnlyProps {
   game: GameEntry;
@@ -87,6 +88,8 @@ export function BacklogEntryReadOnly({ game, buckets, onEdit, onDelete, onMoveUp
 
         {isMetadataLinkPanelOpen ? <MetadataLinkPanel game={game} onLinked={() => setIsMetadataLinkPanelOpen(false)} /> : null}
       </section>
+
+      <TrophySyncPreviewPanel game={game} />
 
       {game.externalMetadata?.igdb ? (
         <section className="details-section">

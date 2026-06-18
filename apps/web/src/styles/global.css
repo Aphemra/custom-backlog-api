@@ -885,6 +885,80 @@ a {
   object-fit: cover;
 }
 
+.trophy-sync-preview-panel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.trophy-sync-preview-form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.trophy-sync-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.sync-preview-card {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: rgba(13, 16, 23, 0.62);
+}
+
+.sync-preview-card h4 {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.sync-preview-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sync-preview-list li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  padding-bottom: var(--space-2);
+}
+
+.sync-preview-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.sync-preview-list span {
+  color: var(--color-text-muted);
+}
+
+.sync-preview-list strong {
+  color: var(--color-text);
+  text-align: right;
+}
+
+.sync-preview-warning {
+  border: 1px solid rgba(251, 191, 36, 0.36);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
+}
+
+.sync-preview-warning ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+}
+
 /* ==========================================================================
    Section 14: Bucket Panel
    ========================================================================== */
@@ -1215,5 +1289,18 @@ a {
 
   .metadata-link-header .button {
     width: 100%;
+  }
+
+  .trophy-sync-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sync-preview-list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sync-preview-list strong {
+    text-align: left;
   }
 }

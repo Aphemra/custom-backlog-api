@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getPsnProfilesIntegrationStatus } from "../features/psnprofiles/psnProfilesConfig.js";
 import { getPsnProfilesProfileSummary } from "../features/psnprofiles/getPsnProfilesProfileSummary.js";
+import { PsnProfilesHttpError } from "../features/psnprofiles/psnProfilesHttpClient.js";
 
 export const psnProfilesRoutes = Router();
 
@@ -27,6 +28,15 @@ psnProfilesRoutes.get("/profile/:psnId", async (request, response) => {
       profile: profileSummary,
     });
   } catch (error) {
+    if (error instanceof PsnProfilesHttpError && error.status === 403) {
+      response.status(403).json({
+        ok: false,
+        error: "psnprofiles_blocked",
+        message: "PSNProfiles rejected the server-side request. Use manual PSNProfiles URL linking or a user-provided HTML import workflow instead.",
+      });
+      return;
+    }
+
     const message = error instanceof Error ? error.message : "Unknown PSNProfiles profile lookup failure.";
 
     response.status(502).json({

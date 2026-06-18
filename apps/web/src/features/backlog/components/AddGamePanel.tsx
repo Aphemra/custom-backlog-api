@@ -174,7 +174,7 @@ export function AddGamePanel() {
         </div>
       </div>
 
-      <IgdbSearchPanel onSelectGame={handleSelectIgdbGame} />
+      <IgdbSearchPanel existingGameEntries={gameEntries} onSelectGame={handleSelectIgdbGame} />
 
       {externalMetadata?.igdb ? (
         <p className="helper-text">

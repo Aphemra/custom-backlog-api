@@ -1,17 +1,24 @@
 import { useState } from "react";
+import type { GameEntry } from "../../../domain/backlog";
 import { searchIgdbGames, type IgdbGameSearchResult } from "../../../services/api/igdbApi";
+import { filterAlreadyImportedIgdbSearchResults } from "../services/filterAlreadyImportedIgdbSearchResults";
 import { IgdbIntegrationStatusBadge } from "./IgdbIntegrationStatusBadge";
 
 type IgdbSearchStatus = "idle" | "loading" | "success" | "error";
 
+const VISIBLE_RESULT_LIMIT = 10;
+const SEARCH_CANDIDATE_LIMIT = 25;
+
 interface IgdbSearchPanelProps {
+  existingGameEntries: GameEntry[];
   onSelectGame: (game: IgdbGameSearchResult) => void;
 }
 
-export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
+export function IgdbSearchPanel({ existingGameEntries, onSelectGame }: IgdbSearchPanelProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<IgdbSearchStatus>("idle");
   const [results, setResults] = useState<IgdbGameSearchResult[]>([]);
+  const [hiddenImportedCount, setHiddenImportedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleSearch() {
@@ -21,6 +28,7 @@ export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
       setStatus("error");
       setErrorMessage("Enter a game title to search.");
       setResults([]);
+      setHiddenImportedCount(0);
       return;
     }
 
@@ -28,23 +36,27 @@ export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
     setErrorMessage(null);
 
     try {
-      const response = await searchIgdbGames(trimmedQuery);
+      const response = await searchIgdbGames(trimmedQuery, SEARCH_CANDIDATE_LIMIT);
 
-      setResults(response.games);
+      const filteredResults = filterAlreadyImportedIgdbSearchResults(response.games, existingGameEntries);
+
+      setResults(filteredResults.visibleResults.slice(0, VISIBLE_RESULT_LIMIT));
+      setHiddenImportedCount(filteredResults.hiddenResults.length);
       setStatus("success");
     } catch {
       setResults([]);
+      setHiddenImportedCount(0);
       setStatus("error");
-      setErrorMessage("Could not reach the mock IGDB endpoint. Make sure the API server is running.");
+      setErrorMessage("Could not reach the IGDB metadata endpoint. Make sure the API server is running.");
     }
   }
 
   return (
-    <section className="igdb-search-panel" aria-label="Mock IGDB search">
+    <section className="igdb-search-panel" aria-label="IGDB metadata search">
       <div className="igdb-search-panel__header">
         <div>
-          <h3>Search IGDB Source</h3>
-          <p>Search the backend metadata endpoint and use a result to prefill this game.</p>
+          <h3>Search PlayStation Metadata</h3>
+          <p>Search the backend metadata endpoint for PlayStation-compatible results.</p>
         </div>
 
         <IgdbIntegrationStatusBadge />
@@ -79,7 +91,16 @@ export function IgdbSearchPanel({ onSelectGame }: IgdbSearchPanelProps) {
 
       {errorMessage ? <p className="form-error">{errorMessage}</p> : null}
 
-      {status === "success" && results.length === 0 ? <p className="helper-text">No mock IGDB results found.</p> : null}
+      {status === "success" && results.length === 0 ? (
+        <p className="helper-text">
+          No new metadata results found.
+          {hiddenImportedCount > 0 ? ` ${hiddenImportedCount} already-imported result(s) were hidden.` : ""}
+        </p>
+      ) : null}
+
+      {status === "success" && results.length > 0 && hiddenImportedCount > 0 ? (
+        <p className="helper-text">Hidden {hiddenImportedCount} already-imported result(s) from this search.</p>
+      ) : null}
 
       {results.length > 0 ? (
         <div className="igdb-result-list">

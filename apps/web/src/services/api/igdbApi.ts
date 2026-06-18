@@ -29,9 +29,10 @@ export interface IgdbIntegrationStatus {
   message: string;
 }
 
-export function searchIgdbGames(query: string): Promise<SearchIgdbGamesResponse> {
+export function searchIgdbGames(query: string, limit = 10): Promise<SearchIgdbGamesResponse> {
   const searchParams = new URLSearchParams({
     query,
+    limit: limit.toString(),
   });
 
   return apiGet<SearchIgdbGamesResponse>(`/api/igdb/search?${searchParams.toString()}`);

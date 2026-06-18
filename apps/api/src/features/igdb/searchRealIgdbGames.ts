@@ -139,8 +139,8 @@ function clampLimit(limit: number): number {
     return 1;
   }
 
-  if (limit > 25) {
-    return 25;
+  if (limit > 50) {
+    return 50;
   }
 
   return limit;

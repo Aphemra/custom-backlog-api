@@ -29,7 +29,12 @@ const trophyStatusOptions: TrophyStatus[] = [
   "not_applicable",
 ];
 
-export function AddGamePanel() {
+interface AddGamePanelProps {
+  onCancel?: () => void;
+  onSaved?: () => void;
+}
+
+export function AddGamePanel({ onCancel, onSaved }: AddGamePanelProps) {
   const addGameEntry = useBacklogStore((state) => state.addGameEntry);
   const closeAddGamePanel = useBacklogStore((state) => state.closeAddGamePanel);
   const buckets = useBacklogStore((state) => state.buckets);
@@ -59,6 +64,11 @@ export function AddGamePanel() {
       }),
     [externalMetadata, gameEntries, platformIds, title],
   );
+
+  function handleCancel() {
+    closeAddGamePanel();
+    onCancel?.();
+  }
 
   function togglePlatform(platformId: PlatformId) {
     setPlatformIds((currentPlatformIds) =>
@@ -150,6 +160,8 @@ export function AddGamePanel() {
       externalMetadata,
       notes: notes.trim() || undefined,
     });
+
+    onSaved?.();
   }
 
   function getIgdbSourceLabel(source: "mock" | "igdb" | undefined): string {
@@ -165,7 +177,7 @@ export function AddGamePanel() {
         </div>
 
         <div className="form-actions">
-          <button className="button" type="button" onClick={closeAddGamePanel}>
+          <button className="button" type="button" onClick={handleCancel}>
             Cancel
           </button>
 

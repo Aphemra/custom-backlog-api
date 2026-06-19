@@ -2,7 +2,11 @@ import { useState, type FormEvent } from "react";
 import { countGamesInBucket } from "../services/countGamesInBucket";
 import { useBacklogStore } from "../store/useBacklogStore";
 
-export function BucketPanel() {
+interface BucketPanelProps {
+  onClose?: () => void;
+}
+
+export function BucketPanel({ onClose }: BucketPanelProps) {
   const buckets = useBacklogStore((state) => state.buckets);
   const gameEntries = useBacklogStore((state) => state.gameEntries);
   const filters = useBacklogStore((state) => state.filters);
@@ -17,6 +21,11 @@ export function BucketPanel() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const sortedBuckets = [...buckets].sort((firstBucket, secondBucket) => firstBucket.order - secondBucket.order);
+
+  function handleClose() {
+    closeBucketPanel();
+    onClose?.();
+  }
 
   function handleCreateBucket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,7 +86,7 @@ export function BucketPanel() {
           <p>Create custom groups like series, cleanup lists, or priority sets.</p>
         </div>
 
-        <button className="button" type="button" onClick={closeBucketPanel}>
+        <button className="button" type="button" onClick={handleClose}>
           Close
         </button>
       </div>

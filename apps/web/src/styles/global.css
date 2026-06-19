@@ -438,6 +438,92 @@ a {
   white-space: nowrap;
 }
 
+.workspace-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.workspace-nav__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.workspace-nav__tab {
+  min-height: 2.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  background: rgba(13, 16, 23, 0.72);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.workspace-nav__tab:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  transform: translateY(-1px);
+}
+
+.workspace-nav__tab--active {
+  border-color: rgba(139, 92, 246, 0.75);
+  background: rgba(139, 92, 246, 0.2);
+  color: white;
+}
+
+.workspace-nav__add {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.workspace-nav__add--active {
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.4);
+}
+
+.workspace-slider {
+  overflow: hidden;
+}
+
+.workspace-slider__track {
+  display: flex;
+  align-items: flex-start;
+  transition: transform 280ms ease;
+  will-change: transform;
+}
+
+.workspace-slider__panel {
+  flex: 0 0 100%;
+  min-width: 0;
+  padding-right: 1px;
+}
+
+.workspace-view-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.import-export-view__actions,
+.info-settings-view__actions {
+  margin-top: var(--space-3);
+}
+
+.info-settings-view__status-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
 /* ==========================================================================
    Section 09: Backlog List and Rows
    ========================================================================== */
@@ -1454,5 +1540,25 @@ a {
 
   .psnp-import-manual-review .button {
     width: 100%;
+  }
+
+  .workspace-nav {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-nav__tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .workspace-nav__tab,
+  .workspace-nav__add {
+    width: 100%;
+  }
+
+  .workspace-nav__add {
+    margin-left: 0;
   }
 }

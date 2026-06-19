@@ -194,6 +194,13 @@ export function PsnProfilesImportPanel({ initialImportResult, onClose }: PsnProf
         <button className="button button--primary" type="button" onClick={handleParse}>
           Parse Import
         </button>
+
+        {initialImportResult ? (
+          <p className="helper-text">
+            Loaded the latest local PSNProfiles userscript export. Review rows can be manually mapped below; saved PSNProfiles URLs should become
+            exact matches on future updates.
+          </p>
+        ) : null}
       </div>
 
       <label className="field field--wide">

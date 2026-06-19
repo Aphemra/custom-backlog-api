@@ -3,13 +3,14 @@ import { formatCompletionPercent, getSafeCompletionPercent } from "../services/f
 
 interface TrophyProgressBarProps {
   trophyProgress: TrophyProgress;
+  className?: string;
 }
 
-export function TrophyProgressBar({ trophyProgress }: TrophyProgressBarProps) {
+export function TrophyProgressBar({ trophyProgress, className }: TrophyProgressBarProps) {
   const safeCompletionPercent = getSafeCompletionPercent(trophyProgress);
 
   return (
-    <div className="trophy-progress" aria-label={`Trophy completion: ${formatCompletionPercent(trophyProgress)}`}>
+    <div className={`trophy-progress ${className ?? ""}`} aria-label={`Trophy completion: ${formatCompletionPercent(trophyProgress)}`}>
       <div className="trophy-progress__track">
         <div className="trophy-progress__fill" style={{ width: `${safeCompletionPercent}%` }} />
       </div>

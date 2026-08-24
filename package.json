@@ -18,7 +18,7 @@
     "start:api": "npm run start --workspace apps/api"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24.15"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"

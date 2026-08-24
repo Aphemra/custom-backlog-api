@@ -14,8 +14,7 @@ coverage/
 *.sqlite
 *.sqlite-*
 *.sqlite3
-runtime/
-backups/
+/apps/api/runtime/
 
 # Logs and tooling
 *.log

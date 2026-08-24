@@ -1,17 +1,25 @@
+import type { DatabaseSync } from "node:sqlite";
 import express, {
   type NextFunction,
   type Request,
   type Response,
 } from "express";
-import { healthRoutes } from "./routes/healthRoutes.js";
+import { runtimeConfig } from "./config/runtimeConfig.js";
+import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
+import { createHealthRoutes } from "./routes/healthRoutes.js";
 
-export function createApp() {
+export function createApp(database: DatabaseSync) {
   const app = express();
 
   app.disable("x-powered-by");
   app.use(express.json({ limit: "1mb" }));
 
-  app.use("/api/health", healthRoutes);
+  app.use("/api/health", createHealthRoutes(database));
+
+  app.use(
+    "/api/database",
+    createDatabaseRoutes(database, runtimeConfig.backupDirectory),
+  );
 
   app.use("/api", (_request, response) => {
     response.status(404).json({
@@ -34,6 +42,8 @@ export function createApp() {
         });
         return;
       }
+
+      console.error(error);
 
       response.status(500).json({
         ok: false,

@@ -1,22 +1,25 @@
 {
-  "name": "custom-backlog-app",
+  "name": "trophy-backlog",
+  "version": "2.0.0",
   "private": true,
+  "description": "A local-first personal PlayStation trophy backlog.",
   "workspaces": [
-    "apps/web",
-    "apps/api"
+    "apps/api",
+    "apps/web"
   ],
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
+    "dev": "concurrently --kill-others-on-fail --names api,web \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/web",
-    "dev:api": "npm run dev --workspace apps/api"
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "typecheck": "npm run typecheck --workspace apps/api && npm run typecheck --workspace apps/web",
+    "lint": "npm run lint --workspace apps/web",
+    "test": "npm run test --workspaces --if-present",
+    "start:api": "npm run start --workspace apps/api"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "concurrently": "^10.0.3"
   }

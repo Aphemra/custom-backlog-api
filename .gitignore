@@ -1,11 +1,27 @@
-node_modules
-dist
-build
-.env
-.env.local
-.DS_Store
-.vscode
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
 
-# Local PSNProfiles userscript exports
-apps/api/data/*.json
-!apps/api/data/.gitkeep
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Local databases, journals, and backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+runtime/
+backups/
+
+# Logs and tooling
+*.log
+.vscode/
+.idea/
+
+# Operating-system files
+.DS_Store
+Thumbs.db

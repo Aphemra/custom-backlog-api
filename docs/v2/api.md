@@ -216,3 +216,124 @@ Returns `204 No Content` when successful.
 Permanent deletion cascades through associated local records and cannot be
 undone without restoring a backup. The user interface must require explicit
 confirmation before calling this endpoint.
+
+## Collection representations
+
+A collection summary includes its manually controlled order and game counts:
+
+```json
+{
+  "id": "generated-uuid",
+  "name": "Resident Evil",
+  "description": "Mainline games and remakes",
+  "sortOrder": 1000,
+  "gameCount": 3,
+  "activeGameCount": 2,
+  "archivedGameCount": 1,
+  "createdAt": "2026-08-25T12:00:00.000Z",
+  "updatedAt": "2026-08-25T12:00:00.000Z"
+}
+```
+
+A collection detail has the same fields plus an ordered `games` array. Each
+entry contains the normal library-game fields plus `collectionSortOrder` and
+`addedAt`.
+
+## Collection endpoints
+
+### List collections
+
+```http
+GET /api/collections
+```
+
+Returns `{ "collections": [] }` in manual collection order. Each entry is a
+collection summary and does not include its full game list.
+
+### Get one collection
+
+```http
+GET /api/collections/:collectionId
+```
+
+Returns `{ "collection": ... }` with its games in manual collection order.
+Archived library games remain visible in a collection and have a non-null
+`archivedAt` value.
+
+### Create a collection
+
+```http
+POST /api/collections
+Content-Type: application/json
+
+{
+  "name": "Resident Evil",
+  "description": "Optional description"
+}
+```
+
+Only `name` is required. The new collection is placed at the bottom of the
+collection list. The endpoint returns `201 Created`.
+
+### Edit a collection
+
+```http
+PATCH /api/collections/:collectionId
+Content-Type: application/json
+
+{
+  "name": "Resident Evil Series",
+  "description": null
+}
+```
+
+At least one field is required. Set `description` to `null` or an empty string
+to clear it.
+
+### Reorder collections
+
+```http
+PUT /api/collections/order
+Content-Type: application/json
+
+{
+  "orderedCollectionIds": [
+    "collection-id-2",
+    "collection-id-1"
+  ]
+}
+```
+
+The array must contain every collection exactly once. The update is atomic and
+returns the newly ordered summaries.
+
+### Replace a collection's ordered games
+
+```http
+PUT /api/collections/:collectionId/games
+Content-Type: application/json
+
+{
+  "orderedGameIds": [
+    "game-id-3",
+    "game-id-1"
+  ]
+}
+```
+
+This endpoint replaces the collection's complete membership and order in one
+atomic operation. Every ID must identify an existing library game. Both active
+and archived games are accepted. Send an empty array to empty the collection.
+
+The endpoint is intentionally idempotent: sending the same complete list again
+produces the same membership and order.
+
+### Permanently delete a collection
+
+```http
+DELETE /api/collections/:collectionId
+```
+
+Returns `204 No Content`. This deletes the collection and its membership rows,
+but never deletes library games. The future interface must require explicit
+confirmation.

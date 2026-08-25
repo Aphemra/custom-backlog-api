@@ -6,6 +6,7 @@ import express, {
 } from "express";
 import { runtimeConfig } from "./config/runtimeConfig.js";
 import { HttpError } from "./errors/httpError.js";
+import { createCollectionRoutes } from "./routes/collectionRoutes.js";
 import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
 import { createHealthRoutes } from "./routes/healthRoutes.js";
 import { createLibraryRoutes } from "./routes/libraryRoutes.js";
@@ -28,6 +29,8 @@ export function createApp(database: DatabaseSync) {
   );
 
   app.use("/api/library", createLibraryRoutes(database));
+
+  app.use("/api/collections", createCollectionRoutes(database));
 
   app.use("/api", (_request, response) => {
     response.status(404).json({

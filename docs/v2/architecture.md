@@ -74,8 +74,10 @@ apps/api/src/
     httpError.ts
   features/
     backups/
+    collections/
     library/
   routes/
+    collectionRoutes.ts
     databaseRoutes.ts
     healthRoutes.ts
     libraryRoutes.ts
@@ -193,6 +195,26 @@ bottom of the active library.
 
 This full-list rule prevents a filtered or stale interface from accidentally
 removing unseen games from the order.
+
+## Collections
+
+Collections are manually curated, ordered groups of existing library games.
+They replace the overly complicated v1 bucket model. A collection owns only its
+name, optional description, position, and membership order; it does not copy or
+own game records.
+
+A game may appear in any number of collections. Archived games remain members
+so archiving never destroys personal organization. Permanently deleting a game
+removes its collection memberships through the database foreign key, while
+deleting a collection never deletes games.
+
+Collection summaries expose total, active, and archived game counts. Trophy
+aggregates will be added only after trophy snapshots become real application
+data, rather than exposing placeholder totals.
+
+Both collection ordering and membership replacement use complete ordered ID
+lists and transactions. Stale or invalid lists are rejected before any rows are
+changed. This makes the operations repeatable and prevents partial updates.
 
 ## Backups and portable exports
 

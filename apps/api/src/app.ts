@@ -5,14 +5,20 @@ import express, {
   type Response,
 } from "express";
 import { runtimeConfig } from "./config/runtimeConfig.js";
+import { HttpError } from "./errors/httpError.js";
 import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
 import { createHealthRoutes } from "./routes/healthRoutes.js";
+import { createLibraryRoutes } from "./routes/libraryRoutes.js";
 
 export function createApp(database: DatabaseSync) {
   const app = express();
 
   app.disable("x-powered-by");
-  app.use(express.json({ limit: "1mb" }));
+  app.use(
+    express.json({
+      limit: "1mb",
+    }),
+  );
 
   app.use("/api/health", createHealthRoutes(database));
 
@@ -20,6 +26,8 @@ export function createApp(database: DatabaseSync) {
     "/api/database",
     createDatabaseRoutes(database, runtimeConfig.backupDirectory),
   );
+
+  app.use("/api/library", createLibraryRoutes(database));
 
   app.use("/api", (_request, response) => {
     response.status(404).json({
@@ -40,6 +48,16 @@ export function createApp(database: DatabaseSync) {
           ok: false,
           error: "invalid_json",
         });
+        return;
+      }
+
+      if (error instanceof HttpError) {
+        response.status(error.statusCode).json({
+          ok: false,
+          error: error.code,
+          message: error.message,
+        });
+
         return;
       }
 

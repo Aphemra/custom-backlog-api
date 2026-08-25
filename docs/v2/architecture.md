@@ -92,8 +92,16 @@ apps/web/src/
   app/
     App.tsx
   domain/
+    collection.ts
     libraryGame.ts
   features/
+    collections/
+      components/
+        CollectionCard.tsx
+        CollectionForm.tsx
+        CollectionGameEditor.tsx
+      pages/
+        CollectionsPage.tsx
     library/
       components/
         LibraryGameForm.tsx
@@ -103,6 +111,7 @@ apps/web/src/
   services/
     api/
       apiClient.ts
+      collectionApi.ts
       libraryApi.ts
   styles/
     global.css
@@ -215,6 +224,26 @@ data, rather than exposing placeholder totals.
 Both collection ordering and membership replacement use complete ordered ID
 lists and transactions. Stale or invalid lists are rejected before any rows are
 changed. This makes the operations repeatable and prevents partial updates.
+
+## Collections interface behavior
+
+The primary Collections screen remains compact: each ordered card shows its
+name, description, total games, active games, archived games, and concise
+actions. Trophy totals stay labeled as unavailable until real synchronized
+trophy data exists.
+
+Creating and editing a collection uses a small inline form. Deletion requires
+confirmation and explicitly explains that library games are not deleted.
+
+Managing membership opens one focused editor above the collection list. The
+editor shows the selected games in their Collection-specific order and the full
+library as a searchable checklist. Archived games are visible and selectable.
+Changes remain local to the editor until the complete ordered list is saved.
+
+The application currently uses lightweight in-memory navigation between the
+Library and Collections pages. A routing dependency is unnecessary while the
+personal app has only a small number of top-level screens and does not require
+shareable URLs or browser-history navigation.
 
 ## Backups and portable exports
 

@@ -22,10 +22,12 @@ V2 currently includes:
 - Strict request validation and automated API/database tests
 - A functional React library interface with search, summary counts, manual game
   entry, editing, archiving, restoration, deletion confirmation, and ordering
+- Collection creation, editing, deletion, ordering, ordered game membership,
+  aggregate counts, and a focused game-selection interface
 - Responsive layouts for portrait desktop monitors and narrow screens
 
-Collections, saved views, metadata search, trophy synchronization, alerts, and
-portable import/export are still to be built.
+Saved views, metadata search, trophy synchronization, alerts, and portable
+import/export are still to be built.
 
 ## Requirements
 
@@ -64,6 +66,7 @@ npm run build
 - API health check: `http://127.0.0.1:3001/api/health`
 - Database status: `http://127.0.0.1:3001/api/database/status`
 - Library API: `http://127.0.0.1:3001/api/library/games`
+- Collections API: `http://127.0.0.1:3001/api/collections`
 
 Both development servers are intentionally restricted to the local computer.
 

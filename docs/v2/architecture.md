@@ -83,7 +83,33 @@ apps/api/src/
   index.ts
 ```
 
-Tests live beside the code they exercise.
+## Current web structure
+
+```text
+apps/web/src/
+  app/
+    App.tsx
+  domain/
+    libraryGame.ts
+  features/
+    library/
+      components/
+        LibraryGameForm.tsx
+        LibraryGameRow.tsx
+      pages/
+        LibraryPage.tsx
+  services/
+    api/
+      apiClient.ts
+      libraryApi.ts
+  styles/
+    global.css
+  main.tsx
+```
+
+Tests live beside the API code they exercise. The frontend is verified through
+strict TypeScript compilation, ESLint, production builds, and local browser
+testing.
 
 ## Planned API feature structure
 
@@ -142,6 +168,21 @@ apps/web/src/
 - Archiving is the normal non-destructive removal operation.
 - Permanent deletion requires explicit user confirmation in the interface.
 
+## Library interface behavior
+
+The frontend loads active and archived games from the local API. Archived games
+are hidden by default but remain available through a view toggle.
+
+Search filters titles and personal notes locally. Ordering controls are disabled
+while search is active because a filtered list is not a complete representation
+of the canonical order.
+
+API errors are converted into readable interface messages. A stopped API is
+reported as a local connection problem rather than a generic browser failure.
+
+Permanent deletion uses an explicit confirmation dialog. Archiving remains the
+normal removal action.
+
 ## Library ordering
 
 Active games have integer priority ranks. Reordering supplies every active game
@@ -166,8 +207,9 @@ requiring direct SQLite access.
 
 The primary layout target is a portrait-oriented desktop display.
 
-Rows and cards should expose only the information needed for decisions:
-artwork, title, platform, pursuit status, trophy completion, platinum state,
-alerts, collections, and priority.
+Rows expose the current title, platform, pursuit status, ordering controls,
+archive state, trophy-sync placeholder, and compact actions. Summary counts and
+search remain visible above the list without turning the page into a dense
+spreadsheet.
 
 Additional metadata belongs in expandable details or an editing surface.

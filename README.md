@@ -20,10 +20,12 @@ V2 currently includes:
 - Persistent library game creation, editing, ordering, archiving, restoration,
   and permanent deletion
 - Strict request validation and automated API/database tests
-- A minimal React application shell
+- A functional React library interface with search, summary counts, manual game
+  entry, editing, archiving, restoration, deletion confirmation, and ordering
+- Responsive layouts for portrait desktop monitors and narrow screens
 
-The library user interface, collections, saved views, metadata search, trophy
-synchronization, alerts, and portable import/export are still to be built.
+Collections, saved views, metadata search, trophy synchronization, alerts, and
+portable import/export are still to be built.
 
 ## Requirements
 

@@ -1,0 +1,433 @@
+import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
+import type {
+  LibraryGame,
+  PlayStationPlatform,
+  PursuitStatus,
+} from "../library/libraryGameTypes.js";
+import type {
+  CreateSavedViewInput,
+  SavedView,
+  SavedViewFilters,
+  SavedViewSort,
+  UpdateSavedViewInput,
+} from "./savedViewTypes.js";
+import {
+  parseSavedViewFilters,
+  parseSavedViewSort,
+} from "./savedViewValidation.js";
+
+interface SavedViewRow {
+  id: string;
+  builtin_key: string | null;
+  name: string;
+  filters_json: string;
+  sort_json: string;
+  sort_order: number;
+  is_builtin: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SortOrderRow {
+  sort_order: number | null;
+}
+
+interface IdRow {
+  id: string;
+}
+
+interface LibraryGameRow {
+  id: string;
+  title: string;
+  sort_title: string;
+  platform: PlayStationPlatform;
+  pursuit_status: PursuitStatus;
+  priority_rank: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+}
+
+const SAVED_VIEW_SELECT = `
+  SELECT
+    id,
+    builtin_key,
+    name,
+    filters_json,
+    sort_json,
+    sort_order,
+    is_builtin,
+    created_at,
+    updated_at
+  FROM saved_views
+`;
+
+function normalizeTimestamp(value: string): string {
+  const date = new Date(
+    value.includes("T") ? value : `${value.replace(" ", "T")}Z`,
+  );
+
+  if (Number.isNaN(date.valueOf())) {
+    throw new Error(`Database contains an invalid timestamp: ${value}`);
+  }
+
+  return date.toISOString();
+}
+
+function requiresTrophyData(
+  filters: SavedViewFilters,
+  sort: SavedViewSort,
+): boolean {
+  return (
+    filters.platinumEarned !== undefined ||
+    filters.is100Percent !== undefined ||
+    filters.needsSync !== undefined ||
+    filters.alertKinds !== undefined ||
+    filters.alertStatus !== undefined ||
+    sort.field === "progressPercent" ||
+    sort.field === "lastSyncedAt" ||
+    sort.field === "alertCreatedAt"
+  );
+}
+
+function mapSavedView(row: SavedViewRow): SavedView {
+  const filters = parseSavedViewFilters(
+    JSON.parse(row.filters_json) as unknown,
+  );
+
+  const sort = parseSavedViewSort(JSON.parse(row.sort_json) as unknown);
+
+  const unavailable = requiresTrophyData(filters, sort);
+
+  return {
+    id: row.id,
+    builtinKey: row.builtin_key,
+    name: row.name,
+    filters,
+    sort,
+    sortOrder: row.sort_order,
+    isBuiltin: row.is_builtin === 1,
+    isAvailable: !unavailable,
+    unavailableReason: unavailable ? "requires_trophy_data" : null,
+    createdAt: normalizeTimestamp(row.created_at),
+    updatedAt: normalizeTimestamp(row.updated_at),
+  };
+}
+
+function mapLibraryGame(row: LibraryGameRow): LibraryGame {
+  return {
+    id: row.id,
+    title: row.title,
+    sortTitle: row.sort_title,
+    platform: row.platform,
+    pursuitStatus: row.pursuit_status,
+    priorityRank: row.priority_rank,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
+  };
+}
+
+export class SavedViewRepository {
+  constructor(private readonly database: DatabaseSync) {}
+
+  list(): readonly SavedView[] {
+    const rows = this.database
+      .prepare(
+        `${SAVED_VIEW_SELECT}
+        ORDER BY sort_order ASC, name ASC`,
+      )
+      .all() as unknown as SavedViewRow[];
+
+    return rows.map(mapSavedView);
+  }
+
+  findById(viewId: string): SavedView | null {
+    const row = this.database
+      .prepare(
+        `${SAVED_VIEW_SELECT}
+        WHERE id = ?`,
+      )
+      .get(viewId) as unknown as SavedViewRow | undefined;
+
+    return row === undefined ? null : mapSavedView(row);
+  }
+
+  create(input: CreateSavedViewInput): SavedView {
+    const id = randomUUID();
+    const timestamp = new Date().toISOString();
+
+    this.database
+      .prepare(
+        `
+        INSERT INTO saved_views (
+          id,
+          builtin_key,
+          name,
+          filters_json,
+          sort_json,
+          sort_order,
+          is_builtin,
+          created_at,
+          updated_at
+        ) VALUES (?, NULL, ?, ?, ?, ?, 0, ?, ?)
+      `,
+      )
+      .run(
+        id,
+        input.name,
+        JSON.stringify(input.filters),
+        JSON.stringify(input.sort),
+        this.getNextSortOrder(),
+        timestamp,
+        timestamp,
+      );
+
+    return this.requireById(id);
+  }
+
+  update(viewId: string, input: UpdateSavedViewInput): SavedView | null {
+    const current = this.findById(viewId);
+
+    if (current === null) {
+      return null;
+    }
+
+    this.database
+      .prepare(
+        `
+        UPDATE saved_views
+        SET
+          name = ?,
+          filters_json = ?,
+          sort_json = ?,
+          updated_at = ?
+        WHERE id = ?
+      `,
+      )
+      .run(
+        input.name ?? current.name,
+        JSON.stringify(input.filters ?? current.filters),
+        JSON.stringify(input.sort ?? current.sort),
+        new Date().toISOString(),
+        viewId,
+      );
+
+    return this.requireById(viewId);
+  }
+
+  delete(viewId: string): boolean {
+    const result = this.database
+      .prepare("DELETE FROM saved_views WHERE id = ?")
+      .run(viewId);
+
+    return result.changes > 0;
+  }
+
+  reorder(orderedViewIds: readonly string[]): boolean {
+    const rows = this.database
+      .prepare("SELECT id FROM saved_views")
+      .all() as unknown as IdRow[];
+
+    const viewIds = new Set(rows.map((row) => row.id));
+
+    if (
+      viewIds.size !== orderedViewIds.length ||
+      orderedViewIds.some((viewId) => !viewIds.has(viewId))
+    ) {
+      return false;
+    }
+
+    const update = this.database.prepare(`
+      UPDATE saved_views
+      SET
+        sort_order = ?,
+        updated_at = ?
+      WHERE id = ?
+    `);
+
+    this.database.exec("BEGIN IMMEDIATE");
+
+    try {
+      const timestamp = new Date().toISOString();
+
+      orderedViewIds.forEach((viewId, index) => {
+        update.run((index + 1) * 10, timestamp, viewId);
+      });
+
+      this.database.exec("COMMIT");
+
+      return true;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+
+      throw error;
+    }
+  }
+
+  collectionIdsExist(filters: SavedViewFilters): boolean {
+    if (filters.collectionIds === undefined) {
+      return true;
+    }
+
+    const rows = this.database
+      .prepare("SELECT id FROM collections")
+      .all() as unknown as IdRow[];
+
+    const collectionIds = new Set(rows.map((row) => row.id));
+
+    return filters.collectionIds.every((collectionId) =>
+      collectionIds.has(collectionId),
+    );
+  }
+
+  listUsingCollection(collectionId: string): readonly SavedView[] {
+    return this.list().filter((view) =>
+      view.filters.collectionIds?.includes(collectionId),
+    );
+  }
+
+  listGames(view: SavedView, liveSearch?: string): readonly LibraryGame[] {
+    const filters = view.filters;
+    const conditions: string[] = [];
+    const parameters: Array<string | number> = [];
+
+    const archiveMode = filters.archiveMode ?? "active";
+
+    if (archiveMode === "active") {
+      conditions.push("lg.archived_at IS NULL");
+    }
+
+    if (archiveMode === "archived") {
+      conditions.push("lg.archived_at IS NOT NULL");
+    }
+
+    if (filters.platforms !== undefined) {
+      conditions.push(
+        `lg.platform IN (${filters.platforms.map(() => "?").join(", ")})`,
+      );
+
+      parameters.push(...filters.platforms);
+    }
+
+    if (filters.pursuitStatuses !== undefined) {
+      conditions.push(
+        `lg.pursuit_status IN (${filters.pursuitStatuses
+          .map(() => "?")
+          .join(", ")})`,
+      );
+
+      parameters.push(...filters.pursuitStatuses);
+    }
+
+    if (filters.collectionIds !== undefined) {
+      conditions.push(`
+        EXISTS (
+          SELECT 1
+          FROM collection_games cg
+          WHERE cg.game_id = lg.id
+            AND cg.collection_id IN (${filters.collectionIds
+              .map(() => "?")
+              .join(", ")})
+        )
+      `);
+
+      parameters.push(...filters.collectionIds);
+    }
+
+    for (const search of [filters.search, liveSearch]) {
+      const normalizedSearch = search?.trim();
+
+      if (normalizedSearch !== undefined && normalizedSearch.length > 0) {
+        conditions.push(`
+          (
+            instr(
+              lower(lg.title),
+              lower(?)
+            ) > 0
+            OR
+            instr(
+              lower(COALESCE(lg.notes, '')),
+              lower(?)
+            ) > 0
+          )
+        `);
+
+        parameters.push(normalizedSearch, normalizedSearch);
+      }
+    }
+
+    const sortColumns: Readonly<Record<string, string>> = {
+      priorityRank: "lg.priority_rank",
+      title: "lg.sort_title",
+      platform: "lg.platform",
+      pursuitStatus: "lg.pursuit_status",
+      createdAt: "lg.created_at",
+      updatedAt: "lg.updated_at",
+    };
+
+    const sortColumn = sortColumns[view.sort.field];
+
+    if (sortColumn === undefined) {
+      throw new Error(`Saved view ${view.id} uses an unavailable sort field.`);
+    }
+
+    const direction = view.sort.direction === "desc" ? "DESC" : "ASC";
+
+    const where =
+      conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`;
+
+    const rows = this.database
+      .prepare(
+        `
+        SELECT
+          lg.id,
+          lg.title,
+          lg.sort_title,
+          lg.platform,
+          lg.pursuit_status,
+          lg.priority_rank,
+          lg.notes,
+          lg.created_at,
+          lg.updated_at,
+          lg.archived_at
+        FROM library_games lg
+        ${where}
+        ORDER BY
+          ${sortColumn} ${direction},
+          lg.sort_title ASC
+      `,
+      )
+      .all(...parameters) as unknown as LibraryGameRow[];
+
+    return rows.map(mapLibraryGame);
+  }
+
+  private getNextSortOrder(): number {
+    const row = this.database
+      .prepare(
+        `
+        SELECT MAX(sort_order) AS sort_order
+        FROM saved_views
+      `,
+      )
+      .get() as unknown as SortOrderRow;
+
+    return (row.sort_order ?? 0) + 10;
+  }
+
+  private requireById(viewId: string): SavedView {
+    const view = this.findById(viewId);
+
+    if (view === null) {
+      throw new Error(
+        `Saved view ${viewId} disappeared during a database operation.`,
+      );
+    }
+
+    return view;
+  }
+}

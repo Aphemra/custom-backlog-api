@@ -271,6 +271,37 @@ export function SavedViewsPage() {
     }
   }
 
+  async function moveView(viewId: string, direction: -1 | 1): Promise<void> {
+    const currentIndex = views.findIndex((view) => view.id === viewId);
+    const targetIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= views.length) {
+      return;
+    }
+
+    const reorderedViews = [...views];
+    const [movedView] = reorderedViews.splice(currentIndex, 1);
+
+    if (movedView === undefined) return;
+
+    reorderedViews.splice(targetIndex, 0, movedView);
+    setBusy(true);
+    setErrorMessage(null);
+
+    try {
+      const savedOrder = await savedViewApi.reorder(
+        reorderedViews.map((view) => view.id),
+      );
+
+      setViews(savedOrder);
+      setNotice("Saved-view order was updated.");
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function selectView(view: SavedView) {
     setSelectedViewId(view.id);
     setLiveSearch("");
@@ -384,7 +415,7 @@ export function SavedViewsPage() {
       {loadState === "ready" ? (
         <div className="saved-view-layout">
           <div className="saved-view-list" aria-label="Saved views">
-            {views.map((view) => (
+            {views.map((view, index) => (
               <article
                 className={`saved-view-card${
                   selectedView?.id === view.id ? " saved-view-card--active" : ""
@@ -407,32 +438,61 @@ export function SavedViewsPage() {
                   </span>
                 </button>
 
-                {view.isBuiltin ? null : (
-                  <div className="saved-view-card__actions">
+                <div className="saved-view-card__actions">
+                  <div
+                    className="saved-view-card__order"
+                    aria-label={`Order ${view.name}`}
+                  >
                     <button
-                      className="text-button"
+                      className="order-button"
                       type="button"
-                      disabled={busy || !view.isAvailable}
-                      title={
-                        view.isAvailable
-                          ? undefined
-                          : "Trophy-dependent views cannot be edited yet."
-                      }
-                      onClick={() => openEditForm(view)}
+                      disabled={busy || index === 0}
+                      onClick={() => void moveView(view.id, -1)}
+                      aria-label={`Move ${view.name} up`}
                     >
-                      Edit
+                      ↑
                     </button>
 
+                    <span className="order-number">{index + 1}</span>
+
                     <button
-                      className="text-button text-button--danger"
+                      className="order-button"
                       type="button"
-                      disabled={busy}
-                      onClick={() => void handleDelete(view)}
+                      disabled={busy || index === views.length - 1}
+                      onClick={() => void moveView(view.id, 1)}
+                      aria-label={`Move ${view.name} down`}
                     >
-                      Delete
+                      ↓
                     </button>
                   </div>
-                )}
+
+                  {view.isBuiltin ? null : (
+                    <div className="saved-view-card__custom-actions">
+                      <button
+                        className="text-button"
+                        type="button"
+                        disabled={busy || !view.isAvailable}
+                        title={
+                          view.isAvailable
+                            ? undefined
+                            : "Trophy-dependent views cannot be edited yet."
+                        }
+                        onClick={() => openEditForm(view)}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        className="text-button text-button--danger"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleDelete(view)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </article>
             ))}
           </div>

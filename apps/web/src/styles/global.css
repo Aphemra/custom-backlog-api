@@ -979,10 +979,28 @@ textarea:focus-visible {
 
 .saved-view-card__actions {
   display: flex;
-  gap: 0.25rem;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   border-top: 1px solid var(--color-border);
   padding: 0.3rem 0.55rem;
+}
+
+.saved-view-card__order,
+.saved-view-card__custom-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.saved-view-card__order .order-button {
+  width: 1.55rem;
+  height: 1.45rem;
+}
+
+.saved-view-card__order .order-number {
+  min-width: 1.2rem;
+  text-align: center;
 }
 
 .saved-view-results {

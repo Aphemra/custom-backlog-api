@@ -89,6 +89,44 @@ test("tests a dedicated reader without exposing credentials", async () => {
         },
       };
     },
+
+    async getTrophyTitles(authorization, accountId, options) {
+      assert.equal(authorization.accessToken, "access-token");
+      assert.equal(accountId, "20002");
+      assert.deepEqual(options, { limit: 800, offset: 0 });
+
+      calls.push(`titles:${accountId}`);
+
+      return {
+        trophyTitles: [
+          {
+            npServiceName: "trophy2",
+            npCommunicationId: "NPWR00001_00",
+            trophySetVersion: "01.00",
+            trophyTitleName: "Example Game",
+            trophyTitleIconUrl: "https://image.api.playstation.com/example.png",
+            trophyTitlePlatform: "PS5",
+            hasTrophyGroups: true,
+            definedTrophies: {
+              bronze: 40,
+              silver: 10,
+              gold: 3,
+              platinum: 1,
+            },
+            progress: 50,
+            earnedTrophies: {
+              bronze: 20,
+              silver: 5,
+              gold: 1,
+              platinum: 0,
+            },
+            hiddenFlag: false,
+            lastUpdatedDateTime: "2026-08-25T12:00:00Z",
+          },
+        ],
+        totalItemCount: 1,
+      };
+    },
   };
 
   const server = createApp(
@@ -215,6 +253,52 @@ test("tests a dedicated reader without exposing credentials", async () => {
       "summary:me",
       "search:MainAccount",
       "summary:20002",
+    ]);
+
+    const rejectedPreviewResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/title-previews`,
+      { method: "POST" },
+    );
+
+    assert.equal(rejectedPreviewResponse.status, 400);
+
+    const previewResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/title-previews`,
+      {
+        method: "POST",
+        headers: {
+          "x-trophy-backlog-action": "preview-playstation-titles",
+        },
+      },
+    );
+
+    assert.equal(previewResponse.status, 200);
+
+    const previewBody = (await previewResponse.json()) as {
+      preview: {
+        providerTitleCount: number;
+        supportedTitleCount: number;
+        excludedTitleCount: number;
+        titles: Array<{
+          name: string;
+          platforms: string[];
+        }>;
+        requestsMade: number;
+      };
+    };
+
+    assert.equal(previewBody.preview.providerTitleCount, 1);
+    assert.equal(previewBody.preview.supportedTitleCount, 1);
+    assert.equal(previewBody.preview.excludedTitleCount, 0);
+    assert.equal(previewBody.preview.titles[0]?.name, "Example Game");
+    assert.deepEqual(previewBody.preview.titles[0]?.platforms, ["PS5"]);
+    assert.equal(previewBody.preview.requestsMade, 4);
+
+    assert.deepEqual(calls.slice(-4), [
+      "summary:me",
+      "search:MainAccount",
+      "summary:20002",
+      "titles:20002",
     ]);
   } finally {
     await closeServer(server);

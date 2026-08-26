@@ -13,6 +13,9 @@ test("shares initial authentication and reuses a fresh access token", async () =
   let tokenExchanges = 0;
 
   const operations: PlayStationApiOperations = {
+    async getTrophyTitles() {
+      throw new Error("Trophy titles should not be requested.");
+    },
     async exchangeNpssoForAccessCode(npsso) {
       assert.equal(npsso, "n".repeat(64));
       codeExchanges += 1;
@@ -73,6 +76,9 @@ test("refreshes an expired access token without reusing the NPSSO", async () => 
   let refreshExchanges = 0;
 
   const operations: PlayStationApiOperations = {
+    async getTrophyTitles() {
+      throw new Error("Trophy titles should not be requested.");
+    },
     async exchangeNpssoForAccessCode() {
       codeExchanges += 1;
       return "access-code";
@@ -131,6 +137,9 @@ test("stops after a failed refresh instead of silently reauthenticating", async 
   let codeExchanges = 0;
 
   const operations: PlayStationApiOperations = {
+    async getTrophyTitles() {
+      throw new Error("Trophy titles should not be requested.");
+    },
     async exchangeNpssoForAccessCode() {
       codeExchanges += 1;
       return "access-code";

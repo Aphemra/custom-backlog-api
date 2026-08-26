@@ -2,6 +2,7 @@ import {
   exchangeAccessCodeForAuthTokens,
   exchangeNpssoForAccessCode,
   exchangeRefreshTokenForAuthTokens,
+  getUserTitles,
   getUserTrophyProfileSummary,
   makeUniversalSearch,
 } from "psn-api";
@@ -22,13 +23,21 @@ export interface PlayStationApiOperations {
     authorization: PlayStationAuthorization,
     accountId: string,
   ): Promise<unknown>;
+  getTrophyTitles(
+    authorization: PlayStationAuthorization,
+    accountId: string,
+    options: { limit: number; offset: number },
+  ): Promise<unknown>;
 }
 
 export const playStationApiOperations: PlayStationApiOperations = {
   exchangeNpssoForAccessCode,
   exchangeAccessCodeForAuthTokens,
   exchangeRefreshTokenForAuthTokens,
+
   searchAccounts: async (authorization, onlineId) =>
     makeUniversalSearch(authorization, onlineId, "SocialAllAccounts"),
+
   getTrophySummary: getUserTrophyProfileSummary,
+  getTrophyTitles: getUserTitles,
 };

@@ -42,3 +42,37 @@ export interface PlayStationConnectionResult {
   targetTrophySummary: PlayStationTrophySummary;
   requestsMade: number;
 }
+
+export type PlayStationTrophyPlatform = "PS3" | "PS4" | "PS5";
+
+export interface PlayStationTrophyCounts {
+  bronze: number;
+  silver: number;
+  gold: number;
+  platinum: number;
+}
+
+export interface PlayStationTrophyTitlePreview {
+  npServiceName: "trophy" | "trophy2";
+  npCommunicationId: string;
+  trophySetVersion: string;
+  name: string;
+  detail: string | null;
+  iconUrl: string;
+  platforms: PlayStationTrophyPlatform[];
+  hasTrophyGroups: boolean;
+  definedTrophies: PlayStationTrophyCounts;
+  progress: number;
+  earnedTrophies: PlayStationTrophyCounts;
+  hidden: boolean;
+  lastUpdatedAt: string;
+}
+
+export interface PlayStationTitlePreviewResult {
+  target: PlayStationAccountIdentity;
+  providerTitleCount: number;
+  supportedTitleCount: number;
+  excludedTitleCount: number;
+  titles: PlayStationTrophyTitlePreview[];
+  requestsMade: number;
+}

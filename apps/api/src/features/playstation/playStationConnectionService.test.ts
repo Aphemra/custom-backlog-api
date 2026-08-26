@@ -8,6 +8,9 @@ test("refuses matching reader and target account IDs", async () => {
   let targetSummaryRequested = false;
 
   const operations: PlayStationApiOperations = {
+    async getTrophyTitles() {
+      throw new Error("Trophy titles should not be requested.");
+    },
     async exchangeNpssoForAccessCode() {
       return "access-code";
     },

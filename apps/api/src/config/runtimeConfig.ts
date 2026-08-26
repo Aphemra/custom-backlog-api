@@ -1,5 +1,6 @@
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPlayStationCredentials } from "../features/playstation/playStationConfig.js";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 3001;
@@ -48,6 +49,7 @@ function readOptionalCredential(value: string | undefined): string | null {
 }
 
 const dataDirectory = readDataDirectory(process.env.BACKLOG_DATA_DIRECTORY);
+const playStationCredentials = readPlayStationCredentials(process.env);
 
 export const runtimeConfig = Object.freeze({
   host: readHost(process.env.BACKLOG_HOST),
@@ -58,4 +60,5 @@ export const runtimeConfig = Object.freeze({
   imageCacheDirectory: resolve(dataDirectory, "images"),
   igdbClientId: readOptionalCredential(process.env.IGDB_CLIENT_ID),
   igdbClientSecret: readOptionalCredential(process.env.IGDB_CLIENT_SECRET),
+  playStationCredentials,
 });

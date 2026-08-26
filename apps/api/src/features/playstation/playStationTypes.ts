@@ -76,3 +76,40 @@ export interface PlayStationTitlePreviewResult {
   titles: PlayStationTrophyTitlePreview[];
   requestsMade: number;
 }
+
+export type PlayStationReconciliationStatus =
+  | "linked"
+  | "suggested_match"
+  | "ambiguous"
+  | "new";
+
+export interface PlayStationLibraryCandidate {
+  gameId: string;
+  title: string;
+  platform: PlayStationTrophyPlatform;
+  archived: boolean;
+}
+
+export interface PlayStationTitleReconciliation {
+  status: PlayStationReconciliationStatus;
+  candidates: PlayStationLibraryCandidate[];
+}
+
+export interface ReconciledPlayStationTitle extends PlayStationTrophyTitlePreview {
+  reconciliation: PlayStationTitleReconciliation;
+}
+
+export interface PlayStationReconciliationCounts {
+  linked: number;
+  suggestedMatch: number;
+  ambiguous: number;
+  new: number;
+}
+
+export interface ReconciledPlayStationTitlePreviewResult extends Omit<
+  PlayStationTitlePreviewResult,
+  "titles"
+> {
+  titles: ReconciledPlayStationTitle[];
+  reconciliationCounts: PlayStationReconciliationCounts;
+}

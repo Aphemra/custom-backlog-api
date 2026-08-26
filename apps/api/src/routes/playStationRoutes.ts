@@ -1,3 +1,4 @@
+import type { DatabaseSync } from "node:sqlite";
 import { Router } from "express";
 import {
   playStationApiOperations,
@@ -7,9 +8,11 @@ import { PlayStationAuthorizationSession } from "../features/playstation/playSta
 import { PlayStationConnectionService } from "../features/playstation/playStationConnectionService.js";
 import { PlayStationRequestGate } from "../features/playstation/playStationRequestGate.js";
 import { PlayStationTitlePreviewService } from "../features/playstation/playStationTitlePreviewService.js";
+import { PlayStationTitleReconciliationService } from "../features/playstation/playStationTitleReconciliationService.js";
 import type { PlayStationCredentials } from "../features/playstation/playStationTypes.js";
 
 export interface PlayStationRouteOptions {
+  database: DatabaseSync;
   credentials: PlayStationCredentials;
   operations?: PlayStationApiOperations;
   requestGate?: PlayStationRequestGate;
@@ -41,6 +44,10 @@ export function createPlayStationRoutes(
     authorizationSession,
     operations,
     requestGate,
+  );
+
+  const titleReconciliationService = new PlayStationTitleReconciliationService(
+    options.database,
   );
 
   routes.get("/status", (_request, response) => {
@@ -83,8 +90,10 @@ export function createPlayStationRoutes(
     }
 
     try {
+      const preview = await titlePreviewService.previewTitles();
+
       response.json({
-        preview: await titlePreviewService.previewTitles(),
+        preview: titleReconciliationService.reconcile(preview),
       });
     } catch (error) {
       next(error);

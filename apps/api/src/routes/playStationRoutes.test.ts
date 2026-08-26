@@ -283,6 +283,12 @@ test("tests a dedicated reader without exposing credentials", async () => {
           name: string;
           platforms: string[];
         }>;
+        reconciliationCounts: {
+          linked: number;
+          suggestedMatch: number;
+          ambiguous: number;
+          new: number;
+        };
         requestsMade: number;
       };
     };
@@ -293,6 +299,12 @@ test("tests a dedicated reader without exposing credentials", async () => {
     assert.equal(previewBody.preview.titles[0]?.name, "Example Game");
     assert.deepEqual(previewBody.preview.titles[0]?.platforms, ["PS5"]);
     assert.equal(previewBody.preview.requestsMade, 4);
+    assert.deepEqual(previewBody.preview.reconciliationCounts, {
+      linked: 0,
+      suggestedMatch: 0,
+      ambiguous: 0,
+      new: 1,
+    });
 
     assert.deepEqual(calls.slice(-4), [
       "summary:me",

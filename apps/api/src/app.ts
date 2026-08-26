@@ -60,6 +60,7 @@ export function createApp(
   app.use(
     "/api/integrations/playstation",
     createPlayStationRoutes({
+      database,
       credentials:
         playStationOptions.credentials ?? runtimeConfig.playStationCredentials,
       ...(playStationOptions.operations === undefined

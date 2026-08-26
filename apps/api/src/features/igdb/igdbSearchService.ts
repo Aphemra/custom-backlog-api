@@ -1,0 +1,47 @@
+import { ImageCacheService } from "../imageCache/imageCacheService.js";
+import { IgdbClient } from "./igdbClient.js";
+import type { IgdbGameSearchResult } from "./igdbTypes.js";
+
+export class IgdbSearchService {
+  constructor(
+    private readonly client: IgdbClient,
+    private readonly imageCache: ImageCacheService,
+  ) {}
+
+  async search(searchTerm: string): Promise<readonly IgdbGameSearchResult[]> {
+    const games = await this.client.searchGames(searchTerm);
+
+    return games.map((game) => {
+      if (game.coverImageId === null) {
+        return {
+          externalId: game.externalId,
+          title: game.title,
+          summary: game.summary,
+          platforms: game.platforms,
+          releaseDate: game.releaseDate,
+          cover: null,
+        };
+      }
+
+      const image = this.imageCache.register({
+        provider: "igdb",
+        sourceKey: `cover:${game.coverImageId}`,
+        sourceUrl:
+          `https://images.igdb.com/igdb/image/upload/` +
+          `t_cover_big_2x/${game.coverImageId}.jpg`,
+      });
+
+      return {
+        externalId: game.externalId,
+        title: game.title,
+        summary: game.summary,
+        platforms: game.platforms,
+        releaseDate: game.releaseDate,
+        cover: {
+          imageId: image.id,
+          url: `/api/images/${image.id}`,
+        },
+      };
+    });
+  }
+}

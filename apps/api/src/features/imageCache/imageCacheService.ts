@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { HttpError } from "../../errors/httpError.js";
 import { ImageCacheRepository } from "./imageCacheRepository.js";
@@ -27,7 +27,7 @@ const extensions: Readonly<Record<CachedImageContentType, string>> = {
   "image/webp": "webp",
 };
 
-type ImageFetch = (
+export type ImageFetch = (
   input: string | URL | Request,
   init?: RequestInit,
 ) => Promise<Response>;
@@ -239,15 +239,27 @@ export class ImageCacheService {
       throw new HttpError(404, "image_not_found", "Cached image not found.");
     }
 
+    const existingPath =
+      image.fileName === null
+        ? null
+        : this.resolveExistingCachePath(image.fileName);
+
+    const hasLocalCopy =
+      existingPath !== null &&
+      (await access(existingPath).then(
+        () => true,
+        () => false,
+      ));
+
     const headers = new Headers({
       accept: "image/webp,image/png,image/jpeg;q=0.9",
     });
 
-    if (image.fileName !== null && image.etag !== null) {
+    if (hasLocalCopy && image.etag !== null) {
       headers.set("if-none-match", image.etag);
     }
 
-    if (image.fileName !== null && image.lastModified !== null) {
+    if (hasLocalCopy && image.lastModified !== null) {
       headers.set("if-modified-since", image.lastModified);
     }
 
@@ -260,7 +272,7 @@ export class ImageCacheService {
     const timestamp = new Date().toISOString();
 
     if (response.status === 304) {
-      if (image.fileName === null) {
+      if (!hasLocalCopy) {
         throw new HttpError(
           502,
           "invalid_image_response",

@@ -6,17 +6,25 @@ import express, {
 } from "express";
 import { runtimeConfig } from "./config/runtimeConfig.js";
 import { HttpError } from "./errors/httpError.js";
+import type { IgdbFetch } from "./features/igdb/igdbClient.js";
+import type { IgdbCredentials } from "./features/igdb/igdbTypes.js";
 import { createCollectionRoutes } from "./routes/collectionRoutes.js";
 import { createDataRoutes } from "./routes/dataRoutes.js";
 import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
 import { createHealthRoutes } from "./routes/healthRoutes.js";
 import { createImageRoutes } from "./routes/imageRoutes.js";
+import { createIgdbRoutes } from "./routes/igdbRoutes.js";
 import { createLibraryRoutes } from "./routes/libraryRoutes.js";
 import { createSavedViewRoutes } from "./routes/savedViewRoutes.js";
 
 export function createApp(
   database: DatabaseSync,
   imageCacheDirectory: string = runtimeConfig.imageCacheDirectory,
+  igdbCredentials: IgdbCredentials = {
+    clientId: runtimeConfig.igdbClientId,
+    clientSecret: runtimeConfig.igdbClientSecret,
+  },
+  externalFetch: IgdbFetch = fetch,
 ) {
   const app = express();
 
@@ -29,7 +37,20 @@ export function createApp(
 
   app.use("/api/health", createHealthRoutes(database));
 
-  app.use("/api/images", createImageRoutes(database, imageCacheDirectory));
+  app.use(
+    "/api/images",
+    createImageRoutes(database, imageCacheDirectory, externalFetch),
+  );
+
+  app.use(
+    "/api/integrations/igdb",
+    createIgdbRoutes(
+      database,
+      imageCacheDirectory,
+      igdbCredentials,
+      externalFetch,
+    ),
+  );
 
   app.use(
     "/api/database",

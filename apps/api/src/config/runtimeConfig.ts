@@ -41,6 +41,12 @@ function readDataDirectory(rawDirectory: string | undefined): string {
     : resolve(apiDirectory, configuredDirectory);
 }
 
+function readOptionalCredential(value: string | undefined): string | null {
+  const credential = value?.trim();
+
+  return credential === undefined || credential === "" ? null : credential;
+}
+
 const dataDirectory = readDataDirectory(process.env.BACKLOG_DATA_DIRECTORY);
 
 export const runtimeConfig = Object.freeze({
@@ -50,4 +56,6 @@ export const runtimeConfig = Object.freeze({
   databasePath: resolve(dataDirectory, "trophy-backlog.sqlite"),
   backupDirectory: resolve(dataDirectory, "backups"),
   imageCacheDirectory: resolve(dataDirectory, "images"),
+  igdbClientId: readOptionalCredential(process.env.IGDB_CLIENT_ID),
+  igdbClientSecret: readOptionalCredential(process.env.IGDB_CLIENT_SECRET),
 });

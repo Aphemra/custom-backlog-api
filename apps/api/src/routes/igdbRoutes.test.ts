@@ -1,0 +1,202 @@
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import { mkdtemp, rm } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+import { createApp } from "../app.js";
+import { openDatabase } from "../database/database.js";
+import type { IgdbGameSearchResult } from "../features/igdb/igdbTypes.js";
+
+interface SearchResponse {
+  games: IgdbGameSearchResult[];
+}
+
+async function closeServer(
+  server: ReturnType<ReturnType<typeof createApp>["listen"]>,
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error === undefined) {
+        resolve();
+        return;
+      }
+
+      reject(error);
+    });
+  });
+}
+
+function readUrl(input: string | URL | Request): string {
+  return input instanceof Request ? input.url : input.toString();
+}
+
+test("searches IGDB and lazily stores its cover in the local cache", async () => {
+  const database = openDatabase(":memory:");
+  const cacheDirectory = await mkdtemp(join(tmpdir(), "backlog-igdb-"));
+
+  const requestCounts = {
+    authentication: 0,
+    games: 0,
+    images: 0,
+  };
+
+  const externalFetch = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const url = readUrl(input);
+
+    if (url === "https://id.twitch.tv/oauth2/token") {
+      requestCounts.authentication += 1;
+
+      assert.match(String(init?.body), /client_id=test-client/);
+      assert.match(String(init?.body), /client_secret=test-secret/);
+
+      return Response.json({
+        access_token: "test-access-token",
+        expires_in: 3_600,
+        token_type: "bearer",
+      });
+    }
+
+    if (url === "https://api.igdb.com/v4/games") {
+      requestCounts.games += 1;
+
+      const headers = new Headers(init?.headers);
+
+      assert.equal(headers.get("client-id"), "test-client");
+      assert.equal(headers.get("authorization"), "Bearer test-access-token");
+      assert.match(String(init?.body), /search "Astro";/);
+      assert.match(String(init?.body), /platforms = \(9,48,167\)/);
+
+      return Response.json([
+        {
+          id: 250766,
+          name: "Astro Bot",
+          summary: "A platforming adventure.",
+          platforms: [{ id: 48 }, { id: 167 }],
+          release_dates: [{ date: 1_725_580_800, platform: 167 }],
+          cover: { image_id: "co8abc" },
+        },
+      ]);
+    }
+
+    if (
+      url ===
+      "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co8abc.jpg"
+    ) {
+      requestCounts.images += 1;
+
+      return new Response(Uint8Array.from([0xff, 0xd8, 0xff, 0x00]), {
+        headers: { "content-type": "image/jpeg" },
+      });
+    }
+
+    throw new Error(`Unexpected external request: ${url}`);
+  };
+
+  const server = createApp(
+    database,
+    cacheDirectory,
+    {
+      clientId: "test-client",
+      clientSecret: "test-secret",
+    },
+    externalFetch,
+  ).listen(0, "127.0.0.1");
+
+  try {
+    await once(server, "listening");
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const searchResponse = await fetch(
+      `${baseUrl}/api/integrations/igdb/games?query=Astro`,
+    );
+
+    assert.equal(searchResponse.status, 200);
+
+    const search = (await searchResponse.json()) as SearchResponse;
+
+    assert.equal(search.games.length, 1);
+    assert.deepEqual(search.games[0]?.platforms, ["PS4", "PS5"]);
+    assert.equal(search.games[0]?.releaseDate, "2024-09-06");
+    assert.match(search.games[0]?.cover?.url ?? "", /^\/api\/images\//);
+
+    assert.deepEqual(requestCounts, {
+      authentication: 1,
+      games: 1,
+      images: 0,
+    });
+
+    const coverUrl = search.games[0]?.cover?.url;
+
+    assert.notEqual(coverUrl, undefined);
+    assert.notEqual(coverUrl, null);
+
+    const firstCoverResponse = await fetch(`${baseUrl}${coverUrl}`);
+
+    assert.equal(firstCoverResponse.status, 200);
+    assert.equal(firstCoverResponse.headers.get("content-type"), "image/jpeg");
+
+    const secondCoverResponse = await fetch(`${baseUrl}${coverUrl}`);
+
+    assert.equal(secondCoverResponse.status, 200);
+
+    assert.deepEqual(requestCounts, {
+      authentication: 1,
+      games: 1,
+      images: 1,
+    });
+  } finally {
+    await closeServer(server);
+    database.close();
+    await rm(cacheDirectory, { recursive: true, force: true });
+  }
+});
+
+test("reports missing IGDB credentials without making an external request", async () => {
+  const database = openDatabase(":memory:");
+  const cacheDirectory = await mkdtemp(join(tmpdir(), "backlog-igdb-"));
+  let externalRequestMade = false;
+
+  const server = createApp(
+    database,
+    cacheDirectory,
+    {
+      clientId: null,
+      clientSecret: null,
+    },
+    async () => {
+      externalRequestMade = true;
+      throw new Error("No external request should be made.");
+    },
+  ).listen(0, "127.0.0.1");
+
+  try {
+    await once(server, "listening");
+
+    const address = server.address() as AddressInfo;
+
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/integrations/igdb/games?query=Astro`,
+    );
+
+    assert.equal(response.status, 503);
+
+    assert.deepEqual(await response.json(), {
+      ok: false,
+      error: "igdb_not_configured",
+      message: "IGDB credentials have not been configured on the local API.",
+    });
+
+    assert.equal(externalRequestMade, false);
+  } finally {
+    await closeServer(server);
+    database.close();
+    await rm(cacheDirectory, { recursive: true, force: true });
+  }
+});

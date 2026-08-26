@@ -146,3 +146,71 @@ test("exposes collection management through the local API", async () => {
     database.close();
   }
 });
+
+test("refuses to delete a Collection used by a saved view", async () => {
+  const database = openDatabase(":memory:");
+
+  const server = createApp(database).listen(0, "127.0.0.1");
+
+  try {
+    await once(server, "listening");
+
+    const address = server.address() as AddressInfo;
+
+    const apiUrl = `http://127.0.0.1:${address.port}/api`;
+
+    const collectionResponse = await fetch(`${apiUrl}/collections`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Favorites",
+      }),
+    });
+
+    const created = (await collectionResponse.json()) as CollectionResponse;
+
+    const viewResponse = await fetch(`${apiUrl}/saved-views`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Favorite games",
+        filters: {
+          collectionIds: [created.collection.id],
+        },
+        sort: {
+          field: "priorityRank",
+          direction: "asc",
+        },
+      }),
+    });
+
+    assert.equal(viewResponse.status, 201);
+
+    const deleteResponse = await fetch(
+      `${apiUrl}/collections/${created.collection.id}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    assert.equal(deleteResponse.status, 409);
+
+    const body = (await deleteResponse.json()) as {
+      error: string;
+    };
+
+    assert.equal(body.error, "collection_used_by_saved_view");
+
+    assert.equal(
+      (await fetch(`${apiUrl}/collections/${created.collection.id}`)).status,
+      200,
+    );
+  } finally {
+    await closeServer(server);
+    database.close();
+  }
+});

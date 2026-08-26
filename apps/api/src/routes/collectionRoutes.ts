@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
 import { CollectionRepository } from "../features/collections/collectionRepository.js";
+import { SavedViewRepository } from "../features/savedViews/savedViewRepository.js";
 import {
   parseCollectionGameOrder,
   parseCollectionOrder,
@@ -38,6 +39,7 @@ function requireCollection<T>(collection: T | null): T {
 export function createCollectionRoutes(database: DatabaseSync): Router {
   const collectionRoutes = Router();
   const repository = new CollectionRepository(database);
+  const savedViews = new SavedViewRepository(database);
 
   collectionRoutes.get("/", (_request, response) => {
     response.json({
@@ -110,7 +112,19 @@ export function createCollectionRoutes(database: DatabaseSync): Router {
   });
 
   collectionRoutes.delete("/:collectionId", (request, response) => {
-    if (!repository.deletePermanently(readCollectionId(request))) {
+    const collectionId = readCollectionId(request);
+
+    const dependentViews = savedViews.listUsingCollection(collectionId);
+
+    if (dependentViews.length > 0) {
+      throw new HttpError(
+        409,
+        "collection_used_by_saved_view",
+        "Remove this Collection from its saved views before deleting it.",
+      );
+    }
+
+    if (!repository.deletePermanently(collectionId)) {
       throw new HttpError(
         404,
         "collection_not_found",

@@ -11,6 +11,7 @@ import { createDataRoutes } from "./routes/dataRoutes.js";
 import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
 import { createHealthRoutes } from "./routes/healthRoutes.js";
 import { createLibraryRoutes } from "./routes/libraryRoutes.js";
+import { createSavedViewRoutes } from "./routes/savedViewRoutes.js";
 
 export function createApp(database: DatabaseSync) {
   const app = express();
@@ -32,6 +33,8 @@ export function createApp(database: DatabaseSync) {
   app.use("/api/library", createLibraryRoutes(database));
 
   app.use("/api/collections", createCollectionRoutes(database));
+
+  app.use("/api/saved-views", createSavedViewRoutes(database));
 
   app.use(
     "/api/data",

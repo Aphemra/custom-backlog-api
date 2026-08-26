@@ -8,8 +8,11 @@ export class IgdbSearchService {
     private readonly imageCache: ImageCacheService,
   ) {}
 
-  async search(searchTerm: string): Promise<readonly IgdbGameSearchResult[]> {
-    const games = await this.client.searchGames(searchTerm);
+  async search(
+    searchTerm: string,
+    includeDlc = false,
+  ): Promise<readonly IgdbGameSearchResult[]> {
+    const games = await this.client.searchGames(searchTerm, includeDlc);
 
     return games.map((game) => {
       if (game.coverImageId === null) {
@@ -19,6 +22,7 @@ export class IgdbSearchService {
           summary: game.summary,
           platforms: game.platforms,
           releaseDate: game.releaseDate,
+          isDlc: game.isDlc,
           cover: null,
         };
       }
@@ -35,6 +39,7 @@ export class IgdbSearchService {
         summary: game.summary,
         platforms: game.platforms,
         releaseDate: game.releaseDate,
+        isDlc: game.isDlc,
         cover: {
           imageId: image.id,
           url: `/api/images/${image.id}`,

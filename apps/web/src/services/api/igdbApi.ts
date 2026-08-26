@@ -13,10 +13,12 @@ interface GameResponse {
 export const igdbApi = {
   async search(
     query: string,
+    includeDlc: boolean,
     signal?: AbortSignal,
   ): Promise<readonly IgdbGameSearchResult[]> {
     const response = await requestJson<SearchResponse>(
-      `/api/integrations/igdb/games?query=${encodeURIComponent(query)}`,
+      `/api/integrations/igdb/games?query=${encodeURIComponent(query)}` +
+        `&includeDlc=${includeDlc}`,
       { signal },
     );
 

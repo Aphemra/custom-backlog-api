@@ -39,6 +39,22 @@ function readSearchTerm(value: unknown): string {
   return searchTerm;
 }
 
+function readIncludeDlc(value: unknown): boolean {
+  if (value === undefined || value === "false") {
+    return false;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  throw new HttpError(
+    400,
+    "invalid_include_dlc",
+    "includeDlc must be true or false.",
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -127,6 +143,7 @@ export function createIgdbRoutes(
     try {
       const games = await searchService.search(
         readSearchTerm(request.query.query),
+        readIncludeDlc(request.query.includeDlc),
       );
 
       response.json({ games });

@@ -65,11 +65,25 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
       requestCounts.games += 1;
 
       const headers = new Headers(init?.headers);
+      const query = String(init?.body);
 
       assert.equal(headers.get("client-id"), "test-client");
       assert.equal(headers.get("authorization"), "Bearer test-access-token");
-      assert.match(String(init?.body), /search "Astro";/);
-      assert.match(String(init?.body), /platforms = \(9,48,167\)/);
+      assert.match(query, /search "Astro";/);
+      assert.match(query, /platforms = \(9,48,167\)/);
+
+      if (query.includes("parent_game != null")) {
+        return Response.json([
+          {
+            id: 350766,
+            name: "Astro Bot: Costume Pack",
+            parent_game: 250766,
+            platforms: [{ id: 167 }],
+          },
+        ]);
+      }
+
+      assert.match(query, /parent_game = null/);
 
       return Response.json([
         {
@@ -122,6 +136,7 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
     const search = (await searchResponse.json()) as SearchResponse;
 
     assert.equal(search.games.length, 1);
+    assert.equal(search.games[0]?.isDlc, false);
     assert.deepEqual(search.games[0]?.platforms, ["PS4", "PS5"]);
     assert.equal(search.games[0]?.releaseDate, "2024-09-06");
     assert.match(search.games[0]?.cover?.url ?? "", /^\/api\/images\//);
@@ -149,6 +164,32 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
     assert.deepEqual(requestCounts, {
       authentication: 1,
       games: 1,
+      images: 1,
+    });
+
+    const searchWithDlcResponse = await fetch(
+      `${baseUrl}/api/integrations/igdb/games?query=Astro&includeDlc=true`,
+    );
+
+    assert.equal(searchWithDlcResponse.status, 200);
+
+    const searchWithDlc =
+      (await searchWithDlcResponse.json()) as SearchResponse;
+
+    assert.deepEqual(
+      searchWithDlc.games.map((game) => ({
+        title: game.title,
+        isDlc: game.isDlc,
+      })),
+      [
+        { title: "Astro Bot", isDlc: false },
+        { title: "Astro Bot: Costume Pack", isDlc: true },
+      ],
+    );
+
+    assert.deepEqual(requestCounts, {
+      authentication: 1,
+      games: 3,
       images: 1,
     });
   } finally {

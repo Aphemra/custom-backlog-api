@@ -1369,6 +1369,11 @@ textarea:focus-visible {
   margin-top: 0.75rem;
 }
 
+.igdb-search__dlc-toggle {
+  width: fit-content;
+  margin-top: 0.8rem;
+}
+
 .igdb-search__message {
   margin: 1rem 0 0;
   border: 1px dashed var(--color-border);
@@ -1445,6 +1450,23 @@ textarea:focus-visible {
   color: var(--color-text-muted);
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
+}
+
+.igdb-result__labels {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.igdb-result__heading .igdb-result__dlc-badge {
+  border-radius: 999px;
+  padding: 0.2rem 0.42rem;
+  background: rgba(251, 191, 36, 0.13);
+  color: #fde68a;
+  font-size: 0.6rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
 }
 
 .igdb-result__content > p {

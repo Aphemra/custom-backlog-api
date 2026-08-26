@@ -52,6 +52,7 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
     useState<PursuitStatus>("unplanned");
 
   const [isSearching, setIsSearching] = useState(false);
+  const [includeDlc, setIncludeDlc] = useState(false);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [addedKeys, setAddedKeys] = useState<ReadonlySet<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
     setErrorMessage(null);
 
     try {
-      setResults(await igdbApi.search(normalizedQuery));
+      setResults(await igdbApi.search(normalizedQuery, includeDlc));
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -168,6 +169,19 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
         </select>
       </label>
 
+      <label className="checkbox-control igdb-search__dlc-toggle">
+        <input
+          type="checkbox"
+          checked={includeDlc}
+          onChange={(event) => {
+            setIncludeDlc(event.target.checked);
+            setResults(null);
+          }}
+        />
+
+        <span>Include DLC and add-ons after games</span>
+      </label>
+
       {errorMessage === null ? null : (
         <div className="notice notice--error" role="alert">
           {errorMessage}
@@ -197,9 +211,15 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
                 <div className="igdb-result__heading">
                   <h3>{game.title}</h3>
 
-                  {game.releaseDate === null ? null : (
-                    <span>{game.releaseDate.slice(0, 4)}</span>
-                  )}
+                  <div className="igdb-result__labels">
+                    {game.isDlc ? (
+                      <span className="igdb-result__dlc-badge">DLC</span>
+                    ) : null}
+
+                    {game.releaseDate === null ? null : (
+                      <span>{game.releaseDate.slice(0, 4)}</span>
+                    )}
+                  </div>
                 </div>
 
                 <p>

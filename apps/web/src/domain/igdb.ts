@@ -10,6 +10,7 @@ export interface IgdbGameSearchResult {
   readonly summary: string | null;
   readonly platforms: readonly PlayStationPlatform[];
   readonly releaseDate: string | null;
+  readonly isDlc: boolean;
   readonly cover: {
     readonly imageId: string;
     readonly url: string;

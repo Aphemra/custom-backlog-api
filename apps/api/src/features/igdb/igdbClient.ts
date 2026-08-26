@@ -6,6 +6,9 @@ const TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const IGDB_GAMES_URL = "https://api.igdb.com/v4/games";
 const MINIMUM_REQUEST_INTERVAL_MS = 275;
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
+const GAME_FIELDS =
+  "fields id,name,summary,cover.image_id,parent_game,platforms.id," +
+  "release_dates.date,release_dates.platform;";
 
 const playStationPlatforms = new Map<number, PlayStationPlatform>([
   [9, "PS3"],
@@ -129,6 +132,7 @@ function parseGames(value: unknown): readonly IgdbGame[] {
       platforms: readPlatforms(entry.platforms),
       releaseDate: readReleaseDate(entry.release_dates),
       coverImageId: readCoverImageId(entry.cover),
+      isDlc: readPlatformId(entry.parent_game) !== null,
       payload: entry,
     };
   });
@@ -156,20 +160,38 @@ export class IgdbClient {
     private readonly fetchIgdb: IgdbFetch = fetch,
   ) {}
 
-  searchGames(searchTerm: string): Promise<readonly IgdbGame[]> {
-    const query = [
-      "fields id,name,summary,cover.image_id,platforms.id,release_dates.date,release_dates.platform;",
+  async searchGames(
+    searchTerm: string,
+    includeDlc = false,
+  ): Promise<readonly IgdbGame[]> {
+    const baseGameQuery = [
+      GAME_FIELDS,
       `search ${JSON.stringify(searchTerm)};`,
-      "where platforms = (9,48,167) & version_parent = null;",
+      "where platforms = (9,48,167) & version_parent = null & parent_game = null;",
       "limit 20;",
     ].join("\n");
 
-    return this.enqueueRequest(query);
+    const baseGames = await this.enqueueRequest(baseGameQuery);
+
+    if (!includeDlc) {
+      return baseGames;
+    }
+
+    const dlcQuery = [
+      GAME_FIELDS,
+      `search ${JSON.stringify(searchTerm)};`,
+      "where platforms = (9,48,167) & version_parent = null & parent_game != null;",
+      "limit 10;",
+    ].join("\n");
+
+    const dlcGames = await this.enqueueRequest(dlcQuery);
+
+    return [...baseGames, ...dlcGames];
   }
 
   async getGame(externalId: string): Promise<IgdbGame | null> {
     const query = [
-      "fields id,name,summary,cover.image_id,platforms.id,release_dates.date,release_dates.platform;",
+      GAME_FIELDS,
       `where id = ${externalId} & platforms = (9,48,167);`,
       "limit 1;",
     ].join("\n");

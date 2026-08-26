@@ -12,6 +12,7 @@ export interface IgdbGame {
   platforms: readonly PlayStationPlatform[];
   releaseDate: string | null;
   coverImageId: string | null;
+  isDlc: boolean;
   payload: Readonly<Record<string, unknown>>;
 }
 

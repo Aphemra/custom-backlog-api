@@ -129,6 +129,7 @@ function parseGames(value: unknown): readonly IgdbGame[] {
       platforms: readPlatforms(entry.platforms),
       releaseDate: readReleaseDate(entry.release_dates),
       coverImageId: readCoverImageId(entry.cover),
+      payload: entry,
     };
   });
 }
@@ -156,6 +157,29 @@ export class IgdbClient {
   ) {}
 
   searchGames(searchTerm: string): Promise<readonly IgdbGame[]> {
+    const query = [
+      "fields id,name,summary,cover.image_id,platforms.id,release_dates.date,release_dates.platform;",
+      `search ${JSON.stringify(searchTerm)};`,
+      "where platforms = (9,48,167) & version_parent = null;",
+      "limit 20;",
+    ].join("\n");
+
+    return this.enqueueRequest(query);
+  }
+
+  async getGame(externalId: string): Promise<IgdbGame | null> {
+    const query = [
+      "fields id,name,summary,cover.image_id,platforms.id,release_dates.date,release_dates.platform;",
+      `where id = ${externalId} & platforms = (9,48,167);`,
+      "limit 1;",
+    ].join("\n");
+
+    const games = await this.enqueueRequest(query);
+
+    return games[0] ?? null;
+  }
+
+  private enqueueRequest(query: string): Promise<readonly IgdbGame[]> {
     const result = this.requestQueue.then(async () => {
       const waitMilliseconds = Math.max(0, this.nextRequestAt - Date.now());
 
@@ -167,7 +191,7 @@ export class IgdbClient {
 
       this.nextRequestAt = Date.now() + MINIMUM_REQUEST_INTERVAL_MS;
 
-      return this.requestGames(searchTerm, true);
+      return this.requestGames(query, true);
     });
 
     this.requestQueue = result.then(
@@ -179,17 +203,10 @@ export class IgdbClient {
   }
 
   private async requestGames(
-    searchTerm: string,
+    query: string,
     allowTokenRetry: boolean,
   ): Promise<readonly IgdbGame[]> {
     const accessToken = await this.getAccessToken();
-
-    const query = [
-      "fields id,name,summary,cover.image_id,platforms.id,release_dates.date,release_dates.platform;",
-      `search ${JSON.stringify(searchTerm)};`,
-      "where platforms = (9,48,167) & version_parent = null;",
-      "limit 20;",
-    ].join("\n");
 
     let response: Response;
 
@@ -214,7 +231,7 @@ export class IgdbClient {
 
     if (response.status === 401 && allowTokenRetry) {
       this.accessToken = null;
-      return this.requestGames(searchTerm, false);
+      return this.requestGames(query, false);
     }
 
     if (response.status === 429) {

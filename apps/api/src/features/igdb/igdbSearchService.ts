@@ -26,9 +26,7 @@ export class IgdbSearchService {
       const image = this.imageCache.register({
         provider: "igdb",
         sourceKey: `cover:${game.coverImageId}`,
-        sourceUrl:
-          `https://images.igdb.com/igdb/image/upload/` +
-          `t_cover_big_2x/${game.coverImageId}.jpg`,
+        sourceUrl: createIgdbCoverUrl(game.coverImageId),
       });
 
       return {
@@ -44,4 +42,11 @@ export class IgdbSearchService {
       };
     });
   }
+}
+
+export function createIgdbCoverUrl(coverImageId: string): string {
+  return (
+    `https://images.igdb.com/igdb/image/upload/` +
+    `t_cover_big_2x/${coverImageId}.jpg`
+  );
 }

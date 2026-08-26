@@ -12,11 +12,27 @@ export interface IgdbGame {
   platforms: readonly PlayStationPlatform[];
   releaseDate: string | null;
   coverImageId: string | null;
+  payload: Readonly<Record<string, unknown>>;
 }
 
-export interface IgdbGameSearchResult extends Omit<IgdbGame, "coverImageId"> {
+export interface IgdbGameSearchResult extends Omit<
+  IgdbGame,
+  "coverImageId" | "payload"
+> {
   cover: {
     imageId: string;
     url: string;
   } | null;
+}
+
+export interface AddIgdbGameInput {
+  externalId: string;
+  platform: PlayStationPlatform;
+  pursuitStatus:
+    | "unplanned"
+    | "pursuing_soon"
+    | "in_progress"
+    | "paused"
+    | "finished"
+    | "abandoned";
 }

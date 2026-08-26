@@ -12,7 +12,15 @@ test("refuses matching reader and target account IDs", async () => {
       return "access-code";
     },
     async exchangeAccessCodeForAuthTokens() {
-      return { accessToken: "access-token" };
+      return {
+        accessToken: "access-token",
+        expiresIn: 3_600,
+        refreshToken: "refresh-token",
+        refreshTokenExpiresIn: 7_200,
+      };
+    },
+    async exchangeRefreshTokenForAuthTokens() {
+      throw new Error("Refresh should not be required.");
     },
     async searchAccounts(_authorization, onlineId) {
       return {

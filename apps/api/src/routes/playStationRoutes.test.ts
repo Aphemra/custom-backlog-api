@@ -43,8 +43,13 @@ test("tests a dedicated reader without exposing credentials", async () => {
 
       return {
         accessToken: "access-token",
+        expiresIn: 3_600,
         refreshToken: "refresh-token",
+        refreshTokenExpiresIn: 7_200,
       };
+    },
+    async exchangeRefreshTokenForAuthTokens() {
+      throw new Error("The fresh access token should be reused.");
     },
 
     async searchAccounts(authorization, onlineId) {
@@ -178,6 +183,35 @@ test("tests a dedicated reader without exposing credentials", async () => {
     assert.deepEqual(calls, [
       "exchange-npsso",
       "exchange-code",
+      "summary:me",
+      "search:MainAccount",
+      "summary:20002",
+    ]);
+
+    const repeatedResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/connection-tests`,
+      {
+        method: "POST",
+        headers: {
+          "x-trophy-backlog-action": "test-playstation-connection",
+        },
+      },
+    );
+
+    assert.equal(repeatedResponse.status, 200);
+
+    const repeatedBody = (await repeatedResponse.json()) as {
+      connection: { requestsMade: number };
+    };
+
+    assert.equal(repeatedBody.connection.requestsMade, 3);
+
+    assert.deepEqual(calls, [
+      "exchange-npsso",
+      "exchange-code",
+      "summary:me",
+      "search:MainAccount",
+      "summary:20002",
       "summary:me",
       "search:MainAccount",
       "summary:20002",

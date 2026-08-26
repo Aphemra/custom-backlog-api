@@ -4,6 +4,7 @@ import {
   type PlayStationApiOperations,
   type PlayStationAuthorization,
 } from "./playStationApi.js";
+import { PlayStationAuthorizationSession } from "./playStationAuthorizationSession.js";
 import { PlayStationRequestGate } from "./playStationRequestGate.js";
 import type {
   PlayStationAccountIdentity,
@@ -84,6 +85,11 @@ export class PlayStationConnectionService {
     private readonly credentials: PlayStationCredentials,
     private readonly operations: PlayStationApiOperations = playStationApiOperations,
     private readonly requestGate: PlayStationRequestGate = new PlayStationRequestGate(),
+    private readonly authorizationSession: PlayStationAuthorizationSession = new PlayStationAuthorizationSession(
+      credentials.readerNpsso,
+      operations,
+      requestGate,
+    ),
   ) {}
 
   getStatus(): PlayStationConnectionStatus {
@@ -124,7 +130,7 @@ export class PlayStationConnectionService {
   private async runConnectionTest(): Promise<PlayStationConnectionResult> {
     const credentials = this.requireCredentials();
     const requestCountBefore = this.requestGate.requestsUsed;
-    const authorization = await this.authenticate(credentials.readerNpsso);
+    const authorization = await this.authorizationSession.getAuthorization();
     const authenticatedReaderSummary = await this.readTrophySummary(
       authorization,
       "me",
@@ -177,62 +183,6 @@ export class PlayStationConnectionService {
     }
 
     return { readerNpsso, readerOnlineId, targetOnlineId };
-  }
-
-  private async authenticate(npsso: string): Promise<PlayStationAuthorization> {
-    let accessCode: unknown;
-
-    try {
-      accessCode = await this.requestGate.execute(() =>
-        this.operations.exchangeNpssoForAccessCode(npsso),
-      );
-    } catch (error) {
-      throwIfThrottled(error);
-
-      throw new HttpError(
-        401,
-        "playstation_authentication_failed",
-        "PlayStation rejected the reader account NPSSO.",
-      );
-    }
-
-    if (typeof accessCode !== "string" || accessCode.trim() === "") {
-      throw new HttpError(
-        401,
-        "playstation_authentication_failed",
-        "PlayStation rejected the reader account NPSSO.",
-      );
-    }
-
-    let tokens: unknown;
-
-    try {
-      tokens = await this.requestGate.execute(() =>
-        this.operations.exchangeAccessCodeForAuthTokens(accessCode),
-      );
-    } catch (error) {
-      throwIfThrottled(error);
-
-      throw new HttpError(
-        401,
-        "playstation_authentication_failed",
-        "PlayStation could not authorize the reader account.",
-      );
-    }
-
-    if (
-      !isRecord(tokens) ||
-      typeof tokens.accessToken !== "string" ||
-      tokens.accessToken.trim() === ""
-    ) {
-      throw new HttpError(
-        401,
-        "playstation_authentication_failed",
-        "PlayStation could not authorize the reader account.",
-      );
-    }
-
-    return { accessToken: tokens.accessToken };
   }
 
   private async resolveAccount(

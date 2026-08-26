@@ -10,10 +10,14 @@ import { createCollectionRoutes } from "./routes/collectionRoutes.js";
 import { createDataRoutes } from "./routes/dataRoutes.js";
 import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
 import { createHealthRoutes } from "./routes/healthRoutes.js";
+import { createImageRoutes } from "./routes/imageRoutes.js";
 import { createLibraryRoutes } from "./routes/libraryRoutes.js";
 import { createSavedViewRoutes } from "./routes/savedViewRoutes.js";
 
-export function createApp(database: DatabaseSync) {
+export function createApp(
+  database: DatabaseSync,
+  imageCacheDirectory: string = runtimeConfig.imageCacheDirectory,
+) {
   const app = express();
 
   app.disable("x-powered-by");
@@ -24,6 +28,8 @@ export function createApp(database: DatabaseSync) {
   );
 
   app.use("/api/health", createHealthRoutes(database));
+
+  app.use("/api/images", createImageRoutes(database, imageCacheDirectory));
 
   app.use(
     "/api/database",

@@ -6,8 +6,9 @@ const TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const IGDB_GAMES_URL = "https://api.igdb.com/v4/games";
 const MINIMUM_REQUEST_INTERVAL_MS = 275;
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
+const DLC_GAME_TYPE_IDS = new Set([1, 2, 13, 14]);
 const GAME_FIELDS =
-  "fields id,name,summary,cover.image_id,parent_game,platforms.id," +
+  "fields id,name,summary,cover.image_id,game_type,platforms.id," +
   "release_dates.date,release_dates.platform;";
 
 const playStationPlatforms = new Map<number, PlayStationPlatform>([
@@ -132,7 +133,7 @@ function parseGames(value: unknown): readonly IgdbGame[] {
       platforms: readPlatforms(entry.platforms),
       releaseDate: readReleaseDate(entry.release_dates),
       coverImageId: readCoverImageId(entry.cover),
-      isDlc: readPlatformId(entry.parent_game) !== null,
+      isDlc: DLC_GAME_TYPE_IDS.has(readPlatformId(entry.game_type) ?? -1),
       payload: entry,
     };
   });
@@ -167,7 +168,8 @@ export class IgdbClient {
     const baseGameQuery = [
       GAME_FIELDS,
       `search ${JSON.stringify(searchTerm)};`,
-      "where platforms = (9,48,167) & version_parent = null & parent_game = null;",
+      "where platforms = (9,48,167) & version_parent = null " +
+        "& game_type != (1,2,3,5,12,13,14);",
       "limit 20;",
     ].join("\n");
 
@@ -180,7 +182,8 @@ export class IgdbClient {
     const dlcQuery = [
       GAME_FIELDS,
       `search ${JSON.stringify(searchTerm)};`,
-      "where platforms = (9,48,167) & version_parent = null & parent_game != null;",
+      "where platforms = (9,48,167) & version_parent = null " +
+        "& game_type = (1,2,13,14);",
       "limit 10;",
     ].join("\n");
 

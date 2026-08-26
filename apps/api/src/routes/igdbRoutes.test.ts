@@ -72,23 +72,24 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
       assert.match(query, /search "Astro";/);
       assert.match(query, /platforms = \(9,48,167\)/);
 
-      if (query.includes("parent_game != null")) {
+      if (query.includes("game_type = (1,2,13,14)")) {
         return Response.json([
           {
             id: 350766,
             name: "Astro Bot: Costume Pack",
-            parent_game: 250766,
+            game_type: 1,
             platforms: [{ id: 167 }],
           },
         ]);
       }
 
-      assert.match(query, /parent_game = null/);
+      assert.match(query, /game_type != \(1,2,3,5,12,13,14\)/);
 
       return Response.json([
         {
           id: 250766,
           name: "Astro Bot",
+          game_type: 0,
           summary: "A platforming adventure.",
           platforms: [{ id: 48 }, { id: 167 }],
           release_dates: [{ date: 1_725_580_800, platform: 167 }],

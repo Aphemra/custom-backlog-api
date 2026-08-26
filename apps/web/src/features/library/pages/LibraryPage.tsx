@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CreateLibraryGameInput, LibraryGame } from "../../../domain/libraryGame";
+import type {
+  CreateLibraryGameInput,
+  LibraryGame,
+} from "../../../domain/libraryGame";
 import { ApiError } from "../../../services/api/apiClient";
 import { libraryApi } from "../../../services/api/libraryApi";
+import { IgdbGameSearch } from "../components/IgdbGameSearch";
 import { LibraryGameForm } from "../components/LibraryGameForm";
 import { LibraryGameRow } from "../components/LibraryGameRow";
 
@@ -23,6 +27,7 @@ export function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
   const [editingGame, setEditingGame] = useState<LibraryGame | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
@@ -74,7 +79,8 @@ export function LibraryPage() {
 
       return (
         game.title.toLocaleLowerCase("en-US").includes(normalizedQuery) ||
-        game.notes?.toLocaleLowerCase("en-US").includes(normalizedQuery) === true
+        game.notes?.toLocaleLowerCase("en-US").includes(normalizedQuery) ===
+          true
       );
     });
   }, [games, searchQuery, showArchived]);
@@ -108,13 +114,21 @@ export function LibraryPage() {
   }
 
   async function handleCreate(input: CreateLibraryGameInput): Promise<void> {
-    const succeeded = await performMutation("create", `${input.title} was added.`, () =>
-      libraryApi.create(input),
+    const succeeded = await performMutation(
+      "create",
+      `${input.title} was added.`,
+      () => libraryApi.create(input),
     );
 
     if (succeeded) {
       setIsAdding(false);
     }
+  }
+
+  async function handleIgdbAdded(game: LibraryGame): Promise<void> {
+    await refreshGames();
+    setErrorMessage(null);
+    setNotice(`${game.title} was added from IGDB.`);
   }
 
   async function handleUpdate(input: CreateLibraryGameInput): Promise<void> {
@@ -134,8 +148,10 @@ export function LibraryPage() {
   }
 
   async function handleArchive(game: LibraryGame): Promise<void> {
-    const succeeded = await performMutation(game.id, `${game.title} was archived.`, () =>
-      libraryApi.archive(game.id),
+    const succeeded = await performMutation(
+      game.id,
+      `${game.title} was archived.`,
+      () => libraryApi.archive(game.id),
     );
 
     if (succeeded && editingGame?.id === game.id) {
@@ -144,8 +160,10 @@ export function LibraryPage() {
   }
 
   async function handleRestore(game: LibraryGame): Promise<void> {
-    await performMutation(game.id, `${game.title} was restored to the library.`, () =>
-      libraryApi.restore(game.id),
+    await performMutation(
+      game.id,
+      `${game.title} was restored to the library.`,
+      () => libraryApi.restore(game.id),
     );
   }
 
@@ -158,8 +176,10 @@ export function LibraryPage() {
       return;
     }
 
-    const succeeded = await performMutation(game.id, `${game.title} was permanently deleted.`, () =>
-      libraryApi.deletePermanently(game.id),
+    const succeeded = await performMutation(
+      game.id,
+      `${game.title} was permanently deleted.`,
+      () => libraryApi.deletePermanently(game.id),
     );
 
     if (succeeded && editingGame?.id === game.id) {
@@ -171,7 +191,11 @@ export function LibraryPage() {
     const currentIndex = activeGames.findIndex((game) => game.id === gameId);
     const targetIndex = currentIndex + direction;
 
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= activeGames.length) {
+    if (
+      currentIndex < 0 ||
+      targetIndex < 0 ||
+      targetIndex >= activeGames.length
+    ) {
       return;
     }
 
@@ -190,13 +214,23 @@ export function LibraryPage() {
   }
 
   function openAddForm() {
+    setIsSearchingIgdb(false);
     setEditingGame(null);
     setIsAdding(true);
     setErrorMessage(null);
   }
 
+  function openIgdbSearch() {
+    setIsAdding(false);
+    setEditingGame(null);
+    setIsSearchingIgdb(true);
+    setErrorMessage(null);
+    setNotice(null);
+  }
+
   function openEditForm(game: LibraryGame) {
     setIsAdding(false);
+    setIsSearchingIgdb(false);
     setEditingGame(game);
     setErrorMessage(null);
   }
@@ -217,9 +251,23 @@ export function LibraryPage() {
           </p>
         </div>
 
-        <button className="button button--primary" type="button" onClick={openAddForm}>
-          Add game
-        </button>
+        <div className="library-heading__actions">
+          <button
+            className="button button--quiet"
+            type="button"
+            onClick={openAddForm}
+          >
+            Add manually
+          </button>
+
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={openIgdbSearch}
+          >
+            Search IGDB
+          </button>
+        </div>
       </div>
 
       <div className="stats-strip" aria-label="Library summary">
@@ -229,13 +277,20 @@ export function LibraryPage() {
         </div>
         <div>
           <strong>
-            {activeGames.filter((game) => game.pursuitStatus === "pursuing_soon").length}
+            {
+              activeGames.filter(
+                (game) => game.pursuitStatus === "pursuing_soon",
+              ).length
+            }
           </strong>
           <span>Pursuing soon</span>
         </div>
         <div>
           <strong>
-            {activeGames.filter((game) => game.pursuitStatus === "in_progress").length}
+            {
+              activeGames.filter((game) => game.pursuitStatus === "in_progress")
+                .length
+            }
           </strong>
           <span>In progress</span>
         </div>
@@ -267,7 +322,9 @@ export function LibraryPage() {
       </div>
 
       {orderingDisabled ? (
-        <p className="helper-message">Clear the search to change the full library order.</p>
+        <p className="helper-message">
+          Clear the search to change the full library order.
+        </p>
       ) : null}
 
       {notice === null ? null : (
@@ -281,6 +338,15 @@ export function LibraryPage() {
           {errorMessage}
         </div>
       )}
+
+      {isSearchingIgdb ? (
+        <div className="editor-panel">
+          <IgdbGameSearch
+            onAdded={handleIgdbAdded}
+            onClose={() => setIsSearchingIgdb(false)}
+          />
+        </div>
+      ) : null}
 
       {isAdding || editingGame !== null ? (
         <div className="editor-panel">
@@ -308,15 +374,23 @@ export function LibraryPage() {
 
       {loadState === "ready" && visibleGames.length === 0 ? (
         <div className="empty-state">
-          <h3>{games.length === 0 ? "Your library is ready." : "No games match this view."}</h3>
+          <h3>
+            {games.length === 0
+              ? "Your library is ready."
+              : "No games match this view."}
+          </h3>
           <p>
             {games.length === 0
-              ? "Add your first game manually. Metadata search and trophy imports come later."
+              ? "Search IGDB for automatic metadata, or create a manual entry."
               : "Try clearing the search or showing archived entries."}
           </p>
           {games.length === 0 ? (
-            <button className="button button--primary" type="button" onClick={openAddForm}>
-              Add your first game
+            <button
+              className="button button--primary"
+              type="button"
+              onClick={openIgdbSearch}
+            >
+              Search for your first game
             </button>
           ) : null}
         </div>
@@ -325,7 +399,9 @@ export function LibraryPage() {
       {loadState === "ready" && visibleGames.length > 0 ? (
         <div className="game-list" aria-label="Library games">
           {visibleGames.map((game) => {
-            const activeIndex = activeGames.findIndex((candidate) => candidate.id === game.id);
+            const activeIndex = activeGames.findIndex(
+              (candidate) => candidate.id === game.id,
+            );
             const isArchived = game.archivedAt !== null;
 
             return (
@@ -334,7 +410,9 @@ export function LibraryPage() {
                 game={game}
                 position={isArchived ? null : activeIndex + 1}
                 canMoveUp={!isArchived && activeIndex > 0}
-                canMoveDown={!isArchived && activeIndex < activeGames.length - 1}
+                canMoveDown={
+                  !isArchived && activeIndex < activeGames.length - 1
+                }
                 orderingDisabled={orderingDisabled}
                 busy={busyKey !== null}
                 onMoveUp={() => void moveGame(game.id, -1)}

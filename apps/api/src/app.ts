@@ -15,6 +15,10 @@ import { createHealthRoutes } from "./routes/healthRoutes.js";
 import { createImageRoutes } from "./routes/imageRoutes.js";
 import { createIgdbRoutes } from "./routes/igdbRoutes.js";
 import { createLibraryRoutes } from "./routes/libraryRoutes.js";
+import {
+  createPlayStationRoutes,
+  type PlayStationRouteOptions,
+} from "./routes/playStationRoutes.js";
 import { createSavedViewRoutes } from "./routes/savedViewRoutes.js";
 
 export function createApp(
@@ -25,6 +29,7 @@ export function createApp(
     clientSecret: runtimeConfig.igdbClientSecret,
   },
   externalFetch: IgdbFetch = fetch,
+  playStationOptions: Partial<PlayStationRouteOptions> = {},
 ) {
   const app = express();
 
@@ -50,6 +55,20 @@ export function createApp(
       igdbCredentials,
       externalFetch,
     ),
+  );
+
+  app.use(
+    "/api/integrations/playstation",
+    createPlayStationRoutes({
+      credentials:
+        playStationOptions.credentials ?? runtimeConfig.playStationCredentials,
+      ...(playStationOptions.operations === undefined
+        ? {}
+        : { operations: playStationOptions.operations }),
+      ...(playStationOptions.requestGate === undefined
+        ? {}
+        : { requestGate: playStationOptions.requestGate }),
+    }),
   );
 
   app.use(

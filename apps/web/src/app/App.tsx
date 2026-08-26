@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { CollectionsPage } from "../features/collections/pages/CollectionsPage";
 import { LibraryPage } from "../features/library/pages/LibraryPage";
+import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
 
-type ActivePage = "library" | "collections";
+type ActivePage = "library" | "collections" | "portableData";
 
 export function App() {
   const [activePage, setActivePage] = useState<ActivePage>("library");
@@ -42,12 +43,24 @@ export function App() {
 
         <span className="primary-nav__item">Alerts</span>
 
-        <span className="primary-nav__item">Import / Export</span>
+        <button
+          className={`primary-nav__item${
+            activePage === "portableData" ? " primary-nav__item--active" : ""
+          }`}
+          type="button"
+          onClick={() => setActivePage("portableData")}
+        >
+          Import / Export
+        </button>
 
         <span className="primary-nav__item">Settings</span>
       </nav>
 
-      {activePage === "library" ? <LibraryPage /> : <CollectionsPage />}
+      {activePage === "library" ? <LibraryPage /> : null}
+
+      {activePage === "collections" ? <CollectionsPage /> : null}
+
+      {activePage === "portableData" ? <PortableDataPage /> : null}
     </main>
   );
 }

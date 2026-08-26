@@ -96,6 +96,7 @@ apps/web/src/
   domain/
     collection.ts
     libraryGame.ts
+    portableData.ts
   features/
     collections/
       components/
@@ -110,11 +111,15 @@ apps/web/src/
         LibraryGameRow.tsx
       pages/
         LibraryPage.tsx
+    portableData/
+      pages/
+        PortableDataPage.tsx
   services/
     api/
       apiClient.ts
       collectionApi.ts
       libraryApi.ts
+      portableDataApi.ts
   styles/
     global.css
   main.tsx
@@ -243,9 +248,9 @@ library as a searchable checklist. Archived games are visible and selectable.
 Changes remain local to the editor until the complete ordered list is saved.
 
 The application currently uses lightweight in-memory navigation between the
-Library and Collections pages. A routing dependency is unnecessary while the
-personal app has only a small number of top-level screens and does not require
-shareable URLs or browser-history navigation.
+Library, Collections, and Import / Export pages. A routing dependency is
+unnecessary while the personal app has only a small number of top-level screens
+and does not require shareable URLs or browser-history navigation.
 
 ## Backups and portable exports
 
@@ -270,6 +275,21 @@ snapshots, or trophy alerts are present. This prevents an older portable format
 from silently deleting data introduced by later features. When those features
 become active, the portable format must be advanced and its importer extended
 before this guard is relaxed.
+
+## Import / Export interface behavior
+
+Export uses a normal same-origin download link to the API attachment endpoint.
+This lets the browser handle filenames and disk saving without holding a second
+generated copy of the JSON in frontend memory.
+
+Import file selection reads JSON locally and submits it to the preview endpoint.
+Selection alone never modifies SQLite. A successful preview shows current and
+incoming game, Collection, and membership counts side by side.
+
+The replacement action remains disabled until the user explicitly acknowledges
+that the current library and Collections will be replaced. The interface states
+that a SQLite backup is created first and reports the exact backup filename
+after a successful import.
 
 ## Frontend design direction
 

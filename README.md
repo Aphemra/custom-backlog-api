@@ -26,10 +26,12 @@ V2 currently includes:
   aggregate counts, and a focused game-selection interface
 - Versioned portable JSON export, validation, preview, automatic pre-import
   SQLite backup, and atomic library/Collection replacement through the API
+- A functional Import / Export interface with native JSON downloads, local file
+  selection, count comparison, and explicit replacement acknowledgement
 - Responsive layouts for portrait desktop monitors and narrow screens
 
-The portable import/export interface, saved views, metadata search, trophy
-synchronization, and alerts are still to be built.
+Saved views, metadata search, trophy synchronization, and alerts are still to
+be built.
 
 ## Requirements
 

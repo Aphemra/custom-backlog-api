@@ -77,12 +77,14 @@ apps/api/src/
     collections/
     library/
     portableData/
+    savedViews/
   routes/
     collectionRoutes.ts
     dataRoutes.ts
     databaseRoutes.ts
     healthRoutes.ts
     libraryRoutes.ts
+    savedViewRoutes.ts
   app.ts
   index.ts
 ```
@@ -141,7 +143,6 @@ apps/api/src/
     collections/
     library/
     metadata/
-    savedViews/
     trophyAlerts/
     trophySync/
   integrations/
@@ -224,6 +225,11 @@ so archiving never destroys personal organization. Permanently deleting a game
 removes its collection memberships through the database foreign key, while
 deleting a collection never deletes games.
 
+A Collection cannot be permanently deleted while a saved view references it.
+The API returns a conflict and requires the view to be edited or deleted first.
+This avoids both stale references and the surprising behavior of silently
+broadening a narrowly filtered view.
+
 Collection summaries expose total, active, and archived game counts. Trophy
 aggregates will be added only after trophy snapshots become real application
 data, rather than exposing placeholder totals.
@@ -252,6 +258,29 @@ Library, Collections, and Import / Export pages. A routing dependency is
 unnecessary while the personal app has only a small number of top-level screens
 and does not require shareable URLs or browser-history navigation.
 
+## Saved views
+
+Saved views are named, ordered query definitions over the one canonical game
+library. They provide the application's multiple-backlog behavior without
+duplicating games or maintaining multiple independent lists.
+
+The API supports custom view creation, editing, deletion, and complete-list
+ordering. Current server-side filters cover title/notes search, platform,
+pursuit status, archive state, and membership in one or more Collections.
+Collection membership uses any-match semantics when multiple IDs are supplied.
+A temporary search may also be applied while querying a view without changing
+its stored definition.
+
+Seven built-in definitions establish the intended product vocabulary: All
+games, Pursuing soon, In progress, Platinum earned, 100% complete, Completion
+lost, and Needs synchronization. Built-ins may be reordered but cannot be
+edited or deleted.
+
+The four trophy-dependent built-ins are explicitly reported as unavailable
+until trophy synchronization exists. Trophy-related filter and sort fields are
+already valid stored definitions so the data model will not need to change,
+but the query layer refuses to fabricate results from absent trophy data.
+
 ## Backups and portable exports
 
 SQLite backups are internal safety copies created with SQLite's backup API.
@@ -259,20 +288,25 @@ They are stored under `apps/api/runtime/backups/` by default.
 
 Portable JSON export/import is a separate safety layer from SQLite backups. It
 provides a versioned, human-accessible format for moving or restoring library
-games and Collections without requiring direct SQLite access.
+games, Collections, and saved views without requiring direct SQLite access.
 
-Version one contains the canonical library fields, archive state, manual game
-order, Collections, and ordered Collection membership. Generated metadata,
-trophy history, alerts, saved views, and settings are not represented yet.
+Version two contains the canonical library fields, archive state, manual game
+order, Collections, ordered Collection membership, and every built-in and
+custom saved view. Generated metadata, trophy history, alerts, and settings are
+not represented yet. Version-one files remain importable and preserve the
+database's current saved views because that older format did not contain them.
+The version-one importer refuses to proceed when a current custom view filters
+by Collection, because replacing Collections could otherwise break the
+preserved rule.
 
 Every import validates the complete document and its cross-references before
 changing SQLite. The API previews incoming and current record counts, creates a
 SQLite backup immediately before replacement, and replaces the represented
 tables inside one transaction.
 
-The version-one importer refuses to run when existing metadata links, trophy
-snapshots, or trophy alerts are present. This prevents an older portable format
-from silently deleting data introduced by later features. When those features
+The importer refuses to run when existing metadata links, trophy snapshots, or
+trophy alerts are present. This prevents the current portable format from
+silently deleting data introduced by later features. When those features
 become active, the portable format must be advanced and its importer extended
 before this guard is relaxed.
 

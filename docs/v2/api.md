@@ -335,13 +335,146 @@ DELETE /api/collections/:collectionId
 ```
 
 Returns `204 No Content`. This deletes the collection and its membership rows,
-but never deletes library games. The future interface must require explicit
-confirmation.
+but never deletes library games. Deletion returns `409
+collection_used_by_saved_view` when a saved view still references the
+Collection; edit or delete those views first. The future interface must require
+explicit confirmation.
+
+## Saved-view representation
+
+A saved view stores reusable filter and sort rules. It references library games
+at query time and never duplicates them:
+
+```json
+{
+  "id": "generated-uuid",
+  "builtinKey": null,
+  "name": "PS5 games to pursue",
+  "filters": {
+    "platforms": ["PS5"],
+    "pursuitStatuses": ["pursuing_soon"],
+    "archiveMode": "active"
+  },
+  "sort": {
+    "field": "priorityRank",
+    "direction": "asc"
+  },
+  "sortOrder": 70,
+  "isBuiltin": false,
+  "isAvailable": true,
+  "unavailableReason": null,
+  "createdAt": "2026-08-25T12:00:00.000Z",
+  "updatedAt": "2026-08-25T12:00:00.000Z"
+}
+```
+
+Supported filters currently applied to library data are:
+
+- `search`: title and personal-note text
+- `platforms`: one or more of `PS3`, `PS4`, and `PS5`
+- `pursuitStatuses`: one or more supported pursuit statuses
+- `archiveMode`: `active`, `archived`, or `all`; defaults to `active`
+- `collectionIds`: games in any of the listed Collections
+
+Trophy filters (`platinumEarned`, `is100Percent`, `needsSync`, `alertKinds`,
+and `alertStatus`) are valid saved rules but make the view unavailable until
+trophy synchronization is implemented. The same applies to trophy-dependent
+sort fields. The API does not pretend that missing trophy data means zero.
+
+## Saved-view endpoints
+
+### List saved views
+
+```http
+GET /api/saved-views
+```
+
+Returns `{ "views": [] }` in saved-view order. Seven built-in views are seeded:
+All games, Pursuing soon, In progress, Platinum earned, 100% complete,
+Completion lost, and Needs synchronization.
+
+### Create a custom saved view
+
+```http
+POST /api/saved-views
+Content-Type: application/json
+
+{
+  "name": "PS5 games to pursue",
+  "filters": {
+    "platforms": ["PS5"],
+    "pursuitStatuses": ["pursuing_soon"]
+  },
+  "sort": {
+    "field": "priorityRank",
+    "direction": "asc"
+  }
+}
+```
+
+The endpoint returns `201 Created`. Referenced Collection IDs must exist.
+
+### Query a saved view
+
+```http
+GET /api/saved-views/:viewId/games
+```
+
+Returns `{ "view": ..., "games": [] }`. An optional `search` query adds a
+temporary title/notes search without altering the stored rules:
+
+```http
+GET /api/saved-views/:viewId/games?search=astro
+```
+
+Querying a trophy-dependent view currently returns `409
+saved_view_unavailable`.
+
+### Edit a custom saved view
+
+```http
+PATCH /api/saved-views/:viewId
+Content-Type: application/json
+
+{
+  "name": "Current PS5 plans"
+}
+```
+
+The request may change `name`, `filters`, and/or `sort`. Built-in views cannot
+be edited.
+
+### Reorder saved views
+
+```http
+PUT /api/saved-views/order
+Content-Type: application/json
+
+{
+  "orderedViewIds": [
+    "custom-view-id",
+    "builtin-all-games",
+    "other-view-ids"
+  ]
+}
+```
+
+The array must contain every built-in and custom saved-view ID exactly once.
+The update is atomic.
+
+### Delete a custom saved view
+
+```http
+DELETE /api/saved-views/:viewId
+```
+
+Returns `204 No Content`. Built-in views cannot be deleted.
 
 ## Portable data endpoints
 
-Portable data is a versioned JSON representation of the canonical library and
-Collections. Version one includes archived games and manual ordering.
+Portable data is a versioned JSON representation of the canonical library,
+Collections, and saved views. New exports use version two. Version-one files
+remain importable for backward compatibility.
 
 ### Export portable data
 
@@ -354,18 +487,20 @@ Returns a JSON attachment using this top-level shape:
 ```json
 {
   "format": "trophy-backlog-portable-data",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "2026-08-25T12:00:00.000Z",
   "data": {
     "libraryGames": [],
-    "collections": []
+    "collections": [],
+    "savedViews": []
   }
 }
 ```
 
 Each library entry preserves its ID, manual fields, priority rank, timestamps,
 and archive state. Each Collection preserves its ID, fields, order, timestamps,
-and complete ordered game-ID list.
+and complete ordered game-ID list. Every saved view preserves its ID, built-in
+identity where applicable, filter and sort rules, order, and timestamps.
 
 ### Preview an import
 
@@ -375,21 +510,23 @@ Content-Type: application/json
 
 {
   "format": "trophy-backlog-portable-data",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "2026-08-25T12:00:00.000Z",
   "data": {
     "libraryGames": [],
-    "collections": []
+    "collections": [],
+    "savedViews": []
   }
 }
 ```
 
 The complete export is validated. A successful response reports the incoming
-and current library-game, Collection, and membership counts. It does not change
-the database.
+and current library-game, Collection, membership, and saved-view counts. It
+does not change the database.
 
 Unknown fields, duplicate IDs, invalid values, unsupported versions, broken
-Collection references, and excessively large arrays are rejected.
+Collection or saved-view references, incomplete built-in view sets, and
+excessively large arrays are rejected.
 
 ### Apply an import
 
@@ -399,21 +536,29 @@ Content-Type: application/json
 
 {
   "format": "trophy-backlog-portable-data",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "2026-08-25T12:00:00.000Z",
   "data": {
     "libraryGames": [],
-    "collections": []
+    "collections": [],
+    "savedViews": []
   }
 }
 ```
 
 The document is validated again. The API then creates a SQLite backup and
-atomically replaces the library, Collections, and Collection memberships.
+atomically replaces the library, Collections, Collection memberships, and—in
+version two—saved views.
 
 The response includes the preview counts, import time, and created SQLite
 backup filename.
 
-Version one refuses to import when existing metadata links or trophy records
-are present because it cannot preserve those future data types. This is a
-deliberate data-loss guard rather than an import error to work around.
+Importing a version-one file preserves the database's existing saved views,
+because that older format did not contain them. Both supported versions refuse
+to import when existing metadata links or trophy records are present because
+they cannot preserve those future data types. This is a deliberate data-loss
+guard rather than an import error to work around.
+
+A version-one import is also refused when a current custom saved view filters
+by Collection. Replacing Collections while preserving a view that references
+them could leave a broken rule. A version-two export is required for that case.

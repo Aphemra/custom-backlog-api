@@ -38,6 +38,7 @@ function CountComparison({ current, incoming }: CountComparisonProps) {
     ["Library games", current.libraryGames, incoming.libraryGames],
     ["Collections", current.collections, incoming.collections],
     ["Collection memberships", current.memberships, incoming.memberships],
+    ["Saved views", current.savedViews, incoming.savedViews],
   ] as const;
 
   return (
@@ -199,7 +200,8 @@ export function PortableDataPage() {
 
             <p>
               Downloads library games, archive states, manual ordering,
-              Collections, and ordered Collection membership as JSON.
+              Collections, ordered Collection membership, and saved views as
+              JSON.
             </p>
           </div>
 
@@ -281,7 +283,9 @@ export function PortableDataPage() {
           />
 
           <div className="replacement-warning">
-            <strong>This replaces the current library and Collections.</strong>
+            <strong>
+              This replaces the current library, Collections, and saved views.
+            </strong>
 
             <span>
               Immediately before replacement, the API creates a restorable
@@ -300,7 +304,7 @@ export function PortableDataPage() {
 
             <span>
               I understand that the incoming data will replace my current
-              library and Collections.
+              library, Collections, and saved views.
             </span>
           </label>
 

@@ -2,6 +2,7 @@ export interface PortableDataCounts {
   readonly libraryGames: number;
   readonly collections: number;
   readonly memberships: number;
+  readonly savedViews: number;
 }
 
 export interface PortableImportPreview {

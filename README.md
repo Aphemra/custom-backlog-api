@@ -24,14 +24,18 @@ V2 currently includes:
   entry, editing, archiving, restoration, deletion confirmation, and ordering
 - Collection creation, editing, deletion, ordering, ordered game membership,
   aggregate counts, and a focused game-selection interface
+- Saved-view API support with built-in views, custom view creation, editing,
+  deletion, ordering, and server-side game filtering
 - Versioned portable JSON export, validation, preview, automatic pre-import
-  SQLite backup, and atomic library/Collection replacement through the API
+  SQLite backup, and atomic library/Collection/saved-view replacement through
+  the API; older version-one files remain importable
 - A functional Import / Export interface with native JSON downloads, local file
   selection, count comparison, and explicit replacement acknowledgement
 - Responsive layouts for portrait desktop monitors and narrow screens
 
-Saved views, metadata search, trophy synchronization, and alerts are still to
-be built.
+The saved-view interface, metadata search, trophy synchronization, and alerts
+are still to be built. Trophy-dependent built-in views are present but remain
+explicitly unavailable until synchronization supplies real trophy data.
 
 ## Requirements
 
@@ -71,6 +75,7 @@ npm run build
 - Database status: `http://127.0.0.1:3001/api/database/status`
 - Library API: `http://127.0.0.1:3001/api/library/games`
 - Collections API: `http://127.0.0.1:3001/api/collections`
+- Saved views API: `http://127.0.0.1:3001/api/saved-views`
 - Portable data API: `http://127.0.0.1:3001/api/data`
 
 Both development servers are intentionally restricted to the local computer.

@@ -395,7 +395,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 1);
+      assert.equal(row.count, 2);
     } finally {
       restoredDatabase.close();
     }

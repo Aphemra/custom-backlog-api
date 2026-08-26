@@ -2,8 +2,9 @@ import { useState } from "react";
 import { CollectionsPage } from "../features/collections/pages/CollectionsPage";
 import { LibraryPage } from "../features/library/pages/LibraryPage";
 import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
+import { SavedViewsPage } from "../features/savedViews/pages/SavedViewsPage";
 
-type ActivePage = "library" | "collections" | "portableData";
+type ActivePage = "library" | "collections" | "savedViews" | "portableData";
 
 export function App() {
   const [activePage, setActivePage] = useState<ActivePage>("library");
@@ -41,6 +42,16 @@ export function App() {
           Collections
         </button>
 
+        <button
+          className={`primary-nav__item${
+            activePage === "savedViews" ? " primary-nav__item--active" : ""
+          }`}
+          type="button"
+          onClick={() => setActivePage("savedViews")}
+        >
+          Saved Views
+        </button>
+
         <span className="primary-nav__item">Alerts</span>
 
         <button
@@ -59,6 +70,8 @@ export function App() {
       {activePage === "library" ? <LibraryPage /> : null}
 
       {activePage === "collections" ? <CollectionsPage /> : null}
+
+      {activePage === "savedViews" ? <SavedViewsPage /> : null}
 
       {activePage === "portableData" ? <PortableDataPage /> : null}
     </main>

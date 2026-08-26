@@ -76,8 +76,10 @@ apps/api/src/
     backups/
     collections/
     library/
+    portableData/
   routes/
     collectionRoutes.ts
+    dataRoutes.ts
     databaseRoutes.ts
     healthRoutes.ts
     libraryRoutes.ts
@@ -250,9 +252,24 @@ shareable URLs or browser-history navigation.
 SQLite backups are internal safety copies created with SQLite's backup API.
 They are stored under `apps/api/runtime/backups/` by default.
 
-Portable JSON export/import is a separate future feature. It will provide a
-human-accessible file format for moving or restoring personal data without
-requiring direct SQLite access.
+Portable JSON export/import is a separate safety layer from SQLite backups. It
+provides a versioned, human-accessible format for moving or restoring library
+games and Collections without requiring direct SQLite access.
+
+Version one contains the canonical library fields, archive state, manual game
+order, Collections, and ordered Collection membership. Generated metadata,
+trophy history, alerts, saved views, and settings are not represented yet.
+
+Every import validates the complete document and its cross-references before
+changing SQLite. The API previews incoming and current record counts, creates a
+SQLite backup immediately before replacement, and replaces the represented
+tables inside one transaction.
+
+The version-one importer refuses to run when existing metadata links, trophy
+snapshots, or trophy alerts are present. This prevents an older portable format
+from silently deleting data introduced by later features. When those features
+become active, the portable format must be advanced and its importer extended
+before this guard is relaxed.
 
 ## Frontend design direction
 

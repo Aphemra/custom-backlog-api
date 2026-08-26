@@ -24,10 +24,12 @@ V2 currently includes:
   entry, editing, archiving, restoration, deletion confirmation, and ordering
 - Collection creation, editing, deletion, ordering, ordered game membership,
   aggregate counts, and a focused game-selection interface
+- Versioned portable JSON export, validation, preview, automatic pre-import
+  SQLite backup, and atomic library/Collection replacement through the API
 - Responsive layouts for portrait desktop monitors and narrow screens
 
-Saved views, metadata search, trophy synchronization, alerts, and portable
-import/export are still to be built.
+The portable import/export interface, saved views, metadata search, trophy
+synchronization, and alerts are still to be built.
 
 ## Requirements
 
@@ -67,6 +69,7 @@ npm run build
 - Database status: `http://127.0.0.1:3001/api/database/status`
 - Library API: `http://127.0.0.1:3001/api/library/games`
 - Collections API: `http://127.0.0.1:3001/api/collections`
+- Portable data API: `http://127.0.0.1:3001/api/data`
 
 Both development servers are intentionally restricted to the local computer.
 

@@ -337,3 +337,83 @@ DELETE /api/collections/:collectionId
 Returns `204 No Content`. This deletes the collection and its membership rows,
 but never deletes library games. The future interface must require explicit
 confirmation.
+
+## Portable data endpoints
+
+Portable data is a versioned JSON representation of the canonical library and
+Collections. Version one includes archived games and manual ordering.
+
+### Export portable data
+
+```http
+GET /api/data/export
+```
+
+Returns a JSON attachment using this top-level shape:
+
+```json
+{
+  "format": "trophy-backlog-portable-data",
+  "formatVersion": 1,
+  "exportedAt": "2026-08-25T12:00:00.000Z",
+  "data": {
+    "libraryGames": [],
+    "collections": []
+  }
+}
+```
+
+Each library entry preserves its ID, manual fields, priority rank, timestamps,
+and archive state. Each Collection preserves its ID, fields, order, timestamps,
+and complete ordered game-ID list.
+
+### Preview an import
+
+```http
+POST /api/data/imports/preview
+Content-Type: application/json
+
+{
+  "format": "trophy-backlog-portable-data",
+  "formatVersion": 1,
+  "exportedAt": "2026-08-25T12:00:00.000Z",
+  "data": {
+    "libraryGames": [],
+    "collections": []
+  }
+}
+```
+
+The complete export is validated. A successful response reports the incoming
+and current library-game, Collection, and membership counts. It does not change
+the database.
+
+Unknown fields, duplicate IDs, invalid values, unsupported versions, broken
+Collection references, and excessively large arrays are rejected.
+
+### Apply an import
+
+```http
+POST /api/data/imports
+Content-Type: application/json
+
+{
+  "format": "trophy-backlog-portable-data",
+  "formatVersion": 1,
+  "exportedAt": "2026-08-25T12:00:00.000Z",
+  "data": {
+    "libraryGames": [],
+    "collections": []
+  }
+}
+```
+
+The document is validated again. The API then creates a SQLite backup and
+atomically replaces the library, Collections, and Collection memberships.
+
+The response includes the preview counts, import time, and created SQLite
+backup filename.
+
+Version one refuses to import when existing metadata links or trophy records
+are present because it cannot preserve those future data types. This is a
+deliberate data-loss guard rather than an import error to work around.

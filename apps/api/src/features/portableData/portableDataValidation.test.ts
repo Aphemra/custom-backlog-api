@@ -32,7 +32,7 @@ function createValidExport() {
   }
 }
 
-test("accepts a complete version-one portable export", () => {
+test("accepts a complete version-two portable export", () => {
   const portableData = createValidExport();
 
   assert.deepEqual(parsePortableDataExport(portableData), portableData);
@@ -45,7 +45,7 @@ test("rejects unsupported versions and broken collection references", () => {
     formatVersion: number;
   };
 
-  unsupportedVersion.formatVersion = 2;
+  unsupportedVersion.formatVersion = 3;
 
   assert.throws(
     () => parsePortableDataExport(unsupportedVersion),
@@ -69,4 +69,22 @@ test("rejects unsupported versions and broken collection references", () => {
     (error: unknown) =>
       error instanceof HttpError && error.code === "invalid_portable_data",
   );
+});
+
+test("continues to accept version-one exports without saved views", () => {
+  const versionTwo = createValidExport();
+
+  const versionOne = {
+    format: versionTwo.format,
+    formatVersion: 1 as const,
+    exportedAt: versionTwo.exportedAt,
+
+    data: {
+      libraryGames: versionTwo.data.libraryGames,
+
+      collections: versionTwo.data.collections,
+    },
+  };
+
+  assert.deepEqual(parsePortableDataExport(versionOne), versionOne);
 });

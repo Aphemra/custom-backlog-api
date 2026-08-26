@@ -6,14 +6,29 @@ import {
   type PursuitStatus,
 } from "../library/libraryGameTypes.js";
 import {
+  parseSavedViewFilters,
+  parseSavedViewSort,
+} from "../savedViews/savedViewValidation.js";
+import {
   PORTABLE_DATA_FORMAT,
   PORTABLE_DATA_VERSION,
   type PortableCollection,
   type PortableDataExport,
   type PortableLibraryGame,
+  type PortableSavedView,
 } from "./portableDataTypes.js";
 
 const MAX_ITEMS = 50_000;
+
+const BUILTIN_VIEW_KEYS = new Set([
+  "all_games",
+  "pursuing_soon",
+  "in_progress",
+  "platinum_earned",
+  "one_hundred_percent",
+  "completion_lost",
+  "needs_sync",
+]);
 
 function invalid(message: string): never {
   throw new HttpError(400, "invalid_portable_data", message);
@@ -99,6 +114,14 @@ function readNonnegativeInteger(value: unknown, field: string): number {
   }
 
   return value as number;
+}
+
+function readBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    return invalid(`${field} must be a boolean.`);
+  }
+
+  return value;
 }
 
 function readPlatform(value: unknown, field: string): PlayStationPlatform {
@@ -232,6 +255,66 @@ function parseCollection(value: unknown, index: number): PortableCollection {
   };
 }
 
+function parseSavedView(value: unknown, index: number): PortableSavedView {
+  const field = `data.savedViews[${index}]`;
+
+  const record = requireRecord(value, field);
+
+  requireExactKeys(
+    record,
+    [
+      "id",
+      "builtinKey",
+      "name",
+      "filters",
+      "sort",
+      "sortOrder",
+      "isBuiltin",
+      "createdAt",
+      "updatedAt",
+    ],
+    field,
+  );
+
+  const isBuiltin = readBoolean(record.isBuiltin, `${field}.isBuiltin`);
+
+  const builtinKey =
+    record.builtinKey === null
+      ? null
+      : readString(record.builtinKey, `${field}.builtinKey`, 100);
+
+  if (
+    (isBuiltin && builtinKey === null) ||
+    (!isBuiltin && builtinKey !== null)
+  ) {
+    invalid(`${field}.builtinKey must be present only when isBuiltin is true.`);
+  }
+
+  if (builtinKey !== null && !BUILTIN_VIEW_KEYS.has(builtinKey)) {
+    invalid(`${field}.builtinKey is unsupported.`);
+  }
+
+  return {
+    id: readString(record.id, `${field}.id`, 200),
+
+    builtinKey,
+
+    name: readString(record.name, `${field}.name`, 100),
+
+    filters: parseSavedViewFilters(record.filters),
+
+    sort: parseSavedViewSort(record.sort),
+
+    sortOrder: readNonnegativeInteger(record.sortOrder, `${field}.sortOrder`),
+
+    isBuiltin,
+
+    createdAt: readTimestamp(record.createdAt, `${field}.createdAt`),
+
+    updatedAt: readTimestamp(record.updatedAt, `${field}.updatedAt`),
+  };
+}
+
 function rejectDuplicateIds(
   items: readonly {
     readonly id: string;
@@ -256,17 +339,28 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
     invalid(`format must be ${PORTABLE_DATA_FORMAT}.`);
   }
 
-  if (root.formatVersion !== PORTABLE_DATA_VERSION) {
+  if (
+    root.formatVersion !== 1 &&
+    root.formatVersion !== PORTABLE_DATA_VERSION
+  ) {
     throw new HttpError(
       400,
       "unsupported_portable_data_version",
-      `This app supports portable data version ${PORTABLE_DATA_VERSION}.`,
+      `This app supports portable data versions 1 through ${PORTABLE_DATA_VERSION}.`,
     );
   }
 
   const data = requireRecord(root.data, "data");
 
-  requireExactKeys(data, ["libraryGames", "collections"], "data");
+  const isVersionTwo = root.formatVersion === PORTABLE_DATA_VERSION;
+
+  requireExactKeys(
+    data,
+    isVersionTwo
+      ? ["libraryGames", "collections", "savedViews"]
+      : ["libraryGames", "collections"],
+    "data",
+  );
 
   const libraryGames = readArray(data.libraryGames, "data.libraryGames").map(
     parseGame,
@@ -290,15 +384,60 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
     }
   }
 
+  const exportedAt = readTimestamp(root.exportedAt, "exportedAt");
+
+  if (!isVersionTwo) {
+    return {
+      format: PORTABLE_DATA_FORMAT,
+      formatVersion: 1,
+      exportedAt,
+      data: {
+        libraryGames,
+        collections,
+      },
+    };
+  }
+
+  const savedViews = readArray(data.savedViews, "data.savedViews").map(
+    parseSavedView,
+  );
+
+  rejectDuplicateIds(savedViews, "data.savedViews");
+
+  const builtinKeys = savedViews
+    .filter((view) => view.isBuiltin)
+    .map((view) => view.builtinKey);
+
+  if (
+    builtinKeys.length !== BUILTIN_VIEW_KEYS.size ||
+    new Set(builtinKeys).size !== BUILTIN_VIEW_KEYS.size ||
+    builtinKeys.some((key) => key === null || !BUILTIN_VIEW_KEYS.has(key))
+  ) {
+    invalid("data.savedViews must contain each built-in view exactly once.");
+  }
+
+  const collectionIds = new Set(collections.map((collection) => collection.id));
+
+  for (const view of savedViews) {
+    if (
+      view.filters.collectionIds?.some(
+        (collectionId) => !collectionIds.has(collectionId),
+      )
+    ) {
+      invalid(
+        `Saved view ${view.id} references a Collection that is not in the export.`,
+      );
+    }
+  }
+
   return {
     format: PORTABLE_DATA_FORMAT,
     formatVersion: PORTABLE_DATA_VERSION,
-
-    exportedAt: readTimestamp(root.exportedAt, "exportedAt"),
-
+    exportedAt,
     data: {
       libraryGames,
       collections,
+      savedViews,
     },
   };
 }

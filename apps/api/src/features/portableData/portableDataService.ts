@@ -9,13 +9,19 @@ import type {
   PursuitStatus,
 } from "../library/libraryGameTypes.js";
 import {
+  parseSavedViewFilters,
+  parseSavedViewSort,
+} from "../savedViews/savedViewValidation.js";
+import {
   PORTABLE_DATA_FORMAT,
   PORTABLE_DATA_VERSION,
   type PortableCollection,
   type PortableDataCounts,
   type PortableDataExport,
+  type PortableDataExportV2,
   type PortableImportPreview,
   type PortableLibraryGame,
+  type PortableSavedView,
 } from "./portableDataTypes.js";
 
 interface LibraryGameRow {
@@ -45,6 +51,18 @@ interface MembershipRow {
   game_id: string;
 }
 
+interface SavedViewRow {
+  id: string;
+  builtin_key: string | null;
+  name: string;
+  filters_json: string;
+  sort_json: string;
+  sort_order: number;
+  is_builtin: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface CountRow {
   count: number;
 }
@@ -52,6 +70,18 @@ interface CountRow {
 export interface PortableImportResult extends PortableImportPreview {
   readonly importedAt: string;
   readonly backup: DatabaseBackupResult;
+}
+
+function normalizeTimestamp(value: string): string {
+  const date = new Date(
+    value.includes("T") ? value : `${value.replace(" ", "T")}Z`,
+  );
+
+  if (Number.isNaN(date.valueOf())) {
+    throw new Error(`Database contains an invalid timestamp: ${value}`);
+  }
+
+  return date.toISOString();
 }
 
 function mapGame(row: LibraryGameRow): PortableLibraryGame {
@@ -63,9 +93,12 @@ function mapGame(row: LibraryGameRow): PortableLibraryGame {
     pursuitStatus: row.pursuit_status,
     priorityRank: row.priority_rank,
     notes: row.notes,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    archivedAt: row.archived_at,
+    createdAt: normalizeTimestamp(row.created_at),
+
+    updatedAt: normalizeTimestamp(row.updated_at),
+
+    archivedAt:
+      row.archived_at === null ? null : normalizeTimestamp(row.archived_at),
   };
 }
 
@@ -88,11 +121,31 @@ function mapCollections(
     name: row.name,
     description: row.description,
     sortOrder: row.sort_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: normalizeTimestamp(row.created_at),
+
+    updatedAt: normalizeTimestamp(row.updated_at),
 
     orderedGameIds: gameIdsByCollection.get(row.id) ?? [],
   }));
+}
+
+function mapSavedView(row: SavedViewRow): PortableSavedView {
+  return {
+    id: row.id,
+    builtinKey: row.builtin_key,
+    name: row.name,
+
+    filters: parseSavedViewFilters(JSON.parse(row.filters_json) as unknown),
+
+    sort: parseSavedViewSort(JSON.parse(row.sort_json) as unknown),
+
+    sortOrder: row.sort_order,
+    isBuiltin: row.is_builtin === 1,
+
+    createdAt: normalizeTimestamp(row.created_at),
+
+    updatedAt: normalizeTimestamp(row.updated_at),
+  };
 }
 
 function readCount(database: DatabaseSync, table: string): number {
@@ -100,6 +153,7 @@ function readCount(database: DatabaseSync, table: string): number {
     "library_games",
     "collections",
     "collection_games",
+    "saved_views",
     "game_metadata_links",
     "trophy_snapshots",
     "trophy_alerts",
@@ -123,10 +177,13 @@ function getCurrentCounts(database: DatabaseSync): PortableDataCounts {
     collections: readCount(database, "collections"),
 
     memberships: readCount(database, "collection_games"),
+
+    savedViews: readCount(database, "saved_views"),
   };
 }
 
 function getIncomingCounts(
+  database: DatabaseSync,
   portableData: PortableDataExport,
 ): PortableDataCounts {
   return {
@@ -138,6 +195,11 @@ function getIncomingCounts(
       (total, collection) => total + collection.orderedGameIds.length,
       0,
     ),
+
+    savedViews:
+      portableData.formatVersion === 2
+        ? portableData.data.savedViews.length
+        : readCount(database, "saved_views"),
   };
 }
 
@@ -158,9 +220,46 @@ function assertImportWillNotDiscardUnsupportedData(
   }
 }
 
+function assertVersionOneCanPreserveSavedViews(
+  database: DatabaseSync,
+  portableData: PortableDataExport,
+): void {
+  if (portableData.formatVersion !== 1) {
+    return;
+  }
+
+  const rows = database
+    .prepare(
+      `
+      SELECT filters_json
+      FROM saved_views
+      WHERE is_builtin = 0
+    `,
+    )
+    .all() as unknown as Array<{
+    filters_json: string;
+  }>;
+
+  const hasCollectionDependentView = rows.some((row) => {
+    const filters = parseSavedViewFilters(
+      JSON.parse(row.filters_json) as unknown,
+    );
+
+    return filters.collectionIds !== undefined;
+  });
+
+  if (hasCollectionDependentView) {
+    throw new HttpError(
+      409,
+      "portable_v1_cannot_preserve_collection_views",
+      "A version-one import could break saved views that use Collections. Export the current app as version two before replacing this data.",
+    );
+  }
+}
+
 export function createPortableDataExport(
   database: DatabaseSync,
-): PortableDataExport {
+): PortableDataExportV2 {
   const gameRows = database
     .prepare(
       `
@@ -176,7 +275,9 @@ export function createPortableDataExport(
         updated_at,
         archived_at
       FROM library_games
-      ORDER BY priority_rank ASC, sort_title ASC
+      ORDER BY
+        priority_rank ASC,
+        sort_title ASC
     `,
     )
     .all() as unknown as LibraryGameRow[];
@@ -192,7 +293,9 @@ export function createPortableDataExport(
         created_at,
         updated_at
       FROM collections
-      ORDER BY sort_order ASC, name ASC
+      ORDER BY
+        sort_order ASC,
+        name ASC
     `,
     )
     .all() as unknown as CollectionRow[];
@@ -200,22 +303,51 @@ export function createPortableDataExport(
   const membershipRows = database
     .prepare(
       `
-      SELECT collection_id, game_id
+      SELECT
+        collection_id,
+        game_id
       FROM collection_games
-      ORDER BY collection_id ASC, sort_order ASC
+      ORDER BY
+        collection_id ASC,
+        sort_order ASC
     `,
     )
     .all() as unknown as MembershipRow[];
 
+  const savedViewRows = database
+    .prepare(
+      `
+      SELECT
+        id,
+        builtin_key,
+        name,
+        filters_json,
+        sort_json,
+        sort_order,
+        is_builtin,
+        created_at,
+        updated_at
+      FROM saved_views
+      ORDER BY
+        sort_order ASC,
+        name ASC
+    `,
+    )
+    .all() as unknown as SavedViewRow[];
+
   return {
     format: PORTABLE_DATA_FORMAT,
+
     formatVersion: PORTABLE_DATA_VERSION,
+
     exportedAt: new Date().toISOString(),
 
     data: {
       libraryGames: gameRows.map(mapGame),
 
       collections: mapCollections(collectionRows, membershipRows),
+
+      savedViews: savedViewRows.map(mapSavedView),
     },
   };
 }
@@ -226,10 +358,15 @@ export function previewPortableImport(
 ): PortableImportPreview {
   assertImportWillNotDiscardUnsupportedData(database);
 
+  assertVersionOneCanPreserveSavedViews(database, portableData);
+
   return {
     formatVersion: portableData.formatVersion,
+
     exportedAt: portableData.exportedAt,
-    incoming: getIncomingCounts(portableData),
+
+    incoming: getIncomingCounts(database, portableData),
+
     current: getCurrentCounts(database),
   };
 }
@@ -278,6 +415,20 @@ export async function importPortableData(
     ) VALUES (?, ?, ?, ?)
   `);
 
+  const insertSavedView = database.prepare(`
+    INSERT INTO saved_views (
+      id,
+      builtin_key,
+      name,
+      filters_json,
+      sort_json,
+      sort_order,
+      is_builtin,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
   database.exec("BEGIN IMMEDIATE");
 
   try {
@@ -286,6 +437,10 @@ export async function importPortableData(
       DELETE FROM collections;
       DELETE FROM library_games;
     `);
+
+    if (portableData.formatVersion === 2) {
+      database.exec("DELETE FROM saved_views;");
+    }
 
     for (const game of portableData.data.libraryGames) {
       insertGame.run(
@@ -320,6 +475,22 @@ export async function importPortableData(
           collection.updatedAt,
         );
       });
+    }
+
+    if (portableData.formatVersion === 2) {
+      for (const view of portableData.data.savedViews) {
+        insertSavedView.run(
+          view.id,
+          view.builtinKey,
+          view.name,
+          JSON.stringify(view.filters),
+          JSON.stringify(view.sort),
+          view.sortOrder,
+          view.isBuiltin ? 1 : 0,
+          view.createdAt,
+          view.updatedAt,
+        );
+      }
     }
 
     database.exec("COMMIT");

@@ -2,10 +2,14 @@ import type {
   PlayStationPlatform,
   PursuitStatus,
 } from "../library/libraryGameTypes.js";
+import type {
+  SavedViewFilters,
+  SavedViewSort,
+} from "../savedViews/savedViewTypes.js";
 
 export const PORTABLE_DATA_FORMAT = "trophy-backlog-portable-data";
 
-export const PORTABLE_DATA_VERSION = 1;
+export const PORTABLE_DATA_VERSION = 2;
 
 export interface PortableLibraryGame {
   readonly id: string;
@@ -30,10 +34,26 @@ export interface PortableCollection {
   readonly orderedGameIds: readonly string[];
 }
 
-export interface PortableDataExport {
+export interface PortableSavedView {
+  readonly id: string;
+  readonly builtinKey: string | null;
+  readonly name: string;
+  readonly filters: SavedViewFilters;
+  readonly sort: SavedViewSort;
+  readonly sortOrder: number;
+  readonly isBuiltin: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+interface PortableDataBase {
   readonly format: typeof PORTABLE_DATA_FORMAT;
-  readonly formatVersion: typeof PORTABLE_DATA_VERSION;
+
   readonly exportedAt: string;
+}
+
+export interface PortableDataExportV1 extends PortableDataBase {
+  readonly formatVersion: 1;
 
   readonly data: {
     readonly libraryGames: readonly PortableLibraryGame[];
@@ -42,10 +62,25 @@ export interface PortableDataExport {
   };
 }
 
+export interface PortableDataExportV2 extends PortableDataBase {
+  readonly formatVersion: 2;
+
+  readonly data: {
+    readonly libraryGames: readonly PortableLibraryGame[];
+
+    readonly collections: readonly PortableCollection[];
+
+    readonly savedViews: readonly PortableSavedView[];
+  };
+}
+
+export type PortableDataExport = PortableDataExportV1 | PortableDataExportV2;
+
 export interface PortableDataCounts {
   readonly libraryGames: number;
   readonly collections: number;
   readonly memberships: number;
+  readonly savedViews: number;
 }
 
 export interface PortableImportPreview {

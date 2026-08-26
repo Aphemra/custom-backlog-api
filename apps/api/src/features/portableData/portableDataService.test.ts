@@ -5,8 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { openDatabase } from "../../database/database.js";
+import { HttpError } from "../../errors/httpError.js";
 import { CollectionRepository } from "../collections/collectionRepository.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
+import { SavedViewRepository } from "../savedViews/savedViewRepository.js";
 import {
   createPortableDataExport,
   importPortableData,
@@ -51,6 +53,22 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       firstGame.id,
     ]);
 
+    const sourceViews = new SavedViewRepository(source);
+
+    sourceViews.create({
+      name: "PS5 favorites",
+
+      filters: {
+        platforms: ["PS5"],
+        collectionIds: [collection.id],
+      },
+
+      sort: {
+        field: "title",
+        direction: "asc",
+      },
+    });
+
     const targetGames = new LibraryGameRepository(target);
 
     targetGames.create({
@@ -68,12 +86,14 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       libraryGames: 2,
       collections: 1,
       memberships: 2,
+      savedViews: 8,
     });
 
     assert.deepEqual(preview.current, {
       libraryGames: 1,
       collections: 0,
       memberships: 0,
+      savedViews: 7,
     });
 
     const backupDirectory = join(temporaryDirectory, "backups");
@@ -155,6 +175,57 @@ test("refuses to replace data that portable version one cannot preserve", () => 
         error.message.includes(
           "cannot preserve existing metadata or trophy history",
         ),
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test("refuses a version-one import that would break Collection saved views", () => {
+  const database = openDatabase(":memory:");
+
+  try {
+    const collections = new CollectionRepository(database);
+
+    const views = new SavedViewRepository(database);
+
+    const collection = collections.create({
+      name: "Favorites",
+    });
+
+    views.create({
+      name: "Favorite games",
+
+      filters: {
+        collectionIds: [collection.id],
+      },
+
+      sort: {
+        field: "priorityRank",
+        direction: "asc",
+      },
+    });
+
+    const versionTwo = createPortableDataExport(database);
+
+    const versionOne = {
+      format: versionTwo.format,
+      formatVersion: 1 as const,
+      exportedAt: versionTwo.exportedAt,
+
+      data: {
+        libraryGames: versionTwo.data.libraryGames,
+
+        collections: versionTwo.data.collections,
+      },
+    };
+
+    assert.throws(
+      () => previewPortableImport(database, versionOne),
+
+      (error: unknown) =>
+        error instanceof HttpError &&
+        error.code === "portable_v1_cannot_preserve_collection_views",
     );
   } finally {
     database.close();

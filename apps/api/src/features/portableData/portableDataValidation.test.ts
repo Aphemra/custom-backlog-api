@@ -32,7 +32,7 @@ function createValidExport() {
   }
 }
 
-test("accepts a complete version-two portable export", () => {
+test("accepts a complete version-three portable export", () => {
   const portableData = createValidExport();
 
   assert.deepEqual(parsePortableDataExport(portableData), portableData);
@@ -45,7 +45,7 @@ test("rejects unsupported versions and broken collection references", () => {
     formatVersion: number;
   };
 
-  unsupportedVersion.formatVersion = 3;
+  unsupportedVersion.formatVersion = 4;
 
   assert.throws(
     () => parsePortableDataExport(unsupportedVersion),
@@ -71,20 +71,33 @@ test("rejects unsupported versions and broken collection references", () => {
   );
 });
 
-test("continues to accept version-one exports without saved views", () => {
-  const versionTwo = createValidExport();
+test("continues to accept version-one and version-two exports", () => {
+  const versionThree = createValidExport();
 
   const versionOne = {
-    format: versionTwo.format,
+    format: versionThree.format,
     formatVersion: 1 as const,
-    exportedAt: versionTwo.exportedAt,
+    exportedAt: versionThree.exportedAt,
 
     data: {
-      libraryGames: versionTwo.data.libraryGames,
+      libraryGames: versionThree.data.libraryGames,
+      collections: versionThree.data.collections,
+    },
+  };
 
-      collections: versionTwo.data.collections,
+  const versionTwo = {
+    format: versionThree.format,
+    formatVersion: 2 as const,
+    exportedAt: versionThree.exportedAt,
+
+    data: {
+      libraryGames: versionThree.data.libraryGames,
+      collections: versionThree.data.collections,
+      savedViews: versionThree.data.savedViews,
     },
   };
 
   assert.deepEqual(parsePortableDataExport(versionOne), versionOne);
+
+  assert.deepEqual(parsePortableDataExport(versionTwo), versionTwo);
 });

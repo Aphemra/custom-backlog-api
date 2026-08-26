@@ -6,10 +6,11 @@ import type {
   SavedViewFilters,
   SavedViewSort,
 } from "../savedViews/savedViewTypes.js";
+import type { PortableDataExportV3 } from "./portableDataV3Types.js";
 
 export const PORTABLE_DATA_FORMAT = "trophy-backlog-portable-data";
 
-export const PORTABLE_DATA_VERSION = 2;
+export const PORTABLE_DATA_VERSION = 3;
 
 export interface PortableLibraryGame {
   readonly id: string;
@@ -74,13 +75,21 @@ export interface PortableDataExportV2 extends PortableDataBase {
   };
 }
 
-export type PortableDataExport = PortableDataExportV1 | PortableDataExportV2;
+export type PortableDataExport =
+  | PortableDataExportV1
+  | PortableDataExportV2
+  | PortableDataExportV3;
 
 export interface PortableDataCounts {
   readonly libraryGames: number;
   readonly collections: number;
   readonly memberships: number;
   readonly savedViews: number;
+  readonly playstationLinks: number;
+  readonly metadataEntries: number;
+  readonly trophySnapshots: number;
+  readonly trophyAlerts: number;
+  readonly cachedImages: number;
 }
 
 export interface PortableImportPreview {

@@ -39,6 +39,11 @@ function CountComparison({ current, incoming }: CountComparisonProps) {
     ["Collections", current.collections, incoming.collections],
     ["Collection memberships", current.memberships, incoming.memberships],
     ["Saved views", current.savedViews, incoming.savedViews],
+    ["PlayStation links", current.playstationLinks, incoming.playstationLinks],
+    ["Metadata entries", current.metadataEntries, incoming.metadataEntries],
+    ["Trophy snapshots", current.trophySnapshots, incoming.trophySnapshots],
+    ["Trophy alerts", current.trophyAlerts, incoming.trophyAlerts],
+    ["Cached-image records", current.cachedImages, incoming.cachedImages],
   ] as const;
 
   return (
@@ -200,8 +205,8 @@ export function PortableDataPage() {
 
             <p>
               Downloads library games, archive states, manual ordering,
-              Collections, ordered Collection membership, and saved views as
-              JSON.
+              Collections, saved views, PlayStation links, trophy history,
+              alerts, metadata, and rebuildable image-cache records as JSON.
             </p>
           </div>
 
@@ -284,7 +289,7 @@ export function PortableDataPage() {
 
           <div className="replacement-warning">
             <strong>
-              This replaces the current library, Collections, and saved views.
+              This replaces all portable backlog and integration data.
             </strong>
 
             <span>
@@ -304,7 +309,8 @@ export function PortableDataPage() {
 
             <span>
               I understand that the incoming data will replace my current
-              library, Collections, and saved views.
+              library, Collections, saved views, metadata, trophy history,
+              alerts, and image-cache records.
             </span>
           </label>
 

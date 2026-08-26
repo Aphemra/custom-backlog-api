@@ -87,6 +87,11 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       collections: 1,
       memberships: 2,
       savedViews: 8,
+      playstationLinks: 0,
+      metadataEntries: 0,
+      trophySnapshots: 0,
+      trophyAlerts: 0,
+      cachedImages: 0,
     });
 
     assert.deepEqual(preview.current, {
@@ -94,6 +99,11 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       collections: 0,
       memberships: 0,
       savedViews: 7,
+      playstationLinks: 0,
+      metadataEntries: 0,
+      trophySnapshots: 0,
+      trophyAlerts: 0,
+      cachedImages: 0,
     });
 
     const backupDirectory = join(temporaryDirectory, "backups");
@@ -121,7 +131,7 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
   }
 });
 
-test("refuses to replace data that portable version one cannot preserve", () => {
+test("refuses an older import that cannot preserve integration data", () => {
   const database = openDatabase(":memory:");
 
   const games = new LibraryGameRepository(database);
@@ -166,14 +176,26 @@ test("refuses to replace data that portable version one cannot preserve", () => 
       )
       .run(game.id, "metadata", new Date().toISOString());
 
-    const portableData = createPortableDataExport(database);
+    const versionThree = createPortableDataExport(database);
+
+    const portableData = {
+      format: versionThree.format,
+      formatVersion: 2 as const,
+      exportedAt: versionThree.exportedAt,
+
+      data: {
+        libraryGames: versionThree.data.libraryGames,
+        collections: versionThree.data.collections,
+        savedViews: versionThree.data.savedViews,
+      },
+    };
 
     assert.throws(
       () => previewPortableImport(database, portableData),
       (error: unknown) =>
         error instanceof Error &&
         error.message.includes(
-          "cannot preserve existing metadata or trophy history",
+          "cannot preserve existing PlayStation, metadata, trophy, alert, or image-cache records",
         ),
     );
   } finally {

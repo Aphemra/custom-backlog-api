@@ -17,6 +17,7 @@ import {
   type PortableLibraryGame,
   type PortableSavedView,
 } from "./portableDataTypes.js";
+import { parsePortableDataV3 } from "./portableDataV3Validation.js";
 
 const MAX_ITEMS = 50_000;
 
@@ -339,10 +340,11 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
     invalid(`format must be ${PORTABLE_DATA_FORMAT}.`);
   }
 
-  if (
-    root.formatVersion !== 1 &&
-    root.formatVersion !== PORTABLE_DATA_VERSION
-  ) {
+  if (root.formatVersion === 3) {
+    return parsePortableDataV3(value);
+  }
+
+  if (root.formatVersion !== 1 && root.formatVersion !== 2) {
     throw new HttpError(
       400,
       "unsupported_portable_data_version",
@@ -352,7 +354,7 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
 
   const data = requireRecord(root.data, "data");
 
-  const isVersionTwo = root.formatVersion === PORTABLE_DATA_VERSION;
+  const isVersionTwo = root.formatVersion === 2;
 
   requireExactKeys(
     data,
@@ -432,7 +434,7 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
 
   return {
     format: PORTABLE_DATA_FORMAT,
-    formatVersion: PORTABLE_DATA_VERSION,
+    formatVersion: 2,
     exportedAt,
     data: {
       libraryGames,

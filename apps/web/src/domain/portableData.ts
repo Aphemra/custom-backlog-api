@@ -3,6 +3,11 @@ export interface PortableDataCounts {
   readonly collections: number;
   readonly memberships: number;
   readonly savedViews: number;
+  readonly playstationLinks: number;
+  readonly metadataEntries: number;
+  readonly trophySnapshots: number;
+  readonly trophyAlerts: number;
+  readonly cachedImages: number;
 }
 
 export interface PortableImportPreview {

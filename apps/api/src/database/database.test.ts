@@ -8,20 +8,21 @@ import { test } from "node:test";
 import { createDatabaseBackup } from "../features/backups/createDatabaseBackup.js";
 import { openDatabase } from "./database.js";
 import { getDatabaseStatus } from "./getDatabaseStatus.js";
+import { initialSchemaMigration } from "./migrations/001InitialSchema.js";
 import { runMigrations } from "./runMigrations.js";
 
 interface CountRow {
   count: number;
 }
 
-test("opens the database, applies the initial migration, and seeds built-in views", () => {
+test("opens the database, applies all migrations, and seeds built-in views", () => {
   const database = openDatabase(":memory:");
 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 1,
-      availableMigrationCount: 1,
+      schemaVersion: 2,
+      availableMigrationCount: 2,
     });
 
     const row = database
@@ -123,6 +124,206 @@ test("enforces platform and trophy-count constraints", () => {
           0,
         );
     });
+  } finally {
+    database.close();
+  }
+});
+
+test("upgrades an existing version-one database without replacing it", () => {
+  const database = new DatabaseSync(":memory:");
+
+  try {
+    runMigrations(database, [initialSchemaMigration]);
+
+    assert.deepEqual(getDatabaseStatus(database), {
+      ok: true,
+      schemaVersion: 1,
+      availableMigrationCount: 2,
+    });
+
+    runMigrations(database);
+
+    assert.deepEqual(getDatabaseStatus(database), {
+      ok: true,
+      schemaVersion: 2,
+      availableMigrationCount: 2,
+    });
+
+    const row = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM sqlite_schema
+          WHERE type = 'table'
+            AND name IN (
+              'playstation_game_links',
+              'cached_images',
+              'library_game_images'
+            )
+        `,
+      )
+      .get() as unknown as CountRow;
+
+    assert.equal(row.count, 3);
+  } finally {
+    database.close();
+  }
+});
+
+test("stores PlayStation identity and local image-cache metadata", () => {
+  const database = openDatabase(":memory:");
+  const timestamp = new Date().toISOString();
+
+  try {
+    database
+      .prepare(
+        `
+          INSERT INTO library_games (
+            id,
+            title,
+            sort_title,
+            platform,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run("astro-bot", "Astro Bot", "astro bot", "PS5", timestamp, timestamp);
+
+    database
+      .prepare(
+        `
+          INSERT INTO playstation_game_links (
+            game_id,
+            np_communication_id,
+            np_service_name,
+            psn_title_name,
+            platforms_json,
+            icon_url,
+            link_source,
+            payload_json,
+            linked_at,
+            first_seen_at,
+            last_seen_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "astro-bot",
+        "NPWR00001_00",
+        "trophy2",
+        "Astro Bot",
+        JSON.stringify(["PS5"]),
+        "https://example.test/astro-bot.png",
+        "sync_created",
+        JSON.stringify({ trophyTitleId: "NPWR00001_00" }),
+        timestamp,
+        timestamp,
+        timestamp,
+      );
+
+    database
+      .prepare(
+        `
+          INSERT INTO cached_images (
+            id,
+            provider,
+            source_key,
+            source_url,
+            file_name,
+            content_type,
+            byte_size,
+            fetched_at,
+            last_checked_at,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "astro-icon",
+        "playstation",
+        "NPWR00001_00:icon",
+        "https://example.test/astro-bot.png",
+        "astro-icon.png",
+        "image/png",
+        1_024,
+        timestamp,
+        timestamp,
+        timestamp,
+        timestamp,
+      );
+
+    database
+      .prepare(
+        `
+          INSERT INTO library_game_images (
+            game_id,
+            image_id,
+            role,
+            sort_order,
+            linked_at
+          ) VALUES (?, ?, ?, ?, ?)
+        `,
+      )
+      .run("astro-bot", "astro-icon", "icon", 0, timestamp);
+
+    assert.throws(() => {
+      database
+        .prepare(
+          `
+            INSERT INTO cached_images (
+              id,
+              provider,
+              source_key,
+              source_url,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          "unsupported-image",
+          "unknown-provider",
+          "image",
+          "https://example.test/image.png",
+          timestamp,
+          timestamp,
+        );
+    });
+
+    database.prepare("DELETE FROM library_games WHERE id = ?").run("astro-bot");
+
+    const linkCount = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM playstation_game_links
+        `,
+      )
+      .get() as unknown as CountRow;
+
+    const imageLinkCount = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM library_game_images
+        `,
+      )
+      .get() as unknown as CountRow;
+
+    const cachedImageCount = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM cached_images
+        `,
+      )
+      .get() as unknown as CountRow;
+
+    assert.equal(linkCount.count, 0);
+    assert.equal(imageLinkCount.count, 0);
+    assert.equal(cachedImageCount.count, 1);
   } finally {
     database.close();
   }

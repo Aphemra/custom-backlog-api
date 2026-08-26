@@ -49,4 +49,5 @@ export const runtimeConfig = Object.freeze({
   dataDirectory,
   databasePath: resolve(dataDirectory, "trophy-backlog.sqlite"),
   backupDirectory: resolve(dataDirectory, "backups"),
+  imageCacheDirectory: resolve(dataDirectory, "images"),
 });

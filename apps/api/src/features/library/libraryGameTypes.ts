@@ -26,6 +26,27 @@ export interface LibraryGame {
   readonly archivedAt: string | null;
 }
 
+export interface LibraryTrophyCounts {
+  readonly bronze: number;
+  readonly silver: number;
+  readonly gold: number;
+  readonly platinum: number;
+}
+
+export interface LibraryTrophySummary {
+  readonly progressPercent: number;
+  readonly earnedTrophies: LibraryTrophyCounts;
+  readonly totalTrophies: LibraryTrophyCounts;
+  readonly hasPlatinum: boolean;
+  readonly platinumEarned: boolean;
+  readonly is100Percent: boolean;
+  readonly lastSyncedAt: string;
+}
+
+export interface LibraryGameWithTrophySummary extends LibraryGame {
+  readonly trophySummary: LibraryTrophySummary | null;
+}
+
 export interface CreateLibraryGameInput {
   readonly title: string;
   readonly platform: PlayStationPlatform;

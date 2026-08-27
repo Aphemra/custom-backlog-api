@@ -28,6 +28,75 @@ test("creates, updates, archives, restores, reorders, and deletes library games"
 
     assert.equal(firstGame.sortTitle, "last of us");
 
+    assert.equal(firstGame.trophySummary, null);
+
+    const capturedAt = "2026-08-27T12:00:00.000Z";
+
+    database
+      .prepare(
+        `
+        INSERT INTO trophy_snapshots (
+          id,
+          game_id,
+          sync_run_id,
+          captured_at,
+          bronze_total,
+          silver_total,
+          gold_total,
+          platinum_total,
+          bronze_earned,
+          silver_earned,
+          gold_earned,
+          platinum_earned,
+          progress_percent,
+          is_100_percent,
+          has_platinum,
+          payload_json
+        ) VALUES (
+          ?, ?, NULL, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?, NULL
+        )
+      `,
+      )
+      .run(
+        "astro-bot-snapshot",
+        secondGame.id,
+        capturedAt,
+        20,
+        10,
+        5,
+        1,
+        10,
+        4,
+        1,
+        0,
+        41,
+        0,
+        1,
+      );
+
+    assert.deepEqual(repository.findById(secondGame.id)?.trophySummary, {
+      progressPercent: 41,
+      earnedTrophies: {
+        bronze: 10,
+        silver: 4,
+        gold: 1,
+        platinum: 0,
+      },
+      totalTrophies: {
+        bronze: 20,
+        silver: 10,
+        gold: 5,
+        platinum: 1,
+      },
+      hasPlatinum: true,
+      platinumEarned: false,
+      is100Percent: false,
+      lastSyncedAt: capturedAt,
+    });
+
     assert.deepEqual(
       repository.list().map((game) => game.id),
       [firstGame.id, secondGame.id, thirdGame.id],

@@ -92,7 +92,10 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
 
     assert.equal(updated?.name, "Returnal only");
 
-    assert.deepEqual(views.listGames(updated!), [returnal]);
+    assert.deepEqual(
+      views.listGames(updated!).map((game) => game.id),
+      [returnal.id],
+    );
 
     const orderedIds = [custom.id, ...builtins.map((view) => view.id)];
 

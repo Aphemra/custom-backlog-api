@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type {
   CreateLibraryGameInput,
   LibraryGame,
+  LibraryGameWithTrophySummary,
   PlayStationPlatform,
   PursuitStatus,
   UpdateLibraryGameInput,
@@ -19,6 +20,18 @@ interface LibraryGameRow {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  captured_at: string | null;
+  bronze_total: number | null;
+  silver_total: number | null;
+  gold_total: number | null;
+  platinum_total: number | null;
+  bronze_earned: number | null;
+  silver_earned: number | null;
+  gold_earned: number | null;
+  platinum_earned: number | null;
+  progress_percent: number | null;
+  is_100_percent: number | null;
+  has_platinum: number | null;
 }
 
 interface PriorityRankRow {
@@ -29,7 +42,30 @@ interface GameIdRow {
   id: string;
 }
 
-function mapLibraryGame(row: LibraryGameRow): LibraryGame {
+function mapLibraryGame(row: LibraryGameRow): LibraryGameWithTrophySummary {
+  const trophySummary =
+    row.captured_at === null
+      ? null
+      : {
+          progressPercent: row.progress_percent ?? 0,
+          earnedTrophies: {
+            bronze: row.bronze_earned ?? 0,
+            silver: row.silver_earned ?? 0,
+            gold: row.gold_earned ?? 0,
+            platinum: row.platinum_earned ?? 0,
+          },
+          totalTrophies: {
+            bronze: row.bronze_total ?? 0,
+            silver: row.silver_total ?? 0,
+            gold: row.gold_total ?? 0,
+            platinum: row.platinum_total ?? 0,
+          },
+          hasPlatinum: row.has_platinum === 1,
+          platinumEarned: (row.platinum_earned ?? 0) > 0,
+          is100Percent: row.is_100_percent === 1,
+          lastSyncedAt: row.captured_at,
+        };
+
   return {
     id: row.id,
     title: row.title,
@@ -41,6 +77,7 @@ function mapLibraryGame(row: LibraryGameRow): LibraryGame {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     archivedAt: row.archived_at,
+    trophySummary,
   };
 }
 
@@ -54,30 +91,50 @@ function createSortTitle(title: string): string {
 export class LibraryGameRepository {
   constructor(private readonly database: DatabaseSync) {}
 
-  list(includeArchived = false): readonly LibraryGame[] {
+  list(includeArchived = false): readonly LibraryGameWithTrophySummary[] {
     const rows = this.database
       .prepare(
         `
         SELECT
-          id,
-          title,
-          sort_title,
-          platform,
-          pursuit_status,
-          priority_rank,
-          notes,
-          created_at,
-          updated_at,
-          archived_at
-        FROM library_games
-        WHERE archived_at IS NULL OR ? = 1
+          lg.id,
+          lg.title,
+          lg.sort_title,
+          lg.platform,
+          lg.pursuit_status,
+          lg.priority_rank,
+          lg.notes,
+          lg.created_at,
+          lg.updated_at,
+          lg.archived_at,
+          ts.captured_at,
+          ts.bronze_total,
+          ts.silver_total,
+          ts.gold_total,
+          ts.platinum_total,
+          ts.bronze_earned,
+          ts.silver_earned,
+          ts.gold_earned,
+          ts.platinum_earned,
+          ts.progress_percent,
+          ts.is_100_percent,
+          ts.has_platinum
+        FROM library_games lg
+        LEFT JOIN trophy_snapshots ts
+          ON ts.id = (
+            SELECT latest.id
+            FROM trophy_snapshots latest
+            WHERE latest.game_id = lg.id
+            ORDER BY latest.captured_at DESC, latest.id DESC
+            LIMIT 1
+          )
+        WHERE lg.archived_at IS NULL OR ? = 1
         ORDER BY
           CASE
-            WHEN archived_at IS NULL THEN 0
+            WHEN lg.archived_at IS NULL THEN 0
             ELSE 1
           END,
-          priority_rank ASC,
-          sort_title ASC
+          lg.priority_rank ASC,
+          lg.sort_title ASC
       `,
       )
       .all(includeArchived ? 1 : 0) as unknown as LibraryGameRow[];
@@ -85,23 +142,43 @@ export class LibraryGameRepository {
     return rows.map(mapLibraryGame);
   }
 
-  findById(gameId: string): LibraryGame | null {
+  findById(gameId: string): LibraryGameWithTrophySummary | null {
     const row = this.database
       .prepare(
         `
         SELECT
-          id,
-          title,
-          sort_title,
-          platform,
-          pursuit_status,
-          priority_rank,
-          notes,
-          created_at,
-          updated_at,
-          archived_at
-        FROM library_games
-        WHERE id = ?
+          lg.id,
+          lg.title,
+          lg.sort_title,
+          lg.platform,
+          lg.pursuit_status,
+          lg.priority_rank,
+          lg.notes,
+          lg.created_at,
+          lg.updated_at,
+          lg.archived_at,
+          ts.captured_at,
+          ts.bronze_total,
+          ts.silver_total,
+          ts.gold_total,
+          ts.platinum_total,
+          ts.bronze_earned,
+          ts.silver_earned,
+          ts.gold_earned,
+          ts.platinum_earned,
+          ts.progress_percent,
+          ts.is_100_percent,
+          ts.has_platinum
+        FROM library_games lg
+        LEFT JOIN trophy_snapshots ts
+          ON ts.id = (
+            SELECT latest.id
+            FROM trophy_snapshots latest
+            WHERE latest.game_id = lg.id
+            ORDER BY latest.captured_at DESC, latest.id DESC
+            LIMIT 1
+          )
+        WHERE lg.id = ?
       `,
       )
       .get(gameId) as unknown as LibraryGameRow | undefined;
@@ -109,7 +186,7 @@ export class LibraryGameRepository {
     return row === undefined ? null : mapLibraryGame(row);
   }
 
-  create(input: CreateLibraryGameInput): LibraryGame {
+  create(input: CreateLibraryGameInput): LibraryGameWithTrophySummary {
     const id = randomUUID();
     const timestamp = new Date().toISOString();
     const priorityRank = this.getNextPriorityRank();
@@ -145,7 +222,10 @@ export class LibraryGameRepository {
     return this.requireById(id);
   }
 
-  update(gameId: string, input: UpdateLibraryGameInput): LibraryGame | null {
+  update(
+    gameId: string,
+    input: UpdateLibraryGameInput,
+  ): LibraryGameWithTrophySummary | null {
     const currentGame = this.findById(gameId);
 
     if (currentGame === null) {
@@ -185,7 +265,7 @@ export class LibraryGameRepository {
     return this.requireById(gameId);
   }
 
-  archive(gameId: string): LibraryGame | null {
+  archive(gameId: string): LibraryGameWithTrophySummary | null {
     const currentGame = this.findById(gameId);
 
     if (currentGame === null || currentGame.archivedAt !== null) {
@@ -209,7 +289,7 @@ export class LibraryGameRepository {
     return this.requireById(gameId);
   }
 
-  restore(gameId: string): LibraryGame | null {
+  restore(gameId: string): LibraryGameWithTrophySummary | null {
     const currentGame = this.findById(gameId);
 
     if (currentGame === null || currentGame.archivedAt === null) {
@@ -305,7 +385,7 @@ export class LibraryGameRepository {
     return (row.priority_rank ?? 0) + 1_000;
   }
 
-  private requireById(gameId: string): LibraryGame {
+  private requireById(gameId: string): LibraryGameWithTrophySummary {
     const game = this.findById(gameId);
 
     if (game === null) {

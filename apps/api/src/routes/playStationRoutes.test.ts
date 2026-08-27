@@ -283,6 +283,10 @@ test("tests a dedicated reader without exposing credentials", async () => {
         titles: Array<{
           name: string;
           platforms: string[];
+          cachedIcon: {
+            imageId: string;
+            url: string;
+          } | null;
         }>;
         reconciliationCounts: {
           linked: number;
@@ -299,6 +303,43 @@ test("tests a dedicated reader without exposing credentials", async () => {
     assert.equal(previewBody.preview.excludedTitleCount, 0);
     assert.equal(previewBody.preview.titles[0]?.name, "Example Game");
     assert.deepEqual(previewBody.preview.titles[0]?.platforms, ["PS5"]);
+    assert.match(
+      previewBody.preview.titles[0]?.cachedIcon?.url ?? "",
+      /^\/api\/images\/[0-9a-f-]+$/,
+    );
+
+    const cachedImageId = previewBody.preview.titles[0]?.cachedIcon?.imageId;
+
+    if (cachedImageId === undefined) {
+      assert.fail("The preview title should have a cached image ID.");
+    }
+
+    const cachedImage = database
+      .prepare(
+        `
+        SELECT
+          provider,
+          source_url,
+          file_name
+        FROM cached_images
+        WHERE id = ?
+      `,
+      )
+      .get(cachedImageId) as
+      | {
+          provider: string;
+          source_url: string;
+          file_name: string | null;
+        }
+      | undefined;
+
+    assert.notEqual(cachedImage, undefined);
+    assert.equal(cachedImage?.provider, "playstation");
+    assert.equal(
+      cachedImage?.source_url,
+      "https://image.api.playstation.com/example.png",
+    );
+    assert.equal(cachedImage?.file_name, null);
     assert.equal(previewBody.preview.requestsMade, 4);
     assert.deepEqual(previewBody.preview.reconciliationCounts, {
       linked: 0,

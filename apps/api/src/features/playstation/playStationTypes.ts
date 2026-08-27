@@ -95,7 +95,13 @@ export interface PlayStationTitleReconciliation {
   candidates: PlayStationLibraryCandidate[];
 }
 
+export interface PlayStationCachedImageReference {
+  imageId: string;
+  url: string;
+}
+
 export interface ReconciledPlayStationTitle extends PlayStationTrophyTitlePreview {
+  cachedIcon: PlayStationCachedImageReference | null;
   reconciliation: PlayStationTitleReconciliation;
 }
 

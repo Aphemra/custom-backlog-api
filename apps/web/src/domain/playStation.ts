@@ -38,6 +38,11 @@ export interface PlayStationTitleReconciliation {
   readonly candidates: readonly PlayStationLibraryCandidate[];
 }
 
+export interface PlayStationCachedImageReference {
+  readonly imageId: string;
+  readonly url: string;
+}
+
 export interface ReconciledPlayStationTitle {
   readonly npServiceName: PlayStationServiceName;
   readonly npCommunicationId: string;
@@ -45,6 +50,7 @@ export interface ReconciledPlayStationTitle {
   readonly name: string;
   readonly detail: string | null;
   readonly iconUrl: string;
+  readonly cachedIcon: PlayStationCachedImageReference | null;
   readonly platforms: readonly PlayStationPlatform[];
   readonly hasTrophyGroups: boolean;
   readonly definedTrophies: PlayStationTrophyCounts;

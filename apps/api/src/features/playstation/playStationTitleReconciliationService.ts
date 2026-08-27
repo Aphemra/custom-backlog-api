@@ -169,6 +169,7 @@ export class PlayStationTitleReconciliationService {
 
       return {
         ...title,
+        cachedIcon: null,
         reconciliation,
       };
     });

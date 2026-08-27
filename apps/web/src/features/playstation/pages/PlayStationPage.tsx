@@ -114,6 +114,21 @@ function TrophyTitleRow({
 
   return (
     <article className="psn-title-row">
+      <div className="psn-title-row__art">
+        {title.cachedIcon === null ? (
+          <span aria-hidden="true">
+            {title.name.slice(0, 1).toLocaleUpperCase("en-US")}
+          </span>
+        ) : (
+          <img
+            src={title.cachedIcon.url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        )}
+      </div>
+
       <div
         className="psn-title-row__progress"
         aria-label={`${title.progress}% complete`}

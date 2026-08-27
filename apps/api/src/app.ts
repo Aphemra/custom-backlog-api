@@ -61,6 +61,8 @@ export function createApp(
     "/api/integrations/playstation",
     createPlayStationRoutes({
       database,
+      imageCacheDirectory,
+      imageFetch: externalFetch,
       credentials:
         playStationOptions.credentials ?? runtimeConfig.playStationCredentials,
       ...(playStationOptions.operations === undefined

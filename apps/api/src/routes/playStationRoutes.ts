@@ -5,6 +5,12 @@ import {
   playStationApiOperations,
   type PlayStationApiOperations,
 } from "../features/playstation/playStationApi.js";
+import { ImageCacheRepository } from "../features/imageCache/imageCacheRepository.js";
+import {
+  ImageCacheService,
+  type ImageFetch,
+} from "../features/imageCache/imageCacheService.js";
+import { PlayStationTitleImageService } from "../features/playstation/playStationTitleImageService.js";
 import { PlayStationAuthorizationSession } from "../features/playstation/playStationAuthorizationSession.js";
 import { PlayStationConnectionService } from "../features/playstation/playStationConnectionService.js";
 import { PlayStationRequestGate } from "../features/playstation/playStationRequestGate.js";
@@ -15,6 +21,8 @@ import type { PlayStationCredentials } from "../features/playstation/playStation
 
 export interface PlayStationRouteOptions {
   database: DatabaseSync;
+  imageCacheDirectory: string;
+  imageFetch?: ImageFetch;
   credentials: PlayStationCredentials;
   operations?: PlayStationApiOperations;
   requestGate?: PlayStationRequestGate;
@@ -53,6 +61,14 @@ export function createPlayStationRoutes(
   );
 
   const titleLinkService = new PlayStationTitleLinkService(options.database);
+
+  const imageCacheService = new ImageCacheService(
+    new ImageCacheRepository(options.database),
+    options.imageCacheDirectory,
+    options.imageFetch,
+  );
+
+  const titleImageService = new PlayStationTitleImageService(imageCacheService);
 
   routes.get("/status", (_request, response) => {
     response.json({ status: connectionService.getStatus() });
@@ -94,9 +110,11 @@ export function createPlayStationRoutes(
     }
 
     try {
-      const preview = titleReconciliationService.reconcile(
+      const reconciledPreview = titleReconciliationService.reconcile(
         await titlePreviewService.previewTitles(),
       );
+
+      const preview = titleImageService.attachCachedIcons(reconciledPreview);
 
       titleLinkService.rememberPreview(preview);
 

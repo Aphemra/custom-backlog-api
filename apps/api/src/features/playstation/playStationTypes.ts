@@ -125,3 +125,19 @@ export interface ReconciledPlayStationTitlePreviewResult extends Omit<
   titles: ReconciledPlayStationTitle[];
   reconciliationCounts: PlayStationReconciliationCounts;
 }
+
+export type PlayStationSyncStatus = "succeeded" | "partial";
+
+export interface PlayStationSyncResult {
+  syncRunId: string;
+  status: PlayStationSyncStatus;
+  targetAccountId: string;
+  expectedTitleCount: number;
+  processedTitleCount: number;
+  snapshotsCreated: number;
+  newTrophyAlertsCreated: number;
+  completionLostAlertsCreated: number;
+  requestsMade: number;
+  startedAt: string;
+  finishedAt: string;
+}

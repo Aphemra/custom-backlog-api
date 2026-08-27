@@ -24,6 +24,7 @@ import {
   type PlayStationPlatform,
   type PursuitStatus,
 } from "../features/library/libraryGameTypes.js";
+import { PlayStationTrophySyncService } from "../features/playstation/playStationTrophySyncService.js";
 
 export interface PlayStationRouteOptions {
   database: DatabaseSync;
@@ -75,6 +76,8 @@ export function createPlayStationRoutes(
   );
 
   const titleImageService = new PlayStationTitleImageService(imageCacheService);
+
+  const trophySyncService = new PlayStationTrophySyncService(options.database);
 
   routes.get("/status", (_request, response) => {
     response.json({ status: connectionService.getStatus() });
@@ -290,6 +293,39 @@ export function createPlayStationRoutes(
         .location(`/api/library/games/${result.game.id}`)
         .status(201)
         .json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  routes.post("/syncs", async (request, response, next) => {
+    if (
+      request.get("x-trophy-backlog-action") !==
+      "synchronize-playstation-trophies"
+    ) {
+      response.status(400).json({
+        ok: false,
+        error: "explicit_playstation_action_required",
+        message:
+          "An explicit PlayStation trophy-synchronization action is required.",
+      });
+
+      return;
+    }
+
+    try {
+      const reconciledPreview = titleReconciliationService.reconcile(
+        await titlePreviewService.previewTitles(),
+      );
+
+      const preview = titleImageService.attachCachedIcons(reconciledPreview);
+
+      titleLinkService.rememberPreview(preview);
+
+      response.json({
+        synchronization: trophySyncService.synchronize(preview),
+        preview,
+      });
     } catch (error) {
       next(error);
     }

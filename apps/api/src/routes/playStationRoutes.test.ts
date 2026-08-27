@@ -432,6 +432,32 @@ test("tests a dedicated reader without exposing credentials", async () => {
     assert.equal(storedLink?.game_id, game.id);
     assert.equal(storedLink?.np_communication_id, "NPWR00001_00");
     assert.equal(storedLink?.link_source, "manual_match");
+
+    const importResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/title-imports`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-trophy-backlog-action": "import-playstation-title",
+        },
+        body: JSON.stringify({
+          npServiceName: "trophy2",
+          npCommunicationId: "NPWR00001_00",
+          platform: "PS5",
+          pursuitStatus: "unplanned",
+        }),
+      },
+    );
+
+    assert.equal(importResponse.status, 409);
+
+    assert.deepEqual(await importResponse.json(), {
+      ok: false,
+      error: "playstation_title_already_linked",
+      message:
+        "That PlayStation trophy stack is already linked to a library game.",
+    });
   } finally {
     await closeServer(server);
     database.close();

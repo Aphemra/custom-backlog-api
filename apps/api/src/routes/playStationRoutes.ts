@@ -18,6 +18,12 @@ import { PlayStationTitlePreviewService } from "../features/playstation/playStat
 import { PlayStationTitleReconciliationService } from "../features/playstation/playStationTitleReconciliationService.js";
 import { PlayStationTitleLinkService } from "../features/playstation/playStationTitleLinkService.js";
 import type { PlayStationCredentials } from "../features/playstation/playStationTypes.js";
+import {
+  playStationPlatforms,
+  pursuitStatuses,
+  type PlayStationPlatform,
+  type PursuitStatus,
+} from "../features/library/libraryGameTypes.js";
 
 export interface PlayStationRouteOptions {
   database: DatabaseSync;
@@ -183,6 +189,107 @@ export function createPlayStationRoutes(
       );
 
       response.status(201).json({ link });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  routes.post("/title-imports", (request, response, next) => {
+    if (request.get("x-trophy-backlog-action") !== "import-playstation-title") {
+      response.status(400).json({
+        ok: false,
+        error: "explicit_playstation_action_required",
+        message: "An explicit PlayStation title-import action is required.",
+      });
+
+      return;
+    }
+
+    try {
+      const body: unknown = request.body;
+
+      if (typeof body !== "object" || body === null || Array.isArray(body)) {
+        throw new HttpError(
+          400,
+          "invalid_playstation_title_import",
+          "A PlayStation title-import object is required.",
+        );
+      }
+
+      const fields = body as Record<string, unknown>;
+
+      const allowedFields = new Set([
+        "npServiceName",
+        "npCommunicationId",
+        "platform",
+        "pursuitStatus",
+      ]);
+
+      if (Object.keys(fields).some((field) => !allowedFields.has(field))) {
+        throw new HttpError(
+          400,
+          "unknown_playstation_title_import_field",
+          "The PlayStation title-import request contains an unknown field.",
+        );
+      }
+
+      if (
+        fields.npServiceName !== "trophy" &&
+        fields.npServiceName !== "trophy2"
+      ) {
+        throw new HttpError(
+          400,
+          "invalid_playstation_title_import",
+          "npServiceName must be trophy or trophy2.",
+        );
+      }
+
+      if (
+        typeof fields.npCommunicationId !== "string" ||
+        fields.npCommunicationId.trim() === ""
+      ) {
+        throw new HttpError(
+          400,
+          "invalid_playstation_title_import",
+          "A PlayStation communication ID is required.",
+        );
+      }
+
+      if (
+        typeof fields.platform !== "string" ||
+        !playStationPlatforms.includes(fields.platform as PlayStationPlatform)
+      ) {
+        throw new HttpError(
+          400,
+          "invalid_platform",
+          "platform must be PS3, PS4, or PS5.",
+        );
+      }
+
+      const pursuitStatus = fields.pursuitStatus ?? "unplanned";
+
+      if (
+        typeof pursuitStatus !== "string" ||
+        !pursuitStatuses.includes(pursuitStatus as PursuitStatus)
+      ) {
+        throw new HttpError(
+          400,
+          "invalid_pursuit_status",
+          "pursuitStatus is not supported.",
+        );
+      }
+
+      const result = titleLinkService.createAndLinkTitle({
+        npServiceName: fields.npServiceName,
+        npCommunicationId: fields.npCommunicationId.trim(),
+        platform: fields.platform as PlayStationPlatform,
+        pursuitStatus: pursuitStatus as PursuitStatus,
+      });
+
+      response
+        .location(`/api/library/games/${result.game.id}`)
+        .status(201)
+        .json(result);
     } catch (error) {
       next(error);
     }

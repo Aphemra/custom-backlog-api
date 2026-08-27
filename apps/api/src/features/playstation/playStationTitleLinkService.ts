@@ -1,5 +1,11 @@
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
+import { LibraryGameRepository } from "../library/libraryGameRepository.js";
+import type {
+  LibraryGame,
+  PlayStationPlatform,
+  PursuitStatus,
+} from "../library/libraryGameTypes.js";
 import type {
   PlayStationTrophyTitlePreview,
   ReconciledPlayStationTitlePreviewResult,
@@ -34,6 +40,18 @@ export interface PlayStationGameLink {
   linkedAt: string;
   firstSeenAt: string;
   lastSeenAt: string;
+}
+
+export interface CreatePlayStationLibraryGameInput {
+  npCommunicationId: string;
+  npServiceName: "trophy" | "trophy2";
+  platform: PlayStationPlatform;
+  pursuitStatus: PursuitStatus;
+}
+
+export interface CreatedPlayStationLibraryGame {
+  game: LibraryGame;
+  link: PlayStationGameLink;
 }
 
 function identity(
@@ -72,10 +90,81 @@ export class PlayStationTitleLinkService {
     );
   }
 
+  createAndLinkTitle(
+    input: CreatePlayStationLibraryGameInput,
+  ): CreatedPlayStationLibraryGame {
+    const title = this.previewTitles.get(
+      identity(input.npServiceName, input.npCommunicationId),
+    );
+
+    if (title === undefined) {
+      throw new HttpError(
+        409,
+        "playstation_preview_required",
+        "Preview PlayStation titles again before creating this library game.",
+      );
+    }
+
+    if (!title.platforms.includes(input.platform)) {
+      throw new HttpError(
+        409,
+        "playstation_platform_mismatch",
+        `${title.name} is not compatible with ${input.platform}.`,
+      );
+    }
+
+    const existingLink = this.database
+      .prepare(
+        `
+        SELECT game_id
+        FROM playstation_game_links
+        WHERE np_communication_id = ?
+      `,
+      )
+      .get(input.npCommunicationId) as { game_id: string } | undefined;
+
+    if (existingLink !== undefined) {
+      throw new HttpError(
+        409,
+        "playstation_title_already_linked",
+        "That PlayStation trophy stack is already linked to a library game.",
+      );
+    }
+
+    this.database.exec("BEGIN IMMEDIATE");
+
+    try {
+      const game = new LibraryGameRepository(this.database).create({
+        title: title.name,
+        platform: input.platform,
+        pursuitStatus: input.pursuitStatus,
+        notes: null,
+      });
+
+      const link = this.linkTitle(
+        game.id,
+        title.npServiceName,
+        title.npCommunicationId,
+        "sync_created",
+      );
+
+      this.database.exec("COMMIT");
+
+      return { game, link };
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   linkTitle(
     gameId: string,
     npServiceName: "trophy" | "trophy2",
     npCommunicationId: string,
+    linkSource:
+      | "sync_created"
+      | "automatic_match"
+      | "manual_match" = "manual_match",
   ): PlayStationGameLink {
     const title = this.previewTitles.get(
       identity(npServiceName, npCommunicationId),
@@ -205,7 +294,7 @@ export class PlayStationTitleLinkService {
         title.name,
         JSON.stringify(title.platforms),
         title.iconUrl,
-        "manual_match",
+        linkSource,
         JSON.stringify(title),
         timestamp,
         timestamp,

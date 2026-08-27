@@ -3,8 +3,14 @@ import { CollectionsPage } from "../features/collections/pages/CollectionsPage";
 import { LibraryPage } from "../features/library/pages/LibraryPage";
 import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
 import { SavedViewsPage } from "../features/savedViews/pages/SavedViewsPage";
+import { PlayStationPage } from "../features/playstation/pages/PlayStationPage";
 
-type ActivePage = "library" | "collections" | "savedViews" | "portableData";
+type ActivePage =
+  | "library"
+  | "collections"
+  | "savedViews"
+  | "playstation"
+  | "portableData";
 
 export function App() {
   const [activePage, setActivePage] = useState<ActivePage>("library");
@@ -52,6 +58,16 @@ export function App() {
           Saved Views
         </button>
 
+        <button
+          className={`primary-nav__item${
+            activePage === "playstation" ? " primary-nav__item--active" : ""
+          }`}
+          type="button"
+          onClick={() => setActivePage("playstation")}
+        >
+          PlayStation
+        </button>
+
         <span className="primary-nav__item">Alerts</span>
 
         <button
@@ -72,6 +88,8 @@ export function App() {
       {activePage === "collections" ? <CollectionsPage /> : null}
 
       {activePage === "savedViews" ? <SavedViewsPage /> : null}
+
+      {activePage === "playstation" ? <PlayStationPage /> : null}
 
       {activePage === "portableData" ? <PortableDataPage /> : null}
     </main>

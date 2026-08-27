@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CollectionDetail } from "../../../domain/collection";
 import {
-  pursuitStatusLabels,
+  playStatusLabels,
   type LibraryGame,
 } from "../../../domain/libraryGame";
 
@@ -162,8 +162,8 @@ export function CollectionGameEditor({
                   <strong>{game.title}</strong>
 
                   <span>
-                    {game.platform} · {pursuitStatusLabels[game.pursuitStatus]}
-                    {game.archivedAt === null ? "" : " · Archived"}
+                    {game.platform} · {playStatusLabels[game.playStatus]}
+                    {game.hiddenAt === null ? "" : " · Hidden"}
                   </span>
                 </div>
 
@@ -212,8 +212,8 @@ export function CollectionGameEditor({
                 <strong>{game.title}</strong>
 
                 <small>
-                  {game.platform} · {pursuitStatusLabels[game.pursuitStatus]}
-                  {game.archivedAt === null ? "" : " · Archived"}
+                  {game.platform} · {playStatusLabels[game.playStatus]}
+                  {game.hiddenAt === null ? "" : " · Hidden"}
                 </small>
               </span>
             </label>

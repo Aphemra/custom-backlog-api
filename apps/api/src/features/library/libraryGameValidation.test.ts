@@ -67,11 +67,10 @@ test("rejects unsupported platforms, unknown fields, and duplicate reorder IDs",
   assert.throws(
     () =>
       parseUpdateLibraryGameInput({
-        playStatus: "playing",
         pursuitStatus: "in_progress",
       }),
     (error: unknown) =>
-      error instanceof HttpError && error.code === "conflicting_status_fields",
+      error instanceof HttpError && error.code === "unknown_fields",
   );
 
   assert.throws(

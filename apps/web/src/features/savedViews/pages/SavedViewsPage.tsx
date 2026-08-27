@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CollectionSummary } from "../../../domain/collection";
 import {
-  pursuitStatusLabels,
+  playStatusLabels,
   type LibraryGameWithTrophySummary,
 } from "../../../domain/libraryGame";
 import {
-  archiveModeLabels,
+  hiddenModeLabels,
   savedViewSortLabels,
   type SavedView,
   type SavedViewInput,
@@ -45,11 +45,9 @@ function describeView(
     parts.push(filters.platforms.join(", "));
   }
 
-  if (filters.pursuitStatuses !== undefined) {
+  if (filters.playStatuses !== undefined) {
     parts.push(
-      filters.pursuitStatuses
-        .map((status) => pursuitStatusLabels[status])
-        .join(", "),
+      filters.playStatuses.map((status) => playStatusLabels[status]).join(", "),
     );
   }
 
@@ -93,7 +91,7 @@ function describeView(
     parts.push(`${filters.alertStatus} alerts`);
   }
 
-  parts.push(archiveModeLabels[filters.archiveMode ?? "active"]);
+  parts.push(hiddenModeLabels[filters.hiddenMode ?? "visible"]);
 
   return parts.join(" · ");
 }
@@ -605,7 +603,7 @@ export function SavedViewsPage() {
                               </span>
 
                               <span className="status-label">
-                                {pursuitStatusLabels[game.pursuitStatus]}
+                                {playStatusLabels[game.playStatus]}
                               </span>
 
                               {game.trophySummary === null ? (
@@ -645,8 +643,14 @@ export function SavedViewsPage() {
                                 </>
                               )}
 
-                              {game.archivedAt === null ? null : (
-                                <span className="archive-badge">Archived</span>
+                              {game.isUnobtainable ? (
+                                <span className="status-label status-label--unobtainable">
+                                  Unobtainable
+                                </span>
+                              ) : null}
+
+                              {game.hiddenAt === null ? null : (
+                                <span className="hidden-badge">Hidden</span>
                               )}
                             </div>
                           </article>

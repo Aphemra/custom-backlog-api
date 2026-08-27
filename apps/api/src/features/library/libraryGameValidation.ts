@@ -2,11 +2,9 @@ import { HttpError } from "../../errors/httpError.js";
 import {
   playStationPlatforms,
   playStatuses,
-  pursuitStatuses,
   type CreateLibraryGameInput,
   type PlayStationPlatform,
   type PlayStatus,
-  type PursuitStatus,
   type UpdateLibraryGameInput,
 } from "./libraryGameTypes.js";
 
@@ -84,18 +82,6 @@ function readPlayStatus(value: unknown): PlayStatus {
   return value as PlayStatus;
 }
 
-function readPursuitStatus(value: unknown): PursuitStatus {
-  if (!pursuitStatuses.includes(value as PursuitStatus)) {
-    throw new HttpError(
-      400,
-      "invalid_pursuit_status",
-      `pursuitStatus must be one of: ${pursuitStatuses.join(", ")}.`,
-    );
-  }
-
-  return value as PursuitStatus;
-}
-
 function readBoolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") {
     throw new HttpError(
@@ -141,30 +127,14 @@ export function parseCreateLibraryGameInput(
 
   rejectUnknownKeys(
     record,
-    new Set([
-      "title",
-      "platform",
-      "playStatus",
-      "isUnobtainable",
-      "pursuitStatus",
-      "notes",
-    ]),
+    new Set(["title", "platform", "playStatus", "isUnobtainable", "notes"]),
   );
-
-  if (record.playStatus !== undefined && record.pursuitStatus !== undefined) {
-    throw new HttpError(
-      400,
-      "conflicting_status_fields",
-      "Provide playStatus, not both playStatus and pursuitStatus.",
-    );
-  }
 
   const input: {
     title: string;
     platform: PlayStationPlatform;
     playStatus?: PlayStatus;
     isUnobtainable?: boolean;
-    pursuitStatus?: PursuitStatus;
     notes?: string | null;
   } = {
     title: readRequiredTitle(record.title),
@@ -179,10 +149,6 @@ export function parseCreateLibraryGameInput(
     input.isUnobtainable = readBoolean(record.isUnobtainable, "isUnobtainable");
   }
 
-  if (record.pursuitStatus !== undefined) {
-    input.pursuitStatus = readPursuitStatus(record.pursuitStatus);
-  }
-
   if (record.notes !== undefined) {
     input.notes = readNotes(record.notes);
   }
@@ -195,16 +161,10 @@ export function parseUpdateLibraryGameInput(
 ): UpdateLibraryGameInput {
   const record = requireRecord(value);
 
-  const allowedKeys = new Set([
-    "title",
-    "platform",
-    "playStatus",
-    "isUnobtainable",
-    "pursuitStatus",
-    "notes",
-  ]);
-
-  rejectUnknownKeys(record, allowedKeys);
+  rejectUnknownKeys(
+    record,
+    new Set(["title", "platform", "playStatus", "isUnobtainable", "notes"]),
+  );
 
   if (Object.keys(record).length === 0) {
     throw new HttpError(
@@ -214,20 +174,11 @@ export function parseUpdateLibraryGameInput(
     );
   }
 
-  if (record.playStatus !== undefined && record.pursuitStatus !== undefined) {
-    throw new HttpError(
-      400,
-      "conflicting_status_fields",
-      "Provide playStatus, not both playStatus and pursuitStatus.",
-    );
-  }
-
   const input: {
     title?: string;
     platform?: PlayStationPlatform;
     playStatus?: PlayStatus;
     isUnobtainable?: boolean;
-    pursuitStatus?: PursuitStatus;
     notes?: string | null;
   } = {};
 
@@ -245,10 +196,6 @@ export function parseUpdateLibraryGameInput(
 
   if (record.isUnobtainable !== undefined) {
     input.isUnobtainable = readBoolean(record.isUnobtainable, "isUnobtainable");
-  }
-
-  if (record.pursuitStatus !== undefined) {
-    input.pursuitStatus = readPursuitStatus(record.pursuitStatus);
   }
 
   if (Object.hasOwn(record, "notes")) {

@@ -83,8 +83,9 @@ export class IgdbImportService {
           : Date.parse(igdbGame.releaseDate);
 
       const playStatus =
-        Number.isFinite(releaseTimestamp) &&
-        releaseTimestamp > Date.parse(timestamp)
+        igdbGame.releaseDate === null ||
+        (Number.isFinite(releaseTimestamp) &&
+          releaseTimestamp > Date.parse(timestamp))
           ? "unreleased"
           : input.playStatus;
 

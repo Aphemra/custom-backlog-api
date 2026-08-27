@@ -54,7 +54,7 @@ function readCount(database: DatabaseSync, tableName: string): number {
   return row?.count ?? 0;
 }
 
-test("atomically adds an IGDB result and its metadata to the library", async () => {
+test("atomically adds a dateless IGDB result as unreleased", async () => {
   const database = openDatabase(":memory:");
   const cacheDirectory = await mkdtemp(join(tmpdir(), "backlog-igdb-add-"));
   let tokenRequests = 0;
@@ -83,7 +83,6 @@ test("atomically adds an IGDB result and its metadata to the library", async () 
           name: "Astro Bot",
           summary: "A platforming adventure.",
           platforms: [{ id: 167 }],
-          release_dates: [{ date: 4_102_444_800, platform: 167 }],
           cover: { image_id: "co8abc" },
         },
       ]);
@@ -171,7 +170,7 @@ test("atomically enriches an existing library game without duplicating it", asyn
   const libraryGame = new LibraryGameRepository(database).create({
     title: "Astro Bot",
     platform: "PS5",
-    pursuitStatus: "unplanned",
+    playStatus: "not_started",
     notes: null,
   });
 

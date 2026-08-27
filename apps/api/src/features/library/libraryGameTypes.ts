@@ -14,8 +14,8 @@ export const playStatuses = [
 export type PlayStatus = (typeof playStatuses)[number];
 
 /**
- * Transitional compatibility for integrations and portable-data versions
- * that still use the pre-v2.1 vocabulary.
+ * Historical vocabulary retained for v1-v3 portable-data imports and the
+ * legacy SQLite columns that remain in the local database.
  */
 export const pursuitStatuses = [
   "unplanned",
@@ -71,22 +71,13 @@ export interface LibraryGame {
   readonly title: string;
   readonly sortTitle: string;
   readonly platform: PlayStationPlatform;
-
-  readonly playStatus?: PlayStatus;
-  readonly isUnobtainable?: boolean;
-  readonly hiddenAt?: string | null;
-
-  /**
-   * Transitional compatibility fields. These disappear after the remaining
-   * integrations, portable data, and web interface adopt the new contract.
-   */
-  readonly pursuitStatus: PursuitStatus;
-  readonly archivedAt: string | null;
-
+  readonly playStatus: PlayStatus;
+  readonly isUnobtainable: boolean;
   readonly priorityRank: number;
   readonly notes: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly hiddenAt: string | null;
 }
 
 export interface LibraryTrophyCounts {
@@ -126,9 +117,6 @@ export interface CreateLibraryGameInput {
   readonly playStatus?: PlayStatus;
   readonly isUnobtainable?: boolean;
   readonly notes?: string | null;
-
-  /** Transitional integration compatibility. */
-  readonly pursuitStatus?: PursuitStatus;
 }
 
 export interface UpdateLibraryGameInput {
@@ -137,7 +125,4 @@ export interface UpdateLibraryGameInput {
   readonly playStatus?: PlayStatus;
   readonly isUnobtainable?: boolean;
   readonly notes?: string | null;
-
-  /** Transitional integration compatibility. */
-  readonly pursuitStatus?: PursuitStatus;
 }

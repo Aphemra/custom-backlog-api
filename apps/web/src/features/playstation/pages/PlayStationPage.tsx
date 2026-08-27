@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  pursuitStatuses,
-  pursuitStatusLabels,
+  playStatuses,
+  playStatusLabels,
   type LibraryGame,
   type PlayStationPlatform,
-  type PursuitStatus,
+  type PlayStatus,
 } from "../../../domain/libraryGame";
 import { PlayStationIgdbEnrichment } from "../components/PlayStationIgdbEnrichment";
 import type {
@@ -120,7 +120,7 @@ interface TrophyTitleRowProps {
   readonly onImportTitle: (
     title: ReconciledPlayStationTitle,
     platform: PlayStationPlatform,
-    pursuitStatus: PursuitStatus,
+    playStatus: PlayStatus,
   ) => void;
   readonly onMetadataEnriched: (
     title: ReconciledPlayStationTitle,
@@ -144,8 +144,8 @@ function TrophyTitleRow({
     title.platforms[0] ?? "PS5",
   );
 
-  const [importPursuitStatus, setImportPursuitStatus] =
-    useState<PursuitStatus>("unplanned");
+  const [importPlayStatus, setImportPlayStatus] =
+    useState<PlayStatus>("not_started");
 
   const suggestedCandidate =
     title.reconciliation.status === "suggested_match"
@@ -396,18 +396,18 @@ function TrophyTitleRow({
               </label>
 
               <label className="field">
-                <span>Backlog status</span>
+                <span>Play status</span>
 
                 <select
-                  value={importPursuitStatus}
+                  value={importPlayStatus}
                   disabled={busyIdentity !== null}
                   onChange={(event) =>
-                    setImportPursuitStatus(event.target.value as PursuitStatus)
+                    setImportPlayStatus(event.target.value as PlayStatus)
                   }
                 >
-                  {pursuitStatuses.map((status) => (
+                  {playStatuses.map((status) => (
                     <option value={status} key={status}>
-                      {pursuitStatusLabels[status]}
+                      {playStatusLabels[status]}
                     </option>
                   ))}
                 </select>
@@ -418,7 +418,7 @@ function TrophyTitleRow({
                 type="button"
                 disabled={busyIdentity !== null}
                 onClick={() =>
-                  onImportTitle(title, importPlatform, importPursuitStatus)
+                  onImportTitle(title, importPlatform, importPlayStatus)
                 }
               >
                 {busyIdentity === identity
@@ -546,7 +546,7 @@ export function PlayStationPage() {
         gameId: game.id,
         title: game.title,
         platform: game.platform,
-        archived: game.archivedAt !== null,
+        archived: game.hiddenAt !== null,
         metadataProvider: null,
         playStationLinkSource: null,
       }));
@@ -687,7 +687,7 @@ export function PlayStationPage() {
   async function handleImportTitle(
     title: ReconciledPlayStationTitle,
     platform: PlayStationPlatform,
-    pursuitStatus: PursuitStatus,
+    playStatus: PlayStatus,
   ): Promise<void> {
     const identity = `${title.npServiceName}:${title.npCommunicationId}`;
 
@@ -700,7 +700,7 @@ export function PlayStationPage() {
         npServiceName: title.npServiceName,
         npCommunicationId: title.npCommunicationId,
         platform,
-        pursuitStatus,
+        playStatus,
       });
 
       const candidate: PlayStationLibraryCandidate = {
@@ -1006,12 +1006,8 @@ export function PlayStationPage() {
                   onConfirmMatch={(selectedTitle, candidate) =>
                     void handleConfirmMatch(selectedTitle, candidate)
                   }
-                  onImportTitle={(selectedTitle, platform, pursuitStatus) =>
-                    void handleImportTitle(
-                      selectedTitle,
-                      platform,
-                      pursuitStatus,
-                    )
+                  onImportTitle={(selectedTitle, platform, playStatus) =>
+                    void handleImportTitle(selectedTitle, platform, playStatus)
                   }
                 />
               ))}

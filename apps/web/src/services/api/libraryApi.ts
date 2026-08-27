@@ -16,7 +16,7 @@ interface GamesResponse {
 export const libraryApi = {
   async list(signal?: AbortSignal): Promise<readonly LibraryGameWithArtwork[]> {
     const response = await requestJson<GamesResponse>(
-      "/api/library/games?includeArchived=true",
+      "/api/library/games?includeHidden=true",
       { signal },
     );
 
@@ -61,18 +61,18 @@ export const libraryApi = {
     return response.games;
   },
 
-  async archive(gameId: string): Promise<LibraryGameWithArtwork> {
+  async hide(gameId: string): Promise<LibraryGameWithArtwork> {
     const response = await requestJson<GameResponse>(
-      `/api/library/games/${encodeURIComponent(gameId)}/archive`,
+      `/api/library/games/${encodeURIComponent(gameId)}/hide`,
       { method: "POST" },
     );
 
     return response.game;
   },
 
-  async restore(gameId: string): Promise<LibraryGameWithArtwork> {
+  async unhide(gameId: string): Promise<LibraryGameWithArtwork> {
     const response = await requestJson<GameResponse>(
-      `/api/library/games/${encodeURIComponent(gameId)}/restore`,
+      `/api/library/games/${encodeURIComponent(gameId)}/unhide`,
       { method: "POST" },
     );
 

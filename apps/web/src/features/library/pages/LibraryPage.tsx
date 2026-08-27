@@ -26,7 +26,7 @@ export function LibraryPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showArchived, setShowArchived] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
   const [editingGame, setEditingGame] = useState<LibraryGame | null>(null);
@@ -56,13 +56,13 @@ export function LibraryPage() {
     return () => abortController.abort();
   }, []);
 
-  const activeGames = useMemo(
-    () => games.filter((game) => game.archivedAt === null),
+  const orderedVisibleGames = useMemo(
+    () => games.filter((game) => game.hiddenAt === null),
     [games],
   );
 
-  const archivedGames = useMemo(
-    () => games.filter((game) => game.archivedAt !== null),
+  const hiddenGames = useMemo(
+    () => games.filter((game) => game.hiddenAt !== null),
     [games],
   );
 
@@ -70,7 +70,7 @@ export function LibraryPage() {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("en-US");
 
     return games.filter((game) => {
-      if (!showArchived && game.archivedAt !== null) {
+      if (!showHidden && game.hiddenAt !== null) {
         return false;
       }
 
@@ -84,7 +84,7 @@ export function LibraryPage() {
           true
       );
     });
-  }, [games, searchQuery, showArchived]);
+  }, [games, searchQuery, showHidden]);
 
   const orderingDisabled = searchQuery.trim().length > 0;
 
@@ -148,11 +148,11 @@ export function LibraryPage() {
     }
   }
 
-  async function handleArchive(game: LibraryGame): Promise<void> {
+  async function handleHide(game: LibraryGame): Promise<void> {
     const succeeded = await performMutation(
       game.id,
-      `${game.title} was archived.`,
-      () => libraryApi.archive(game.id),
+      `${game.title} was hidden.`,
+      () => libraryApi.hide(game.id),
     );
 
     if (succeeded && editingGame?.id === game.id) {
@@ -160,11 +160,11 @@ export function LibraryPage() {
     }
   }
 
-  async function handleRestore(game: LibraryGame): Promise<void> {
+  async function handleUnhide(game: LibraryGame): Promise<void> {
     await performMutation(
       game.id,
-      `${game.title} was restored to the library.`,
-      () => libraryApi.restore(game.id),
+      `${game.title} is visible in the library again.`,
+      () => libraryApi.unhide(game.id),
     );
   }
 
@@ -189,18 +189,20 @@ export function LibraryPage() {
   }
 
   async function moveGame(gameId: string, direction: -1 | 1): Promise<void> {
-    const currentIndex = activeGames.findIndex((game) => game.id === gameId);
+    const currentIndex = orderedVisibleGames.findIndex(
+      (game) => game.id === gameId,
+    );
     const targetIndex = currentIndex + direction;
 
     if (
       currentIndex < 0 ||
       targetIndex < 0 ||
-      targetIndex >= activeGames.length
+      targetIndex >= orderedVisibleGames.length
     ) {
       return;
     }
 
-    const reorderedGames = [...activeGames];
+    const reorderedGames = [...orderedVisibleGames];
     const [movedGame] = reorderedGames.splice(currentIndex, 1);
 
     if (movedGame === undefined) {
@@ -273,31 +275,35 @@ export function LibraryPage() {
 
       <div className="stats-strip" aria-label="Library summary">
         <div>
-          <strong>{activeGames.length}</strong>
-          <span>Active games</span>
+          <strong>{orderedVisibleGames.length}</strong>
+          <span>Visible games</span>
         </div>
+
         <div>
           <strong>
             {
-              activeGames.filter(
-                (game) => game.pursuitStatus === "pursuing_soon",
+              orderedVisibleGames.filter(
+                (game) => game.playStatus === "not_started",
               ).length
             }
           </strong>
-          <span>Pursuing soon</span>
+          <span>Not started</span>
         </div>
+
         <div>
           <strong>
             {
-              activeGames.filter((game) => game.pursuitStatus === "in_progress")
-                .length
+              orderedVisibleGames.filter(
+                (game) => game.playStatus === "playing",
+              ).length
             }
           </strong>
-          <span>In progress</span>
+          <span>Playing</span>
         </div>
+
         <div>
-          <strong>{archivedGames.length}</strong>
-          <span>Archived</span>
+          <strong>{hiddenGames.length}</strong>
+          <span>Hidden</span>
         </div>
       </div>
 
@@ -315,10 +321,10 @@ export function LibraryPage() {
         <label className="checkbox-control">
           <input
             type="checkbox"
-            checked={showArchived}
-            onChange={(event) => setShowArchived(event.target.checked)}
+            checked={showHidden}
+            onChange={(event) => setShowHidden(event.target.checked)}
           />
-          <span>Show archived</span>
+          <span>Show hidden games</span>
         </label>
       </div>
 
@@ -400,27 +406,27 @@ export function LibraryPage() {
       {loadState === "ready" && visibleGames.length > 0 ? (
         <div className="game-list" aria-label="Library games">
           {visibleGames.map((game) => {
-            const activeIndex = activeGames.findIndex(
+            const activeIndex = orderedVisibleGames.findIndex(
               (candidate) => candidate.id === game.id,
             );
-            const isArchived = game.archivedAt !== null;
+            const isHidden = game.hiddenAt !== null;
 
             return (
               <LibraryGameRow
                 key={game.id}
                 game={game}
-                position={isArchived ? null : activeIndex + 1}
-                canMoveUp={!isArchived && activeIndex > 0}
+                position={isHidden ? null : activeIndex + 1}
+                canMoveUp={!isHidden && activeIndex > 0}
                 canMoveDown={
-                  !isArchived && activeIndex < activeGames.length - 1
+                  !isHidden && activeIndex < orderedVisibleGames.length - 1
                 }
                 orderingDisabled={orderingDisabled}
                 busy={busyKey !== null}
                 onMoveUp={() => void moveGame(game.id, -1)}
                 onMoveDown={() => void moveGame(game.id, 1)}
                 onEdit={() => openEditForm(game)}
-                onArchive={() => void handleArchive(game)}
-                onRestore={() => void handleRestore(game)}
+                onHide={() => void handleHide(game)}
+                onUnhide={() => void handleUnhide(game)}
                 onDelete={() => void handleDelete(game)}
               />
             );

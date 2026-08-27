@@ -13,13 +13,10 @@ import type {
   IgdbCredentials,
 } from "../features/igdb/igdbTypes.js";
 import {
-  migratePursuitStatus,
   playStationPlatforms,
   playStatuses,
-  pursuitStatuses,
   type PlayStationPlatform,
   type PlayStatus,
-  type PursuitStatus,
 } from "../features/library/libraryGameTypes.js";
 
 function readSearchTerm(value: unknown): string {
@@ -113,7 +110,7 @@ function readAddInput(externalId: string, value: unknown): AddIgdbGameInput {
     );
   }
 
-  const allowedKeys = new Set(["platform", "playStatus", "pursuitStatus"]);
+  const allowedKeys = new Set(["platform", "playStatus"]);
 
   if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
     throw new HttpError(
@@ -134,14 +131,6 @@ function readAddInput(externalId: string, value: unknown): AddIgdbGameInput {
     );
   }
 
-  if (value.playStatus !== undefined && value.pursuitStatus !== undefined) {
-    throw new HttpError(
-      400,
-      "conflicting_status_fields",
-      "Provide playStatus, not both playStatus and pursuitStatus.",
-    );
-  }
-
   let playStatus: PlayStatus = "not_started";
 
   if (value.playStatus !== undefined) {
@@ -157,21 +146,6 @@ function readAddInput(externalId: string, value: unknown): AddIgdbGameInput {
     }
 
     playStatus = value.playStatus as PlayStatus;
-  }
-
-  if (value.pursuitStatus !== undefined) {
-    if (
-      typeof value.pursuitStatus !== "string" ||
-      !pursuitStatuses.includes(value.pursuitStatus as PursuitStatus)
-    ) {
-      throw new HttpError(
-        400,
-        "invalid_pursuit_status",
-        "pursuitStatus is not supported.",
-      );
-    }
-
-    playStatus = migratePursuitStatus(value.pursuitStatus as PursuitStatus);
   }
 
   return {

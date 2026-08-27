@@ -52,9 +52,7 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
   const repository = new LibraryGameRepository(database);
 
   libraryRoutes.get("/games", (request, response) => {
-    const includeHidden = readIncludeHidden(
-      request.query.includeHidden ?? request.query.includeArchived,
-    );
+    const includeHidden = readIncludeHidden(request.query.includeHidden);
 
     response.json({
       games: repository.list(includeHidden),
@@ -68,7 +66,7 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
       throw new HttpError(
         409,
         "game_order_mismatch",
-        "orderedGameIds must contain every active library game exactly once.",
+        "orderedGameIds must contain every visible library game exactly once.",
       );
     }
 
@@ -109,19 +107,6 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
   });
 
   libraryRoutes.post("/games/:gameId/unhide", (request, response) => {
-    const game = requireGame(repository.unhide(readGameId(request)));
-
-    response.json({ game });
-  });
-
-  // Transitional routes retained until the web interface moves in Slice 5.
-  libraryRoutes.post("/games/:gameId/archive", (request, response) => {
-    const game = requireGame(repository.hide(readGameId(request)));
-
-    response.json({ game });
-  });
-
-  libraryRoutes.post("/games/:gameId/restore", (request, response) => {
     const game = requireGame(repository.unhide(readGameId(request)));
 
     response.json({ game });

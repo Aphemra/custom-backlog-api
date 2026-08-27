@@ -20,7 +20,7 @@ test("creates, edits, orders, fills, and deletes collections", () => {
       platform: "PS4",
     });
 
-    games.archive(secondGame.id);
+    games.hide(secondGame.id);
 
     const firstCollection = collections.create({
       name: "Mascot Platformers",
@@ -42,8 +42,8 @@ test("creates, edits, orders, fills, and deletes collections", () => {
     const populated = collections.findById(firstCollection.id);
 
     assert.equal(populated?.gameCount, 2);
-    assert.equal(populated?.activeGameCount, 1);
-    assert.equal(populated?.archivedGameCount, 1);
+    assert.equal(populated?.visibleGameCount, 1);
+    assert.equal(populated?.hiddenGameCount, 1);
 
     assert.deepEqual(
       populated?.games.map((game) => game.id),

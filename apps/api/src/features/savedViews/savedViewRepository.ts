@@ -4,7 +4,6 @@ import type {
   LibraryGameWithTrophySummary,
   PlayStationPlatform,
   PlayStatus,
-  PursuitStatus,
 } from "../library/libraryGameTypes.js";
 import type {
   CreateSavedViewInput,
@@ -43,7 +42,6 @@ interface LibraryGameRow {
   title: string;
   sort_title: string;
   platform: PlayStationPlatform;
-  pursuit_status: PursuitStatus;
   play_status: PlayStatus;
   is_unobtainable: number;
   priority_rank: number;
@@ -145,13 +143,11 @@ function mapLibraryGame(row: LibraryGameRow): LibraryGameWithTrophySummary {
     platform: row.platform,
     playStatus: row.play_status,
     isUnobtainable: row.is_unobtainable === 1,
-    hiddenAt: row.archived_at,
-    pursuitStatus: row.pursuit_status,
     priorityRank: row.priority_rank,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    archivedAt: row.archived_at,
+    hiddenAt: row.archived_at,
     trophySummary,
   };
 }
@@ -470,7 +466,6 @@ export class SavedViewRepository {
           lg.title,
           lg.sort_title,
           lg.platform,
-          lg.pursuit_status,
           lg.play_status,
           lg.is_unobtainable,
           lg.priority_rank,

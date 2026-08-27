@@ -72,10 +72,10 @@ export function CollectionCard({
         )}
 
         <div className="collection-card__counts">
-          <span>{collection.activeGameCount} active</span>
+          <span>{collection.visibleGameCount} visible</span>
 
-          {collection.archivedGameCount > 0 ? (
-            <span>{collection.archivedGameCount} archived</span>
+          {collection.hiddenGameCount > 0 ? (
+            <span>{collection.hiddenGameCount} hidden</span>
           ) : null}
 
           <span className="trophy-placeholder">Trophy totals after sync</span>

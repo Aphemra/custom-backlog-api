@@ -134,7 +134,7 @@ textarea:focus-visible {
 
 .status-pill,
 .platform-badge,
-.archive-badge,
+.hidden-badge,
 .status-label {
   display: inline-flex;
   align-items: center;
@@ -426,7 +426,7 @@ textarea:focus-visible {
   background: rgba(23, 29, 43, 0.92);
 }
 
-.game-row--archived {
+.game-row--hidden {
   background: rgba(17, 22, 34, 0.48);
 }
 
@@ -517,7 +517,7 @@ textarea:focus-visible {
 }
 
 .platform-badge,
-.archive-badge,
+.hidden-badge,
 .status-label {
   padding: 0.24rem 0.5rem;
   font-size: 0.68rem;
@@ -530,7 +530,7 @@ textarea:focus-visible {
   color: #bfdbfe;
 }
 
-.archive-badge {
+.hidden-badge {
   background: rgba(148, 163, 184, 0.12);
   color: #cbd5e1;
 }
@@ -545,20 +545,30 @@ textarea:focus-visible {
   color: #ddd6fe;
 }
 
-.status-label--in_progress {
+.status-label--playing {
   background: var(--color-success-soft);
   color: #99f6e4;
 }
 
-.status-label--finished {
+.status-label--completed {
   background: rgba(250, 204, 21, 0.12);
   color: #fef08a;
 }
 
-.status-label--paused,
-.status-label--abandoned {
+.status-label--on_hold,
+.status-label--waiting {
   background: rgba(148, 163, 184, 0.12);
   color: #cbd5e1;
+}
+
+.status-label--unreleased {
+  background: rgba(59, 130, 246, 0.14);
+  color: #bfdbfe;
+}
+
+.status-label--unobtainable {
+  background: rgba(248, 113, 113, 0.13);
+  color: #fecaca;
 }
 
 .trophy-placeholder,

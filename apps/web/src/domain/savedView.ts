@@ -1,16 +1,16 @@
 import type {
   LibraryGameWithTrophySummary,
   PlayStationPlatform,
-  PursuitStatus,
+  PlayStatus,
 } from "./libraryGame";
 
-export type ArchiveMode = "active" | "archived" | "all";
+export type HiddenMode = "visible" | "hidden" | "all";
 
 export type SavedViewSortField =
   | "priorityRank"
   | "title"
   | "platform"
-  | "pursuitStatus"
+  | "playStatus"
   | "createdAt"
   | "updatedAt"
   | "progressPercent"
@@ -24,9 +24,9 @@ export interface SavedViewFilters {
 
   readonly platforms?: readonly PlayStationPlatform[];
 
-  readonly pursuitStatuses?: readonly PursuitStatus[];
+  readonly playStatuses?: readonly PlayStatus[];
 
-  readonly archiveMode?: ArchiveMode;
+  readonly hiddenMode?: HiddenMode;
 
   readonly collectionIds?: readonly string[];
 
@@ -73,10 +73,10 @@ export interface SavedViewGames {
   readonly games: readonly LibraryGameWithTrophySummary[];
 }
 
-export const archiveModeLabels: Readonly<Record<ArchiveMode, string>> = {
-  active: "Active games",
-  archived: "Archived games",
-  all: "Active and archived",
+export const hiddenModeLabels: Readonly<Record<HiddenMode, string>> = {
+  visible: "Visible games",
+  hidden: "Hidden games",
+  all: "Visible and hidden games",
 };
 
 export const savedViewSortLabels: Readonly<Record<SavedViewSortField, string>> =
@@ -84,7 +84,7 @@ export const savedViewSortLabels: Readonly<Record<SavedViewSortField, string>> =
     priorityRank: "Manual library order",
     title: "Title",
     platform: "Platform",
-    pursuitStatus: "Pursuit status",
+    playStatus: "Play status",
     createdAt: "Date added",
     updatedAt: "Last edited",
     progressPercent: "Trophy progress",

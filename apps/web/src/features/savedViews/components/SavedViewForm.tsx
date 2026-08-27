@@ -2,15 +2,15 @@ import { useState, type FormEvent } from "react";
 import type { CollectionSummary } from "../../../domain/collection";
 import {
   playStationPlatforms,
-  pursuitStatuses,
-  pursuitStatusLabels,
+  playStatuses,
+  playStatusLabels,
   type PlayStationPlatform,
-  type PursuitStatus,
+  type PlayStatus,
 } from "../../../domain/libraryGame";
 import {
-  archiveModeLabels,
+  hiddenModeLabels,
   savedViewSortLabels,
-  type ArchiveMode,
+  type HiddenMode,
   type SavedView,
   type SavedViewInput,
   type SavedViewSortField,
@@ -21,7 +21,7 @@ const currentSortFields: readonly SavedViewSortField[] = [
   "priorityRank",
   "title",
   "platform",
-  "pursuitStatus",
+  "playStatus",
   "createdAt",
   "updatedAt",
   "progressPercent",
@@ -79,12 +79,12 @@ export function SavedViewForm({
     initialView?.filters.platforms ?? [],
   );
 
-  const [statuses, setStatuses] = useState<readonly PursuitStatus[]>(
-    initialView?.filters.pursuitStatuses ?? [],
+  const [statuses, setStatuses] = useState<readonly PlayStatus[]>(
+    initialView?.filters.playStatuses ?? [],
   );
 
-  const [archiveMode, setArchiveMode] = useState<ArchiveMode>(
-    initialView?.filters.archiveMode ?? "active",
+  const [hiddenMode, setHiddenMode] = useState<HiddenMode>(
+    initialView?.filters.hiddenMode ?? "visible",
   );
 
   const [collectionIds, setCollectionIds] = useState<readonly string[]>(
@@ -128,9 +128,9 @@ export function SavedViewForm({
 
           platforms: platforms.length === 0 ? undefined : platforms,
 
-          pursuitStatuses: statuses.length === 0 ? undefined : statuses,
+          playStatuses: statuses.length === 0 ? undefined : statuses,
 
-          archiveMode,
+          hiddenMode,
 
           collectionIds: collectionIds.length === 0 ? undefined : collectionIds,
 
@@ -218,10 +218,10 @@ export function SavedViewForm({
         </fieldset>
 
         <fieldset className="saved-view-form__group">
-          <legend>Pursuit status</legend>
+          <legend>Play status</legend>
 
           <div className="filter-checks">
-            {pursuitStatuses.map((status) => (
+            {playStatuses.map((status) => (
               <label key={status}>
                 <input
                   type="checkbox"
@@ -229,22 +229,22 @@ export function SavedViewForm({
                   onChange={() => setStatuses(toggleValue(statuses, status))}
                 />
 
-                <span>{pursuitStatusLabels[status]}</span>
+                <span>{playStatusLabels[status]}</span>
               </label>
             ))}
           </div>
         </fieldset>
 
         <label className="field">
-          <span>Archive state</span>
+          <span>Hidden games</span>
 
           <select
-            value={archiveMode}
+            value={hiddenMode}
             onChange={(event) =>
-              setArchiveMode(event.target.value as ArchiveMode)
+              setHiddenMode(event.target.value as HiddenMode)
             }
           >
-            {Object.entries(archiveModeLabels).map(([value, label]) => (
+            {Object.entries(hiddenModeLabels).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>

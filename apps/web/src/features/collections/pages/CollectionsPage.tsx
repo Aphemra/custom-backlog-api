@@ -78,13 +78,13 @@ export function CollectionsPage() {
         0,
       ),
 
-      activeMemberships: collections.reduce(
-        (total, collection) => total + collection.activeGameCount,
+      visibleMemberships: collections.reduce(
+        (total, collection) => total + collection.visibleGameCount,
         0,
       ),
 
-      archivedMemberships: collections.reduce(
-        (total, collection) => total + collection.archivedGameCount,
+      hiddenMemberships: collections.reduce(
+        (total, collection) => total + collection.hiddenGameCount,
         0,
       ),
     }),
@@ -309,13 +309,13 @@ export function CollectionsPage() {
         </div>
 
         <div>
-          <strong>{summary.activeMemberships}</strong>
-          <span>Active memberships</span>
+          <strong>{summary.visibleMemberships}</strong>
+          <span>Visible memberships</span>
         </div>
 
         <div>
-          <strong>{summary.archivedMemberships}</strong>
-          <span>Archived memberships</span>
+          <strong>{summary.hiddenMemberships}</strong>
+          <span>Hidden memberships</span>
         </div>
       </div>
 

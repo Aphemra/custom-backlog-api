@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type {
   PlayStationPlatform,
-  PursuitStatus,
+  PlayStatus,
 } from "../library/libraryGameTypes.js";
 import type {
   CollectionDetail,
@@ -18,8 +18,8 @@ interface CollectionRow {
   description: string | null;
   sort_order: number;
   game_count: number;
-  active_game_count: number;
-  archived_game_count: number;
+  visible_game_count: number;
+  hidden_game_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -29,7 +29,8 @@ interface CollectionGameRow {
   title: string;
   sort_title: string;
   platform: PlayStationPlatform;
-  pursuit_status: PursuitStatus;
+  play_status: PlayStatus;
+  is_unobtainable: number;
   priority_rank: number;
   notes: string | null;
   created_at: string;
@@ -59,13 +60,13 @@ const COLLECTION_SELECT = `
         WHEN lg.id IS NOT NULL AND lg.archived_at IS NULL THEN 1
         ELSE 0
       END
-    ), 0) AS active_game_count,
+    ), 0) AS visible_game_count,
     COALESCE(SUM(
       CASE
         WHEN lg.id IS NOT NULL AND lg.archived_at IS NOT NULL THEN 1
         ELSE 0
       END
-    ), 0) AS archived_game_count,
+    ), 0) AS hidden_game_count,
     c.created_at,
     c.updated_at
   FROM collections c
@@ -80,8 +81,8 @@ function mapCollection(row: CollectionRow): CollectionSummary {
     description: row.description,
     sortOrder: row.sort_order,
     gameCount: row.game_count,
-    activeGameCount: row.active_game_count,
-    archivedGameCount: row.archived_game_count,
+    visibleGameCount: row.visible_game_count,
+    hiddenGameCount: row.hidden_game_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -93,12 +94,13 @@ function mapCollectionGame(row: CollectionGameRow): CollectionGame {
     title: row.title,
     sortTitle: row.sort_title,
     platform: row.platform,
-    pursuitStatus: row.pursuit_status,
+    playStatus: row.play_status,
+    isUnobtainable: row.is_unobtainable === 1,
     priorityRank: row.priority_rank,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    archivedAt: row.archived_at,
+    hiddenAt: row.archived_at,
     collectionSortOrder: row.collection_sort_order,
     addedAt: row.added_at,
   };
@@ -328,7 +330,8 @@ export class CollectionRepository {
           lg.title,
           lg.sort_title,
           lg.platform,
-          lg.pursuit_status,
+          lg.play_status,
+          lg.is_unobtainable,
           lg.priority_rank,
           lg.notes,
           lg.created_at,

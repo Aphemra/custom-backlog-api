@@ -2,24 +2,24 @@ export const playStationPlatforms = ["PS3", "PS4", "PS5"] as const;
 
 export type PlayStationPlatform = (typeof playStationPlatforms)[number];
 
-export const pursuitStatuses = [
-  "unplanned",
-  "pursuing_soon",
-  "in_progress",
-  "paused",
-  "finished",
-  "abandoned",
+export const playStatuses = [
+  "unreleased",
+  "not_started",
+  "playing",
+  "on_hold",
+  "waiting",
+  "completed",
 ] as const;
 
-export type PursuitStatus = (typeof pursuitStatuses)[number];
+export type PlayStatus = (typeof playStatuses)[number];
 
-export const pursuitStatusLabels: Readonly<Record<PursuitStatus, string>> = {
-  unplanned: "Unplanned",
-  pursuing_soon: "Pursuing soon",
-  in_progress: "In progress",
-  paused: "Paused",
-  finished: "Finished",
-  abandoned: "Abandoned",
+export const playStatusLabels: Readonly<Record<PlayStatus, string>> = {
+  unreleased: "Unreleased",
+  not_started: "Not started",
+  playing: "Playing",
+  on_hold: "On hold",
+  waiting: "Waiting",
+  completed: "Completed",
 };
 
 export interface LibraryGame {
@@ -27,12 +27,13 @@ export interface LibraryGame {
   readonly title: string;
   readonly sortTitle: string;
   readonly platform: PlayStationPlatform;
-  readonly pursuitStatus: PursuitStatus;
+  readonly playStatus: PlayStatus;
+  readonly isUnobtainable: boolean;
   readonly priorityRank: number;
   readonly notes: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
-  readonly archivedAt: string | null;
+  readonly hiddenAt: string | null;
 }
 
 export interface LibraryTrophyCounts {
@@ -69,7 +70,8 @@ export interface LibraryGameWithArtwork extends LibraryGameWithTrophySummary {
 export interface CreateLibraryGameInput {
   readonly title: string;
   readonly platform: PlayStationPlatform;
-  readonly pursuitStatus: PursuitStatus;
+  readonly playStatus: PlayStatus;
+  readonly isUnobtainable: boolean;
   readonly notes: string | null;
 }
 

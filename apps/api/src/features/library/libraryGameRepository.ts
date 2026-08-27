@@ -2,13 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   createCompatiblePursuitStatus,
-  migratePursuitStatus,
   type CreateLibraryGameInput,
   type LibraryGame,
   type LibraryGameWithArtwork,
   type PlayStationPlatform,
   type PlayStatus,
-  type PursuitStatus,
   type UpdateLibraryGameInput,
 } from "./libraryGameTypes.js";
 
@@ -17,7 +15,6 @@ interface LibraryGameRow {
   title: string;
   sort_title: string;
   platform: PlayStationPlatform;
-  pursuit_status: PursuitStatus;
   play_status: PlayStatus;
   is_unobtainable: number;
   priority_rank: number;
@@ -92,13 +89,11 @@ function mapLibraryGame(row: LibraryGameRow): LibraryGameWithArtwork {
     platform: row.platform,
     playStatus: row.play_status,
     isUnobtainable: row.is_unobtainable === 1,
-    hiddenAt: row.archived_at,
-    pursuitStatus: row.pursuit_status,
     priorityRank: row.priority_rank,
     notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    archivedAt: row.archived_at,
+    hiddenAt: row.archived_at,
     trophySummary,
     artwork,
   };
@@ -114,7 +109,7 @@ function createSortTitle(title: string): string {
 export class LibraryGameRepository {
   constructor(private readonly database: DatabaseSync) {}
 
-  list(includeArchived = false): readonly LibraryGameWithArtwork[] {
+  list(includeHidden = false): readonly LibraryGameWithArtwork[] {
     const rows = this.database
       .prepare(
         `
@@ -123,7 +118,6 @@ export class LibraryGameRepository {
           lg.title,
           lg.sort_title,
           lg.platform,
-          lg.pursuit_status,
           lg.play_status,
           lg.is_unobtainable,
           lg.priority_rank,
@@ -203,7 +197,7 @@ export class LibraryGameRepository {
           lg.sort_title ASC
       `,
       )
-      .all(includeArchived ? 1 : 0) as unknown as LibraryGameRow[];
+      .all(includeHidden ? 1 : 0) as unknown as LibraryGameRow[];
 
     return rows.map(mapLibraryGame);
   }
@@ -217,7 +211,6 @@ export class LibraryGameRepository {
           lg.title,
           lg.sort_title,
           lg.platform,
-          lg.pursuit_status,
           lg.play_status,
           lg.is_unobtainable,
           lg.priority_rank,
@@ -300,12 +293,9 @@ export class LibraryGameRepository {
     const timestamp = new Date().toISOString();
     const priorityRank = this.getNextPriorityRank();
 
-    const playStatus =
-      input.playStatus ??
-      migratePursuitStatus(input.pursuitStatus ?? "unplanned");
+    const playStatus = input.playStatus ?? "not_started";
 
-    const pursuitStatus =
-      input.pursuitStatus ?? createCompatiblePursuitStatus(playStatus);
+    const pursuitStatus = createCompatiblePursuitStatus(playStatus);
 
     this.database
       .prepare(
@@ -358,20 +348,11 @@ export class LibraryGameRepository {
       ? (input.notes ?? null)
       : currentGame.notes;
 
-    const currentPlayStatus =
-      currentGame.playStatus ?? migratePursuitStatus(currentGame.pursuitStatus);
+    const playStatus = input.playStatus ?? currentGame.playStatus;
 
-    const playStatus =
-      input.playStatus ??
-      (input.pursuitStatus === undefined
-        ? currentPlayStatus
-        : migratePursuitStatus(input.pursuitStatus));
+    const pursuitStatus = createCompatiblePursuitStatus(playStatus);
 
-    const pursuitStatus =
-      input.pursuitStatus ?? createCompatiblePursuitStatus(playStatus);
-
-    const isUnobtainable =
-      input.isUnobtainable ?? currentGame.isUnobtainable ?? false;
+    const isUnobtainable = input.isUnobtainable ?? currentGame.isUnobtainable;
 
     this.database
       .prepare(
@@ -428,11 +409,6 @@ export class LibraryGameRepository {
     return this.requireById(gameId);
   }
 
-  /** Transitional alias for callers that have not moved to Hidden Games yet. */
-  archive(gameId: string): LibraryGameWithArtwork | null {
-    return this.hide(gameId);
-  }
-
   unhide(gameId: string): LibraryGameWithArtwork | null {
     const currentGame = this.findById(gameId);
 
@@ -454,11 +430,6 @@ export class LibraryGameRepository {
       .run(this.getNextPriorityRank(), new Date().toISOString(), gameId);
 
     return this.requireById(gameId);
-  }
-
-  /** Transitional alias for callers that have not moved to Hidden Games yet. */
-  restore(gameId: string): LibraryGameWithArtwork | null {
-    return this.unhide(gameId);
   }
 
   deletePermanently(gameId: string): boolean {

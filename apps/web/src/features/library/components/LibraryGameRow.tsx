@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  pursuitStatusLabels,
+  playStatusLabels,
   type LibraryGameWithArtwork,
 } from "../../../domain/libraryGame";
 
@@ -14,8 +14,8 @@ interface LibraryGameRowProps {
   readonly onMoveUp: () => void;
   readonly onMoveDown: () => void;
   readonly onEdit: () => void;
-  readonly onArchive: () => void;
-  readonly onRestore: () => void;
+  readonly onHide: () => void;
+  readonly onUnhide: () => void;
   readonly onDelete: () => void;
 }
 
@@ -46,11 +46,11 @@ export function LibraryGameRow({
   onMoveUp,
   onMoveDown,
   onEdit,
-  onArchive,
-  onRestore,
+  onHide,
+  onUnhide,
   onDelete,
 }: LibraryGameRowProps) {
-  const isArchived = game.archivedAt !== null;
+  const isHidden = game.hiddenAt !== null;
 
   const [failedImageId, setFailedImageId] = useState<string | null>(null);
 
@@ -66,12 +66,12 @@ export function LibraryGameRow({
     trophySummary === null ? 0 : totalTrophies(trophySummary.totalTrophies);
 
   return (
-    <article className={`game-row${isArchived ? " game-row--archived" : ""}`}>
+    <article className={`game-row${isHidden ? " game-row--hidden" : ""}`}>
       <div
         className="game-row__order"
-        aria-label={position === null ? "Archived" : `Position ${position}`}
+        aria-label={position === null ? "Hidden" : `Position ${position}`}
       >
-        {isArchived ? (
+        {isHidden ? (
           <span className="order-number">—</span>
         ) : (
           <>
@@ -122,13 +122,18 @@ export function LibraryGameRow({
         <div className="game-row__title-line">
           <h3>{game.title}</h3>
           <span className="platform-badge">{game.platform}</span>
-          {isArchived ? <span className="archive-badge">Archived</span> : null}
+          {isHidden ? <span className="hidden-badge">Hidden</span> : null}
         </div>
 
         <div className="game-row__meta">
-          <span className={`status-label status-label--${game.pursuitStatus}`}>
-            {pursuitStatusLabels[game.pursuitStatus]}
+          <span className={`status-label status-label--${game.playStatus}`}>
+            {playStatusLabels[game.playStatus]}
           </span>
+          {game.isUnobtainable ? (
+            <span className="status-label status-label--unobtainable">
+              Unobtainable
+            </span>
+          ) : null}
           {trophySummary === null ? (
             <span className="trophy-placeholder">No trophy snapshot</span>
           ) : (
@@ -177,23 +182,23 @@ export function LibraryGameRow({
           Edit
         </button>
 
-        {isArchived ? (
+        {isHidden ? (
           <button
             className="text-button"
             type="button"
             disabled={busy}
-            onClick={onRestore}
+            onClick={onUnhide}
           >
-            Restore
+            Unhide
           </button>
         ) : (
           <button
             className="text-button"
             type="button"
             disabled={busy}
-            onClick={onArchive}
+            onClick={onHide}
           >
-            Archive
+            Hide
           </button>
         )}
 

@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
 import type { IgdbGameSearchResult } from "../../../domain/igdb";
 import {
-  pursuitStatuses,
-  pursuitStatusLabels,
+  playStatuses,
+  playStatusLabels,
   type LibraryGame,
   type PlayStationPlatform,
-  type PursuitStatus,
+  type PlayStatus,
 } from "../../../domain/libraryGame";
 import { ApiError } from "../../../services/api/apiClient";
 import { igdbApi } from "../../../services/api/igdbApi";
@@ -48,8 +48,7 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
     readonly IgdbGameSearchResult[] | null
   >(null);
 
-  const [pursuitStatus, setPursuitStatus] =
-    useState<PursuitStatus>("unplanned");
+  const [playStatus, setPlayStatus] = useState<PlayStatus>("not_started");
 
   const [isSearching, setIsSearching] = useState(false);
   const [includeDlc, setIncludeDlc] = useState(false);
@@ -91,7 +90,7 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
     try {
       const createdGame = await igdbApi.addToLibrary(game.externalId, {
         platform,
-        pursuitStatus,
+        playStatus,
       });
 
       setAddedKeys((currentKeys) => new Set(currentKeys).add(key));
@@ -156,14 +155,12 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
         <span>Add selected games as</span>
 
         <select
-          value={pursuitStatus}
-          onChange={(event) =>
-            setPursuitStatus(event.target.value as PursuitStatus)
-          }
+          value={playStatus}
+          onChange={(event) => setPlayStatus(event.target.value as PlayStatus)}
         >
-          {pursuitStatuses.map((status) => (
+          {playStatuses.map((status) => (
             <option key={status} value={status}>
-              {pursuitStatusLabels[status]}
+              {playStatusLabels[status]}
             </option>
           ))}
         </select>

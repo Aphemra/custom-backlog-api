@@ -1,12 +1,10 @@
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
-import {
-  migratePursuitStatus,
-  type LibraryGame,
-  type PlayStationPlatform,
-  type PlayStatus,
-  type PursuitStatus,
+import type {
+  LibraryGame,
+  PlayStationPlatform,
+  PlayStatus,
 } from "../library/libraryGameTypes.js";
 import type {
   PlayStationTrophyTitlePreview,
@@ -49,9 +47,6 @@ export interface CreatePlayStationLibraryGameInput {
   npServiceName: "trophy" | "trophy2";
   platform: PlayStationPlatform;
   playStatus?: PlayStatus;
-
-  /** Transitional compatibility for the current web interface. */
-  pursuitStatus?: PursuitStatus;
 }
 
 export interface CreatedPlayStationLibraryGame {
@@ -142,8 +137,7 @@ export class PlayStationTitleLinkService {
       const playStatus =
         title.progress === 100
           ? "completed"
-          : (input.playStatus ??
-            migratePursuitStatus(input.pursuitStatus ?? "unplanned"));
+          : (input.playStatus ?? "not_started");
 
       const game = new LibraryGameRepository(this.database).create({
         title: title.name,

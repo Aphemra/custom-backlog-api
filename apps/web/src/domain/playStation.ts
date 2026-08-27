@@ -1,7 +1,7 @@
 import type {
   LibraryGame,
   PlayStationPlatform,
-  PursuitStatus,
+  PlayStatus,
 } from "./libraryGame";
 
 export type PlayStationServiceName = "trophy" | "trophy2";
@@ -111,7 +111,7 @@ export interface CreatePlayStationTitleImportInput {
   readonly npCommunicationId: string;
   readonly npServiceName: PlayStationServiceName;
   readonly platform: PlayStationPlatform;
-  readonly pursuitStatus: PursuitStatus;
+  readonly playStatus: PlayStatus;
 }
 
 export interface CreatedPlayStationLibraryGame {

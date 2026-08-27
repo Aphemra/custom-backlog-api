@@ -445,7 +445,7 @@ test("tests a dedicated reader without exposing credentials", async () => {
           npServiceName: "trophy2",
           npCommunicationId: "NPWR00001_00",
           platform: "PS5",
-          pursuitStatus: "unplanned",
+          playStatus: "not_started",
         }),
       },
     );

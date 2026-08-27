@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
 import {
   playStationPlatforms,
-  pursuitStatuses,
-  pursuitStatusLabels,
+  playStatuses,
+  playStatusLabels,
   type CreateLibraryGameInput,
   type LibraryGame,
   type PlayStationPlatform,
-  type PursuitStatus,
+  type PlayStatus,
 } from "../../../domain/libraryGame";
 
 interface LibraryGameFormProps {
@@ -24,9 +24,14 @@ export function LibraryGameForm({
   const [platform, setPlatform] = useState<PlayStationPlatform>(
     initialGame?.platform ?? "PS5",
   );
-  const [pursuitStatus, setPursuitStatus] = useState<PursuitStatus>(
-    initialGame?.pursuitStatus ?? "unplanned",
+  const [playStatus, setPlayStatus] = useState<PlayStatus>(
+    initialGame?.playStatus ?? "not_started",
   );
+
+  const [isUnobtainable, setIsUnobtainable] = useState(
+    initialGame?.isUnobtainable ?? false,
+  );
+
   const [notes, setNotes] = useState(initialGame?.notes ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -38,7 +43,8 @@ export function LibraryGameForm({
       await onSubmit({
         title: title.trim(),
         platform,
-        pursuitStatus,
+        playStatus,
+        isUnobtainable,
         notes: notes.trim().length === 0 ? null : notes.trim(),
       });
     } finally {
@@ -50,11 +56,20 @@ export function LibraryGameForm({
     <form className="game-form" onSubmit={handleSubmit}>
       <div className="game-form__heading">
         <div>
-          <p className="eyebrow">{initialGame === undefined ? "New entry" : "Edit entry"}</p>
-          <h2>{initialGame === undefined ? "Add a game" : initialGame.title}</h2>
+          <p className="eyebrow">
+            {initialGame === undefined ? "New entry" : "Edit entry"}
+          </p>
+          <h2>
+            {initialGame === undefined ? "Add a game" : initialGame.title}
+          </h2>
         </div>
 
-        <button className="icon-button" type="button" onClick={onCancel} aria-label="Close form">
+        <button
+          className="icon-button"
+          type="button"
+          onClick={onCancel}
+          aria-label="Close form"
+        >
           ×
         </button>
       </div>
@@ -76,7 +91,9 @@ export function LibraryGameForm({
           <span>Platform</span>
           <select
             value={platform}
-            onChange={(event) => setPlatform(event.target.value as PlayStationPlatform)}
+            onChange={(event) =>
+              setPlatform(event.target.value as PlayStationPlatform)
+            }
           >
             {playStationPlatforms.map((value) => (
               <option key={value} value={value}>
@@ -87,19 +104,31 @@ export function LibraryGameForm({
         </label>
 
         <label className="field">
-          <span>Pursuit status</span>
+          <span>Play status</span>
           <select
-            value={pursuitStatus}
-            onChange={(event) => setPursuitStatus(event.target.value as PursuitStatus)}
+            value={playStatus}
+            onChange={(event) =>
+              setPlayStatus(event.target.value as PlayStatus)
+            }
           >
-            {pursuitStatuses.map((value) => (
+            {playStatuses.map((value) => (
               <option key={value} value={value}>
-                {pursuitStatusLabels[value]}
+                {playStatusLabels[value]}
               </option>
             ))}
           </select>
         </label>
       </div>
+
+      <label className="checkbox-control">
+        <input
+          type="checkbox"
+          checked={isUnobtainable}
+          onChange={(event) => setIsUnobtainable(event.target.checked)}
+        />
+
+        <span>Unobtainable — one or more trophies can no longer be earned</span>
+      </label>
 
       <label className="field field--wide">
         <span>Notes</span>
@@ -113,11 +142,23 @@ export function LibraryGameForm({
       </label>
 
       <div className="form-actions">
-        <button className="button button--quiet" type="button" onClick={onCancel}>
+        <button
+          className="button button--quiet"
+          type="button"
+          onClick={onCancel}
+        >
           Cancel
         </button>
-        <button className="button button--primary" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving…" : initialGame === undefined ? "Add game" : "Save changes"}
+        <button
+          className="button button--primary"
+          type="submit"
+          disabled={isSubmitting}
+        >
+          {isSubmitting
+            ? "Saving…"
+            : initialGame === undefined
+              ? "Add game"
+              : "Save changes"}
         </button>
       </div>
     </form>

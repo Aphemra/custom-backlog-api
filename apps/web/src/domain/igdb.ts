@@ -1,7 +1,7 @@
 import type {
   LibraryGame,
   PlayStationPlatform,
-  PursuitStatus,
+  PlayStatus,
 } from "./libraryGame";
 
 export interface IgdbGameSearchResult {
@@ -19,7 +19,7 @@ export interface IgdbGameSearchResult {
 
 export interface AddIgdbGameInput {
   readonly platform: PlayStationPlatform;
-  readonly pursuitStatus: PursuitStatus;
+  readonly playStatus: PlayStatus;
 }
 
 export interface AddedIgdbGame {

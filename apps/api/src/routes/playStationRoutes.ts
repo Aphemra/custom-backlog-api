@@ -19,13 +19,10 @@ import { PlayStationTitleReconciliationService } from "../features/playstation/p
 import { PlayStationTitleLinkService } from "../features/playstation/playStationTitleLinkService.js";
 import type { PlayStationCredentials } from "../features/playstation/playStationTypes.js";
 import {
-  migratePursuitStatus,
   playStationPlatforms,
   playStatuses,
-  pursuitStatuses,
   type PlayStationPlatform,
   type PlayStatus,
-  type PursuitStatus,
 } from "../features/library/libraryGameTypes.js";
 import { PlayStationTrophySyncService } from "../features/playstation/playStationTrophySyncService.js";
 
@@ -229,7 +226,6 @@ export function createPlayStationRoutes(
         "npCommunicationId",
         "platform",
         "playStatus",
-        "pursuitStatus",
       ]);
 
       if (Object.keys(fields).some((field) => !allowedFields.has(field))) {
@@ -273,17 +269,6 @@ export function createPlayStationRoutes(
         );
       }
 
-      if (
-        fields.playStatus !== undefined &&
-        fields.pursuitStatus !== undefined
-      ) {
-        throw new HttpError(
-          400,
-          "conflicting_status_fields",
-          "Provide playStatus, not both playStatus and pursuitStatus.",
-        );
-      }
-
       let playStatus: PlayStatus | undefined;
 
       if (fields.playStatus !== undefined) {
@@ -299,23 +284,6 @@ export function createPlayStationRoutes(
         }
 
         playStatus = fields.playStatus as PlayStatus;
-      }
-
-      if (fields.pursuitStatus !== undefined) {
-        if (
-          typeof fields.pursuitStatus !== "string" ||
-          !pursuitStatuses.includes(fields.pursuitStatus as PursuitStatus)
-        ) {
-          throw new HttpError(
-            400,
-            "invalid_pursuit_status",
-            "pursuitStatus is not supported.",
-          );
-        }
-
-        playStatus = migratePursuitStatus(
-          fields.pursuitStatus as PursuitStatus,
-        );
       }
 
       const result = titleLinkService.createAndLinkTitle({

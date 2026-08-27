@@ -15,6 +15,7 @@ import { createHealthRoutes } from "./routes/healthRoutes.js";
 import { createImageRoutes } from "./routes/imageRoutes.js";
 import { createIgdbRoutes } from "./routes/igdbRoutes.js";
 import { createLibraryRoutes } from "./routes/libraryRoutes.js";
+import { createTrophyAlertRoutes } from "./routes/trophyAlertRoutes.js";
 import {
   createPlayStationRoutes,
   type PlayStationRouteOptions,
@@ -84,6 +85,8 @@ export function createApp(
   app.use("/api/collections", createCollectionRoutes(database));
 
   app.use("/api/saved-views", createSavedViewRoutes(database));
+
+  app.use("/api/trophy-alerts", createTrophyAlertRoutes(database));
 
   app.use(
     "/api/data",

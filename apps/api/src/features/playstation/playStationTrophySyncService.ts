@@ -327,6 +327,23 @@ export class PlayStationTrophySyncService {
 
           completionLostAlertsCreated += 1;
         }
+
+        if (is100Percent) {
+          this.database
+            .prepare(
+              `
+              UPDATE trophy_alerts
+              SET
+                status = 'resolved',
+                resolved_at = ?
+              WHERE
+                game_id = ?
+                AND kind = 'completion_lost'
+                AND status IN ('unread', 'read')
+            `,
+            )
+            .run(capturedAt, gameId);
+        }
       }
 
       const status =

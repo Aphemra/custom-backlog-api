@@ -125,6 +125,8 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
     new Date("2026-08-26T12:00:01Z"),
     new Date("2026-08-27T12:00:00Z"),
     new Date("2026-08-27T12:00:01Z"),
+    new Date("2026-08-28T12:00:00Z"),
+    new Date("2026-08-28T12:00:01Z"),
   ];
 
   const service = new PlayStationTrophySyncService(
@@ -146,6 +148,13 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
     assert.equal(second.snapshotsCreated, 1);
     assert.equal(second.newTrophyAlertsCreated, 1);
     assert.equal(second.completionLostAlertsCreated, 1);
+
+    const third = service.synchronize(createPreview(game.id, 100, 45, 4));
+
+    assert.equal(third.status, "succeeded");
+    assert.equal(third.snapshotsCreated, 1);
+    assert.equal(third.newTrophyAlertsCreated, 0);
+    assert.equal(third.completionLostAlertsCreated, 0);
 
     const snapshotCount = database
       .prepare(
@@ -170,7 +179,21 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
       count: number;
     }>;
 
-    assert.equal(snapshotCount.count, 2);
+    const alertStatuses = database
+      .prepare(
+        `
+        SELECT kind, status, resolved_at
+        FROM trophy_alerts
+        ORDER BY kind
+      `,
+      )
+      .all() as unknown as Array<{
+      kind: string;
+      status: string;
+      resolved_at: string | null;
+    }>;
+
+    assert.equal(snapshotCount.count, 3);
 
     assert.deepEqual(
       alertCounts.map((row) => ({ ...row })),
@@ -182,6 +205,26 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
         {
           kind: "new_trophies",
           count: 1,
+        },
+      ],
+    );
+
+    assert.deepEqual(
+      alertStatuses.map((row) => ({
+        kind: row.kind,
+        status: row.status,
+        resolved: row.resolved_at !== null,
+      })),
+      [
+        {
+          kind: "completion_lost",
+          status: "resolved",
+          resolved: true,
+        },
+        {
+          kind: "new_trophies",
+          status: "unread",
+          resolved: false,
         },
       ],
     );

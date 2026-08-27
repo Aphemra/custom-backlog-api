@@ -22,6 +22,16 @@ function getErrorMessage(error: unknown): string {
   return "Something unexpected went wrong while attaching IGDB metadata.";
 }
 
+function createInitialSearchQuery(title: string): string {
+  return title
+    .replace(/[©®™℠]/gu, "")
+    .normalize("NFKC")
+    .replace(/\s*(?:[-–—:|]\s*)?(?:trophy\s+list|trophies)\s*$/iu, "")
+    .replace(/[\p{P}\p{S}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function ResultCover({ result }: { readonly result: IgdbGameSearchResult }) {
   const [failed, setFailed] = useState(false);
 
@@ -48,11 +58,13 @@ export function PlayStationIgdbEnrichment({
   onEnriched,
 }: PlayStationIgdbEnrichmentProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState(title.name);
+  const [query, setQuery] = useState(createInitialSearchQuery(title.name));
 
   const [results, setResults] = useState<
     readonly IgdbGameSearchResult[] | null
   >(null);
+
+  const [includeEditions, setIncludeEditions] = useState(false);
 
   const [isSearching, setIsSearching] = useState(false);
   const [enrichingId, setEnrichingId] = useState<string | null>(null);
@@ -76,7 +88,7 @@ export function PlayStationIgdbEnrichment({
     setErrorMessage(null);
 
     try {
-      setResults(await igdbApi.search(normalizedQuery, false));
+      setResults(await igdbApi.search(normalizedQuery, false, includeEditions));
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -171,6 +183,20 @@ export function PlayStationIgdbEnrichment({
           {isSearching ? "Searching…" : "Search"}
         </button>
       </form>
+
+      <label className="checkbox-control psn-igdb-enrichment__edition-toggle">
+        <input
+          type="checkbox"
+          checked={includeEditions}
+          disabled={isSearching || enrichingId !== null}
+          onChange={(event) => {
+            setIncludeEditions(event.target.checked);
+            setResults(null);
+          }}
+        />
+
+        <span>Include editions, compilations, and bundles</span>
+      </label>
 
       {errorMessage === null ? null : (
         <div className="notice notice--error" role="alert">

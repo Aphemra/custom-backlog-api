@@ -18,11 +18,13 @@ export const igdbApi = {
   async search(
     query: string,
     includeDlc: boolean,
+    includeEditions: boolean,
     signal?: AbortSignal,
   ): Promise<readonly IgdbGameSearchResult[]> {
     const response = await requestJson<SearchResponse>(
       `/api/integrations/igdb/games?query=${encodeURIComponent(query)}` +
-        `&includeDlc=${includeDlc}`,
+        `&includeDlc=${includeDlc}` +
+        `&includeEditions=${includeEditions}`,
       { signal },
     );
 

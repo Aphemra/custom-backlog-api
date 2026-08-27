@@ -2109,6 +2109,12 @@ textarea:focus-visible {
   font-size: 0.66rem;
 }
 
+.psn-igdb-enrichment__edition-toggle {
+  width: fit-content;
+  margin: 0;
+  font-size: 0.68rem;
+}
+
 @media (max-width: 760px) {
   .psn-sync-result__counts {
     grid-template-columns: repeat(2, minmax(0, 1fr));

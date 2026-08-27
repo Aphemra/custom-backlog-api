@@ -71,7 +71,7 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
     setErrorMessage(null);
 
     try {
-      setResults(await igdbApi.search(normalizedQuery, includeDlc));
+      setResults(await igdbApi.search(normalizedQuery, includeDlc, false));
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {

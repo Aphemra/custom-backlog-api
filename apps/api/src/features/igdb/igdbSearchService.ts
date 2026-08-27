@@ -11,8 +11,13 @@ export class IgdbSearchService {
   async search(
     searchTerm: string,
     includeDlc = false,
+    includeEditions = false,
   ): Promise<readonly IgdbGameSearchResult[]> {
-    const games = await this.client.searchGames(searchTerm, includeDlc);
+    const games = await this.client.searchGames(
+      searchTerm,
+      includeDlc,
+      includeEditions,
+    );
 
     return games.map((game) => {
       if (game.coverImageId === null) {

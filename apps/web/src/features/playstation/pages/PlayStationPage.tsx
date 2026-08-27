@@ -19,10 +19,11 @@ import { ApiError } from "../../../services/api/apiClient";
 import { playStationApi } from "../../../services/api/playStationApi";
 import { libraryApi } from "../../../services/api/libraryApi";
 
-type PreviewFilter = "all" | PlayStationReconciliationStatus;
+type PreviewFilter = "all" | "missing_igdb" | PlayStationReconciliationStatus;
 
 const filterLabels: Readonly<Record<PreviewFilter, string>> = {
   all: "All",
+  missing_igdb: "Missing IGDB",
   linked: "Linked",
   suggested_match: "Suggested",
   ambiguous: "Ambiguous",
@@ -492,7 +493,19 @@ export function PlayStationPage() {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("en-US");
 
     return preview.titles.filter((title) => {
-      if (
+      if (activeFilter === "missing_igdb") {
+        const linkedCandidate =
+          title.reconciliation.status === "linked"
+            ? title.reconciliation.candidates[0]
+            : undefined;
+
+        if (
+          linkedCandidate === undefined ||
+          linkedCandidate.metadataProvider !== null
+        ) {
+          return false;
+        }
+      } else if (
         activeFilter !== "all" &&
         title.reconciliation.status !== activeFilter
       ) {

@@ -7,6 +7,7 @@ import { IgdbClient, type IgdbFetch } from "../features/igdb/igdbClient.js";
 import { IgdbImportService } from "../features/igdb/igdbImportService.js";
 import { IgdbSearchService } from "../features/igdb/igdbSearchService.js";
 import { IgdbEnrichmentService } from "../features/igdb/igdbEnrichmentService.js";
+import { normalizeIgdbSearchTerm } from "../features/igdb/igdbSearchTerm.js";
 import type {
   AddIgdbGameInput,
   IgdbCredentials,
@@ -23,17 +24,17 @@ function readSearchTerm(value: unknown): string {
     throw new HttpError(
       400,
       "invalid_igdb_search",
-      "query must be a string between 2 and 100 characters.",
+      "query must produce between 2 and 100 searchable characters.",
     );
   }
 
-  const searchTerm = value.trim();
+  const searchTerm = normalizeIgdbSearchTerm(value);
 
   if (searchTerm.length < 2 || searchTerm.length > 100) {
     throw new HttpError(
       400,
       "invalid_igdb_search",
-      "query must be a string between 2 and 100 characters.",
+      "query must produce between 2 and 100 searchable characters.",
     );
   }
 
@@ -53,6 +54,22 @@ function readIncludeDlc(value: unknown): boolean {
     400,
     "invalid_include_dlc",
     "includeDlc must be true or false.",
+  );
+}
+
+function readIncludeEditions(value: unknown): boolean {
+  if (value === undefined || value === "false") {
+    return false;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  throw new HttpError(
+    400,
+    "invalid_include_editions",
+    "includeEditions must be true or false.",
   );
 }
 
@@ -162,6 +179,7 @@ export function createIgdbRoutes(
       const games = await searchService.search(
         readSearchTerm(request.query.query),
         readIncludeDlc(request.query.includeDlc),
+        readIncludeEditions(request.query.includeEditions),
       );
 
       response.json({ games });

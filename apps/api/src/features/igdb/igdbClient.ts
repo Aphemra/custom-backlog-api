@@ -164,13 +164,19 @@ export class IgdbClient {
   async searchGames(
     searchTerm: string,
     includeDlc = false,
+    includeEditions = false,
   ): Promise<readonly IgdbGame[]> {
+    const baseWhere = includeEditions
+      ? "where platforms = (9,48,167) " + "& game_type != (1,2,5,12,13,14);"
+      : "where platforms = (9,48,167) " +
+        "& version_parent = null " +
+        "& game_type != (1,2,3,5,12,13,14);";
+
     const baseGameQuery = [
       GAME_FIELDS,
       `search ${JSON.stringify(searchTerm)};`,
-      "where platforms = (9,48,167) & version_parent = null " +
-        "& game_type != (1,2,3,5,12,13,14);",
-      "limit 20;",
+      baseWhere,
+      includeEditions ? "limit 40;" : "limit 20;",
     ].join("\n");
 
     const baseGames = await this.enqueueRequest(baseGameQuery);

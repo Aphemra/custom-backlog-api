@@ -24,12 +24,36 @@ export interface TrophyAlertTrophyCounts {
   readonly platinum: number;
 }
 
+export interface TrophyAlertAddedTrophy {
+  readonly trophyId: number;
+  readonly trophyGroupId: string;
+  readonly trophyGroupName: string;
+  readonly trophyType: "bronze" | "silver" | "gold" | "platinum";
+  readonly name: string | null;
+  readonly detail: string | null;
+  readonly iconUrl: string | null;
+  readonly iconImageId: string | null;
+}
+
+export interface TrophyAlertAffectedGroup {
+  readonly trophyGroupId: string;
+  readonly name: string;
+  readonly addedTrophyCount: number;
+}
+
+export interface TrophyAlertTrophySetChange {
+  readonly detailStatus: "exact" | "summary_only";
+  readonly addedTrophies: readonly TrophyAlertAddedTrophy[];
+  readonly affectedGroups: readonly TrophyAlertAffectedGroup[];
+}
+
 export interface NewTrophiesAlertDetails {
   readonly title: string;
   readonly previousTotals: TrophyAlertTrophyCounts;
   readonly currentTotals: TrophyAlertTrophyCounts;
   readonly previousTotalCount: number;
   readonly currentTotalCount: number;
+  readonly trophySetChange: TrophyAlertTrophySetChange | null;
 }
 
 export interface CompletionLostAlertDetails {
@@ -38,6 +62,7 @@ export interface CompletionLostAlertDetails {
   readonly currentProgress: number;
   readonly previousEarned: TrophyAlertTrophyCounts;
   readonly currentEarned: TrophyAlertTrophyCounts;
+  readonly trophySetChange: TrophyAlertTrophySetChange | null;
 }
 
 interface TrophyAlertBase {

@@ -47,6 +47,37 @@ export interface LibraryTrophySummary {
   readonly progressPercent: number;
   readonly earnedTrophies: LibraryTrophyCounts;
   readonly totalTrophies: LibraryTrophyCounts;
+  readonly points: {
+    readonly earned: number;
+    readonly total: number;
+    readonly remaining: number;
+  };
+  readonly timing: {
+    readonly firstTrophy: {
+      readonly earnedAt: string | null;
+      readonly unavailableReason: "not_earned" | "missing_timestamps" | null;
+    };
+    readonly platinum: {
+      readonly earnedAt: string | null;
+      readonly elapsedSinceFirstTrophyMilliseconds: number | null;
+      readonly unavailableReason:
+        | "not_earned"
+        | "not_applicable"
+        | "missing_timestamps"
+        | "first_trophy_timestamp_missing"
+        | null;
+    };
+    readonly completion: {
+      readonly earnedAt: string | null;
+      readonly elapsedSinceFirstTrophyMilliseconds: number | null;
+      readonly unavailableReason:
+        | "not_earned"
+        | "not_applicable"
+        | "missing_timestamps"
+        | "first_trophy_timestamp_missing"
+        | null;
+    };
+  } | null;
   readonly hasPlatinum: boolean;
   readonly platinumEarned: boolean;
   readonly is100Percent: boolean;

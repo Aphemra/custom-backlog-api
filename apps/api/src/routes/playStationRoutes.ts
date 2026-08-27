@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
 import {
   playStationApiOperations,
@@ -16,6 +16,7 @@ import { PlayStationTitleImageService } from "../features/playstation/playStatio
 import { PlayStationAuthorizationSession } from "../features/playstation/playStationAuthorizationSession.js";
 import { PlayStationConnectionService } from "../features/playstation/playStationConnectionService.js";
 import { PlayStationLinkedTitleSelector } from "../features/playstation/playStationLinkedTitleSelector.js";
+import { PlayStationProfileProgressionService } from "../features/playstation/playStationProfileProgressionService.js";
 import { PlayStationRequestGate } from "../features/playstation/playStationRequestGate.js";
 import { PlayStationTitlePreviewService } from "../features/playstation/playStationTitlePreviewService.js";
 import { PlayStationTitleReconciliationService } from "../features/playstation/playStationTitleReconciliationService.js";
@@ -48,6 +49,88 @@ export interface PlayStationRouteOptions {
   operations?: PlayStationApiOperations;
   detailOperations?: PlayStationTrophyDetailApiOperations;
   requestGate?: PlayStationRequestGate;
+}
+
+function readGameId(request: Request): string {
+  const gameId = request.params.gameId;
+
+  if (typeof gameId !== "string" || gameId.trim() === "") {
+    throw new HttpError(400, "invalid_game_id", "A game ID is required.");
+  }
+
+  return gameId.trim();
+}
+
+function readTrophyId(request: Request): number {
+  const value = request.params.trophyId;
+  const trophyId = typeof value === "string" ? Number(value) : Number.NaN;
+
+  if (!Number.isSafeInteger(trophyId) || trophyId < 0) {
+    throw new HttpError(
+      400,
+      "invalid_trophy_id",
+      "A non-negative trophy ID is required.",
+    );
+  }
+
+  return trophyId;
+}
+
+function readTrophyAvailability(value: unknown): {
+  unobtainable: boolean;
+  reason: string | null;
+} {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new HttpError(
+      400,
+      "invalid_trophy_availability",
+      "A trophy availability object is required.",
+    );
+  }
+
+  const fields = value as Record<string, unknown>;
+  const allowedFields = new Set(["unobtainable", "reason"]);
+
+  if (
+    Object.keys(fields).some((field) => !allowedFields.has(field)) ||
+    typeof fields.unobtainable !== "boolean"
+  ) {
+    throw new HttpError(
+      400,
+      "invalid_trophy_availability",
+      "unobtainable must be true or false.",
+    );
+  }
+
+  if (
+    fields.reason !== undefined &&
+    fields.reason !== null &&
+    typeof fields.reason !== "string"
+  ) {
+    throw new HttpError(
+      400,
+      "invalid_trophy_availability",
+      "reason must be a string or null.",
+    );
+  }
+
+  const reason =
+    typeof fields.reason === "string" && fields.reason.trim() !== ""
+      ? fields.reason.trim()
+      : null;
+
+  if (reason !== null && reason.length > 500) {
+    throw new HttpError(
+      400,
+      "invalid_trophy_availability",
+      "reason cannot exceed 500 characters.",
+    );
+  }
+
+  return {
+    unobtainable: fields.unobtainable,
+    reason: fields.unobtainable ? reason : null,
+  };
 }
 
 export function createPlayStationRoutes(
@@ -85,6 +168,10 @@ export function createPlayStationRoutes(
   );
 
   const linkedTitleSelector = new PlayStationLinkedTitleSelector(
+    options.database,
+  );
+
+  const profileProgressionService = new PlayStationProfileProgressionService(
     options.database,
   );
 
@@ -154,6 +241,45 @@ export function createPlayStationRoutes(
   routes.get("/sync-progress", (_request, response) => {
     response.json({ progress: syncProgressTracker.getSnapshot() });
   });
+
+  routes.get("/profile-progression", (_request, response) => {
+    response.json({ progression: profileProgressionService.findLatest() });
+  });
+
+  routes.get("/games/:gameId/trophies", (request, response) => {
+    const trophySet = trophyDetailRepository.findByGameId(readGameId(request));
+
+    if (trophySet === null) {
+      throw new HttpError(
+        404,
+        "playstation_trophy_set_not_found",
+        "No locally stored PlayStation trophy set was found for this game.",
+      );
+    }
+
+    response.json({ trophySet });
+  });
+
+  routes.patch(
+    "/games/:gameId/trophies/:trophyId/availability",
+    (request, response) => {
+      const trophySet = trophyDetailRepository.updateTrophyAvailability(
+        readGameId(request),
+        readTrophyId(request),
+        readTrophyAvailability(request.body),
+      );
+
+      if (trophySet === null) {
+        throw new HttpError(
+          404,
+          "playstation_trophy_not_found",
+          "The requested locally stored PlayStation trophy was not found.",
+        );
+      }
+
+      response.json({ trophySet });
+    },
+  );
 
   routes.post("/connection-tests", async (request, response, next) => {
     if (

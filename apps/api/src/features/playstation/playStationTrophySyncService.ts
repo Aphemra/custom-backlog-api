@@ -6,6 +6,7 @@ import type {
   PlayStationTrophySyncPreview,
   ReconciledPlayStationTitle,
 } from "./playStationTypes.js";
+import { PlayStationTrophySetChangeService } from "./playStationTrophySetChangeService.js";
 
 interface CountRow {
   count: number;
@@ -56,10 +57,16 @@ function readPreviousCounts(
 }
 
 export class PlayStationTrophySyncService {
+  private readonly trophySetChangeService: PlayStationTrophySetChangeService;
+
   constructor(
     private readonly database: DatabaseSync,
     private readonly clock: Clock = () => new Date(),
-  ) {}
+  ) {
+    this.trophySetChangeService = new PlayStationTrophySetChangeService(
+      database,
+    );
+  }
 
   synchronize(preview: PlayStationTrophySyncPreview): PlayStationSyncResult {
     const syncRunId = randomUUID();
@@ -278,7 +285,16 @@ export class PlayStationTrophySyncService {
             gameId,
           );
 
-        if (previous !== undefined && trophySetIncreased(previous, title)) {
+        const trophySetChange =
+          previous !== undefined && trophySetIncreased(previous, title)
+            ? this.trophySetChangeService.describe(
+                gameId,
+                readPreviousCounts(previous),
+                title.definedTrophies,
+              )
+            : null;
+
+        if (previous !== undefined && trophySetChange !== null) {
           this.database
             .prepare(
               `
@@ -309,6 +325,7 @@ export class PlayStationTrophySyncService {
                   previous.gold_total +
                   previous.platinum_total,
                 currentTotalCount: countTrophies(title.definedTrophies),
+                trophySetChange,
               }),
               capturedAt,
             );
@@ -354,6 +371,7 @@ export class PlayStationTrophySyncService {
                   platinum: previous.platinum_earned,
                 },
                 currentEarned: title.earnedTrophies,
+                trophySetChange,
               }),
               capturedAt,
             );

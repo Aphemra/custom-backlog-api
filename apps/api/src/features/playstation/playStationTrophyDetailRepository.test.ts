@@ -249,6 +249,24 @@ test("replaces stale trophy definitions and reconstructs them locally", () => {
     assert.equal(original.groups.flatMap((group) => group.trophies).length, 2);
     assert.equal(original.earningsAccountId, "target-account");
 
+    const markedUnobtainable = repository.updateTrophyAvailability(
+      "stored-detail-game",
+      0,
+      {
+        unobtainable: true,
+        reason: "Online servers closed.",
+      },
+    );
+
+    assert.equal(
+      markedUnobtainable?.groups[0]?.trophies[0]?.unobtainable,
+      true,
+    );
+    assert.equal(
+      markedUnobtainable?.groups[0]?.trophies[0]?.unobtainableReason,
+      "Online servers closed.",
+    );
+
     currentTime = SECOND_SYNC;
 
     const replaced = repository.storeFull(
@@ -263,12 +281,28 @@ test("replaces stale trophy definitions and reconstructs them locally", () => {
     assert.equal(replaced.groups[0]?.trophyGroupId, "default");
     assert.equal(replaced.groups[0]?.trophies.length, 1);
     assert.equal(replaced.groups[0]?.trophies[0]?.trophyId, 0);
+    assert.equal(replaced.groups[0]?.trophies[0]?.unobtainable, true);
+    assert.equal(
+      replaced.groups[0]?.trophies[0]?.unobtainableReason,
+      "Online servers closed.",
+    );
     assert.equal(replaced.definitionsRefreshedAt, SECOND_SYNC.toISOString());
 
     const storedWithoutProviderRequest =
       repository.findByGameId("stored-detail-game");
 
     assert.deepEqual(storedWithoutProviderRequest, replaced);
+
+    const availableAgain = repository.updateTrophyAvailability(
+      "stored-detail-game",
+      0,
+      {
+        unobtainable: false,
+        reason: null,
+      },
+    );
+
+    assert.equal(availableAgain?.groups[0]?.trophies[0]?.unobtainable, false);
 
     const staleGroupCount = database
       .prepare(

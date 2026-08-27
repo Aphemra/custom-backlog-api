@@ -75,17 +75,33 @@ function mapAlert(row: TrophyAlertRow): TrophyAlert {
   };
 
   if (row.kind === "new_trophies") {
+    const details = JSON.parse(
+      row.details_json,
+    ) as Partial<NewTrophiesAlertDetails> &
+      Omit<NewTrophiesAlertDetails, "trophySetChange">;
+
     return {
       ...common,
       kind: row.kind,
-      details: JSON.parse(row.details_json) as NewTrophiesAlertDetails,
+      details: {
+        ...details,
+        trophySetChange: details.trophySetChange ?? null,
+      },
     };
   }
+
+  const details = JSON.parse(
+    row.details_json,
+  ) as Partial<CompletionLostAlertDetails> &
+    Omit<CompletionLostAlertDetails, "trophySetChange">;
 
   return {
     ...common,
     kind: row.kind,
-    details: JSON.parse(row.details_json) as CompletionLostAlertDetails,
+    details: {
+      ...details,
+      trophySetChange: details.trophySetChange ?? null,
+    },
   };
 }
 

@@ -22,6 +22,59 @@ test("creates, edits, orders, fills, and deletes collections", () => {
 
     games.hide(secondGame.id);
 
+    const insertSnapshot = database.prepare(`
+      INSERT INTO trophy_snapshots (
+        id,
+        game_id,
+        captured_at,
+        bronze_total,
+        silver_total,
+        gold_total,
+        platinum_total,
+        bronze_earned,
+        silver_earned,
+        gold_earned,
+        platinum_earned,
+        progress_percent,
+        is_100_percent,
+        has_platinum
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertSnapshot.run(
+      "astro-snapshot",
+      firstGame.id,
+      "2026-08-27T12:00:00.000Z",
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      67,
+      0,
+      1,
+    );
+
+    insertSnapshot.run(
+      "bloodborne-snapshot",
+      secondGame.id,
+      "2026-08-27T12:00:00.000Z",
+      2,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      100,
+      1,
+      0,
+    );
+
     const firstCollection = collections.create({
       name: "Mascot Platformers",
       description: "Bright and cheerful.",
@@ -44,6 +97,27 @@ test("creates, edits, orders, fills, and deletes collections", () => {
     assert.equal(populated?.gameCount, 2);
     assert.equal(populated?.visibleGameCount, 1);
     assert.equal(populated?.hiddenGameCount, 1);
+    assert.deepEqual(populated?.trophySummary, {
+      gameCountWithTrophies: 2,
+      completedGameCount: 1,
+      earnedTrophies: {
+        bronze: 3,
+        silver: 0,
+        gold: 1,
+        platinum: 0,
+      },
+      totalTrophies: {
+        bronze: 3,
+        silver: 0,
+        gold: 1,
+        platinum: 1,
+      },
+      points: {
+        earned: 135,
+        total: 435,
+        remaining: 300,
+      },
+    });
 
     assert.deepEqual(
       populated?.games.map((game) => game.id),

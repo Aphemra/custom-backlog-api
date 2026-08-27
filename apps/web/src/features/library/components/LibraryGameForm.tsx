@@ -8,6 +8,7 @@ import {
   type PlayStationPlatform,
   type PlayStatus,
 } from "../../../domain/libraryGame";
+import { LibraryTrophyAvailability } from "./LibraryTrophyAvailability";
 
 interface LibraryGameFormProps {
   readonly initialGame?: LibraryGame;
@@ -129,6 +130,10 @@ export function LibraryGameForm({
 
         <span>Unobtainable — one or more trophies can no longer be earned</span>
       </label>
+
+      {initialGame === undefined ? null : (
+        <LibraryTrophyAvailability gameId={initialGame.id} />
+      )}
 
       <label className="field field--wide">
         <span>Notes</span>

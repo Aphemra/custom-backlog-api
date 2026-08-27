@@ -85,6 +85,72 @@ function describeChange(alert: TrophyAlert): string {
   );
 }
 
+function trophyIconUrl(
+  iconImageId: string | null,
+  iconUrl: string | null,
+): string | null {
+  return iconImageId === null
+    ? iconUrl
+    : `/api/images/${encodeURIComponent(iconImageId)}`;
+}
+
+function TrophySetChangeDetails({ alert }: { readonly alert: TrophyAlert }) {
+  const change = alert.details.trophySetChange;
+
+  if (change === null || change.detailStatus !== "exact") {
+    return null;
+  }
+
+  return (
+    <div className="trophy-alert-card__details">
+      {change.affectedGroups.map((group) => (
+        <section key={group.trophyGroupId}>
+          <h4>
+            {group.name}
+            <span>
+              {group.addedTrophyCount} new{" "}
+              {group.addedTrophyCount === 1 ? "trophy" : "trophies"}
+            </span>
+          </h4>
+
+          <ul>
+            {change.addedTrophies
+              .filter((trophy) => trophy.trophyGroupId === group.trophyGroupId)
+              .map((trophy) => {
+                const imageUrl = trophyIconUrl(
+                  trophy.iconImageId,
+                  trophy.iconUrl,
+                );
+
+                return (
+                  <li key={trophy.trophyId}>
+                    {imageUrl === null ? null : (
+                      <img src={imageUrl} alt="" loading="lazy" />
+                    )}
+
+                    <div>
+                      <strong>
+                        {trophy.name ?? `Hidden trophy #${trophy.trophyId}`}
+                      </strong>
+
+                      <span
+                        className={`trophy-grade trophy-grade--${trophy.trophyType}`}
+                      >
+                        {trophy.trophyType}
+                      </span>
+
+                      {trophy.detail === null ? null : <p>{trophy.detail}</p>}
+                    </div>
+                  </li>
+                );
+              })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function actionNotice(alert: TrophyAlert, status: TrophyAlertStatus): string {
   if (status === "read") {
     return `${alert.game.title} was marked as read.`;
@@ -330,6 +396,8 @@ export function TrophyAlertsPage() {
 
                   <span>{describeChange(alert)}</span>
                 </div>
+
+                <TrophySetChangeDetails alert={alert} />
 
                 <div className="trophy-alert-card__actions">
                   {alert.status === "unread" ? (

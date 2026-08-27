@@ -4,10 +4,12 @@ import type {
   CreatedPlayStationLibraryGame,
   PlayStationConnectionStatus,
   PlayStationGameLink,
+  PlayStationProfileProgression,
   PlayStationProgressSynchronizationResponse,
   PlayStationSyncProgress,
   PlayStationTitlePreview,
   PlayStationSynchronizationResponse,
+  StoredPlayStationTrophySet,
 } from "../../domain/playStation";
 import { requestJson } from "./apiClient";
 
@@ -25,6 +27,14 @@ interface LinkResponse {
 
 interface SyncProgressResponse {
   readonly progress: PlayStationSyncProgress;
+}
+
+interface ProfileProgressionResponse {
+  readonly progression: PlayStationProfileProgression | null;
+}
+
+interface TrophySetResponse {
+  readonly trophySet: StoredPlayStationTrophySet;
 }
 
 export const playStationApi = {
@@ -46,6 +56,46 @@ export const playStationApi = {
     );
 
     return response.progress;
+  },
+
+  async getProfileProgression(
+    signal?: AbortSignal,
+  ): Promise<PlayStationProfileProgression | null> {
+    const response = await requestJson<ProfileProgressionResponse>(
+      "/api/integrations/playstation/profile-progression",
+      { signal },
+    );
+
+    return response.progression;
+  },
+
+  async getStoredTrophySet(
+    gameId: string,
+    signal?: AbortSignal,
+  ): Promise<StoredPlayStationTrophySet> {
+    const response = await requestJson<TrophySetResponse>(
+      `/api/integrations/playstation/games/${encodeURIComponent(gameId)}/trophies`,
+      { signal },
+    );
+
+    return response.trophySet;
+  },
+
+  async updateTrophyAvailability(
+    gameId: string,
+    trophyId: number,
+    unobtainable: boolean,
+    reason: string | null,
+  ): Promise<StoredPlayStationTrophySet> {
+    const response = await requestJson<TrophySetResponse>(
+      `/api/integrations/playstation/games/${encodeURIComponent(gameId)}/trophies/${trophyId}/availability`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ unobtainable, reason }),
+      },
+    );
+
+    return response.trophySet;
   },
 
   async previewTitles(): Promise<PlayStationTitlePreview> {

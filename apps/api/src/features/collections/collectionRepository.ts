@@ -4,6 +4,8 @@ import type {
   PlayStationPlatform,
   PlayStatus,
 } from "../library/libraryGameTypes.js";
+import { calculateTrophyPointSummary } from "../playstation/playStationTrophyPoints.js";
+import type { PlayStationTrophyCounts } from "../playstation/playStationTypes.js";
 import type {
   CollectionDetail,
   CollectionGame,
@@ -20,6 +22,16 @@ interface CollectionRow {
   game_count: number;
   visible_game_count: number;
   hidden_game_count: number;
+  trophy_game_count: number;
+  completed_game_count: number;
+  bronze_earned: number;
+  silver_earned: number;
+  gold_earned: number;
+  platinum_earned: number;
+  bronze_total: number;
+  silver_total: number;
+  gold_total: number;
+  platinum_total: number;
   created_at: string;
   updated_at: string;
 }
@@ -67,14 +79,55 @@ const COLLECTION_SELECT = `
         ELSE 0
       END
     ), 0) AS hidden_game_count,
+    COALESCE(SUM(
+      CASE WHEN ts.id IS NOT NULL THEN 1 ELSE 0 END
+    ), 0) AS trophy_game_count,
+    COALESCE(SUM(
+      CASE
+        WHEN ts.is_100_percent = 1 THEN 1
+        ELSE 0
+      END
+    ), 0) AS completed_game_count,
+    COALESCE(SUM(ts.bronze_earned), 0) AS bronze_earned,
+    COALESCE(SUM(ts.silver_earned), 0) AS silver_earned,
+    COALESCE(SUM(ts.gold_earned), 0) AS gold_earned,
+    COALESCE(SUM(ts.platinum_earned), 0) AS platinum_earned,
+    COALESCE(SUM(ts.bronze_total), 0) AS bronze_total,
+    COALESCE(SUM(ts.silver_total), 0) AS silver_total,
+    COALESCE(SUM(ts.gold_total), 0) AS gold_total,
+    COALESCE(SUM(ts.platinum_total), 0) AS platinum_total,
     c.created_at,
     c.updated_at
   FROM collections c
   LEFT JOIN collection_games cg ON cg.collection_id = c.id
   LEFT JOIN library_games lg ON lg.id = cg.game_id
+  LEFT JOIN trophy_snapshots ts ON ts.id = (
+    SELECT latest.id
+    FROM trophy_snapshots latest
+    WHERE latest.game_id = lg.id
+    ORDER BY latest.captured_at DESC, latest.id DESC
+    LIMIT 1
+  )
 `;
 
 function mapCollection(row: CollectionRow): CollectionSummary {
+  const earnedTrophies: PlayStationTrophyCounts = {
+    bronze: row.bronze_earned,
+    silver: row.silver_earned,
+    gold: row.gold_earned,
+    platinum: row.platinum_earned,
+  };
+  const totalTrophies: PlayStationTrophyCounts = {
+    bronze: row.bronze_total,
+    silver: row.silver_total,
+    gold: row.gold_total,
+    platinum: row.platinum_total,
+  };
+  const pointSummary = calculateTrophyPointSummary(
+    earnedTrophies,
+    totalTrophies,
+  );
+
   return {
     id: row.id,
     name: row.name,
@@ -83,6 +136,20 @@ function mapCollection(row: CollectionRow): CollectionSummary {
     gameCount: row.game_count,
     visibleGameCount: row.visible_game_count,
     hiddenGameCount: row.hidden_game_count,
+    trophySummary:
+      row.trophy_game_count === 0
+        ? null
+        : {
+            gameCountWithTrophies: row.trophy_game_count,
+            completedGameCount: row.completed_game_count,
+            earnedTrophies,
+            totalTrophies,
+            points: {
+              earned: pointSummary.earnedPoints,
+              total: pointSummary.totalPoints,
+              remaining: pointSummary.remainingPoints,
+            },
+          },
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

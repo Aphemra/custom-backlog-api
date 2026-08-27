@@ -1318,6 +1318,194 @@ textarea:focus-visible {
   line-height: 1.45;
 }
 
+.trophy-alert-card__details {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.trophy-alert-card__details section {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: rgba(8, 11, 18, 0.32);
+}
+
+.trophy-alert-card__details h4 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  background: rgba(124, 58, 237, 0.08);
+  font-size: 0.82rem;
+}
+
+.trophy-alert-card__details h4 span {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.trophy-alert-card__details ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trophy-alert-card__details li {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  gap: 0.7rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.trophy-alert-card__details li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+.trophy-alert-card__details img {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.35rem;
+  object-fit: cover;
+}
+
+.trophy-alert-card__details li > div {
+  min-width: 0;
+}
+
+.trophy-alert-card__details li strong {
+  margin-right: 0.5rem;
+  color: var(--color-text);
+  font-size: 0.78rem;
+}
+
+.trophy-alert-card__details li p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.trophy-grade {
+  text-transform: capitalize;
+  font-size: 0.65rem;
+  font-weight: 850;
+}
+
+.trophy-grade--bronze {
+  color: #cd7f32;
+}
+
+.trophy-grade--silver {
+  color: #cbd5e1;
+}
+
+.trophy-grade--gold {
+  color: #fbbf24;
+}
+
+.trophy-grade--platinum {
+  color: #93c5fd;
+}
+
+.trophy-availability {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: rgba(8, 11, 18, 0.35);
+}
+
+.trophy-availability > summary {
+  cursor: pointer;
+  padding: 0.8rem;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.trophy-availability section {
+  border-top: 1px solid var(--color-border);
+}
+
+.trophy-availability h3 {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
+.trophy-availability ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trophy-availability li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.trophy-availability li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+.trophy-availability img {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.35rem;
+  object-fit: cover;
+}
+
+.trophy-availability__body {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+}
+
+.trophy-availability__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+}
+
+.trophy-availability__title > span:last-child {
+  color: var(--color-success);
+  font-weight: 750;
+}
+
+.trophy-availability__body .checkbox-control {
+  padding: 0;
+  font-size: 0.7rem;
+}
+
+.trophy-availability__body input[type="text"],
+.trophy-availability__body input:not([type]) {
+  width: 100%;
+}
+
+.trophy-availability__status,
+.trophy-availability__error {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.trophy-availability__status {
+  color: var(--color-text-muted);
+}
+
+.trophy-availability__error {
+  padding: 0 0.8rem 0.8rem;
+  color: #fda4af;
+}
+
 .trophy-alert-card__actions {
   display: flex;
   justify-content: flex-end;

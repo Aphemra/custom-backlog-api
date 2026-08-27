@@ -79,6 +79,9 @@ interface StoredTrophyRow {
   reward_image_url: string | null;
   definition_payload_json: string;
   earnings_payload_json: string | null;
+  is_unobtainable: number;
+  unobtainable_reason: string | null;
+  availability_updated_at: string | null;
 }
 
 interface ExistingTrophyIdentityRow {
@@ -106,6 +109,14 @@ export interface StoredPlayStationTrophy {
   rewardImageUrl: string | null;
   definitionProviderPayload: unknown;
   earningsProviderPayload: unknown | null;
+  unobtainable: boolean;
+  unobtainableReason: string | null;
+  availabilityUpdatedAt: string | null;
+}
+
+export interface UpdatePlayStationTrophyAvailabilityInput {
+  unobtainable: boolean;
+  reason: string | null;
 }
 
 export interface StoredPlayStationTrophyGroup {
@@ -602,8 +613,8 @@ export class PlayStationTrophyDetailRepository {
       .prepare(
         `
           SELECT
-            game_id,
-            trophy_id,
+            trophies.game_id AS game_id,
+            trophies.trophy_id AS trophy_id,
             trophy_group_id,
             trophy_type,
             name,
@@ -621,10 +632,17 @@ export class PlayStationTrophyDetailRepository {
             reward_name,
             reward_image_url,
             definition_payload_json,
-            earnings_payload_json
-          FROM playstation_trophies
-          WHERE game_id = ?
-          ORDER BY trophy_id
+            earnings_payload_json,
+            CASE WHEN availability.game_id IS NULL THEN 0 ELSE 1 END
+              AS is_unobtainable,
+            availability.reason AS unobtainable_reason,
+            availability.updated_at AS availability_updated_at
+          FROM playstation_trophies trophies
+          LEFT JOIN playstation_trophy_availability_overrides availability
+            ON availability.game_id = trophies.game_id
+            AND availability.trophy_id = trophies.trophy_id
+          WHERE trophies.game_id = ?
+          ORDER BY trophies.trophy_id
         `,
       )
       .all(gameId) as unknown as StoredTrophyRow[];
@@ -658,6 +676,9 @@ export class PlayStationTrophyDetailRepository {
           row.earnings_payload_json === null
             ? null
             : parseJson(row.earnings_payload_json),
+        unobtainable: row.is_unobtainable === 1,
+        unobtainableReason: row.unobtainable_reason,
+        availabilityUpdatedAt: row.availability_updated_at,
       });
 
       trophiesByGroup.set(row.trophy_group_id, trophies);
@@ -709,6 +730,55 @@ export class PlayStationTrophyDetailRepository {
         trophies: trophiesByGroup.get(row.trophy_group_id) ?? [],
       })),
     };
+  }
+
+  updateTrophyAvailability(
+    gameId: string,
+    trophyId: number,
+    input: UpdatePlayStationTrophyAvailabilityInput,
+  ): StoredPlayStationTrophySet | null {
+    const trophy = this.database
+      .prepare(
+        `
+          SELECT trophy_id
+          FROM playstation_trophies
+          WHERE game_id = ? AND trophy_id = ?
+        `,
+      )
+      .get(gameId, trophyId);
+
+    if (trophy === undefined) {
+      return null;
+    }
+
+    if (input.unobtainable) {
+      this.database
+        .prepare(
+          `
+            INSERT INTO playstation_trophy_availability_overrides (
+              game_id,
+              trophy_id,
+              reason,
+              updated_at
+            ) VALUES (?, ?, ?, ?)
+            ON CONFLICT (game_id, trophy_id) DO UPDATE SET
+              reason = excluded.reason,
+              updated_at = excluded.updated_at
+          `,
+        )
+        .run(gameId, trophyId, input.reason, this.clock().toISOString());
+    } else {
+      this.database
+        .prepare(
+          `
+            DELETE FROM playstation_trophy_availability_overrides
+            WHERE game_id = ? AND trophy_id = ?
+          `,
+        )
+        .run(gameId, trophyId);
+    }
+
+    return this.findByGameId(gameId);
   }
 
   private assertLinkedIdentity(

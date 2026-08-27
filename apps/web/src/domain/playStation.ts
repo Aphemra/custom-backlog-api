@@ -138,6 +138,30 @@ export interface PlayStationProfileSnapshot {
   readonly earnedTrophies: PlayStationTrophyCounts;
 }
 
+export interface PlayStationProfileProgression {
+  readonly accountId: string;
+  readonly capturedAt: string;
+  readonly server: {
+    readonly level: number;
+    readonly progressPercent: number;
+    readonly tier: number;
+  };
+  readonly earnedTrophies: PlayStationTrophyCounts;
+  readonly points: {
+    readonly total: number;
+    readonly inCurrentLevel: number;
+    readonly forCurrentLevel: number;
+    readonly toNextLevel: number;
+    readonly toLevel999: number;
+  };
+  readonly calculation: {
+    readonly level: number;
+    readonly progressPercent: number;
+    readonly levelMatchesServer: boolean;
+    readonly progressMatchesServer: boolean;
+  };
+}
+
 export type PlayStationSyncStatus = "succeeded" | "partial";
 
 export type PlayStationSyncProgressStatus =
@@ -198,6 +222,34 @@ export interface PlayStationTrophyDetailSynchronizationResult {
   readonly artworkFailedCount: number;
   readonly artworkDownloadedCount: number;
   readonly artworkNotModifiedCount: number;
+}
+
+export interface StoredPlayStationTrophy {
+  readonly trophyId: number;
+  readonly trophyGroupId: string;
+  readonly trophyType: "bronze" | "silver" | "gold" | "platinum";
+  readonly name: string | null;
+  readonly detail: string | null;
+  readonly iconUrl: string | null;
+  readonly iconImageId: string | null;
+  readonly secret: boolean;
+  readonly earned: boolean;
+  readonly earnedAt: string | null;
+  readonly unobtainable: boolean;
+  readonly unobtainableReason: string | null;
+  readonly availabilityUpdatedAt: string | null;
+}
+
+export interface StoredPlayStationTrophyGroup {
+  readonly trophyGroupId: string;
+  readonly name: string;
+  readonly trophies: readonly StoredPlayStationTrophy[];
+}
+
+export interface StoredPlayStationTrophySet {
+  readonly gameId: string;
+  readonly titleName: string;
+  readonly groups: readonly StoredPlayStationTrophyGroup[];
 }
 
 export interface PlayStationProgressSyncSelection {

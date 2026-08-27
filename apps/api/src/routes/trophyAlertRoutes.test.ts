@@ -153,6 +153,7 @@ test("lists, summarizes, and updates trophy alerts", async () => {
     assert.equal(listed.alerts[0]?.kind, "completion_lost");
     assert.equal(listed.alerts[0]?.game.title, game.title);
     assert.equal(listed.alerts[0]?.currentProgressPercent, 92);
+    assert.equal(listed.alerts[0]?.details.trophySetChange, null);
 
     const summaryResponse = await fetch(`${baseUrl}/summary`);
 

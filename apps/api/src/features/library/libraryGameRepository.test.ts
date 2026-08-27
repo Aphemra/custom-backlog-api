@@ -114,6 +114,12 @@ test("creates, updates, hides, unhides, reorders, and deletes library games", ()
         gold: 5,
         platinum: 1,
       },
+      points: {
+        earned: 360,
+        total: 1_350,
+        remaining: 990,
+      },
+      timing: null,
       hasPlatinum: true,
       platinumEarned: false,
       is100Percent: false,

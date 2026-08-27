@@ -451,6 +451,96 @@ test("synchronizes only linked Library games without returning import data", asy
       tier: 5,
     });
 
+    const profileProgressionResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/profile-progression`,
+    );
+
+    assert.equal(profileProgressionResponse.status, 200);
+
+    const profileProgressionBody =
+      (await profileProgressionResponse.json()) as {
+        progression: {
+          accountId: string;
+          server: {
+            level: number;
+            progressPercent: number;
+          };
+          points: {
+            total: number;
+            toNextLevel: number;
+            toLevel999: number;
+          };
+          calculation: {
+            levelMatchesServer: boolean;
+            progressMatchesServer: boolean;
+          };
+        };
+      };
+
+    assert.equal(profileProgressionBody.progression.accountId, "20002");
+    assert.equal(profileProgressionBody.progression.server.level, 425);
+    assert.equal(profileProgressionBody.progression.server.progressPercent, 52);
+    assert.equal(profileProgressionBody.progression.points.total, 51_810);
+    assert.equal(profileProgressionBody.progression.points.toNextLevel, 30);
+    assert.equal(
+      profileProgressionBody.progression.points.toLevel999,
+      1_579_530,
+    );
+    assert.equal(
+      profileProgressionBody.progression.calculation.levelMatchesServer,
+      false,
+    );
+    assert.equal(
+      profileProgressionBody.progression.calculation.progressMatchesServer,
+      false,
+    );
+
+    const trophySetResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/games/${linkedGame.id}/trophies`,
+    );
+
+    assert.equal(trophySetResponse.status, 200);
+
+    const trophyAvailabilityResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/games/${linkedGame.id}/trophies/0/availability`,
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          unobtainable: true,
+          reason: "Server-dependent trophy.",
+        }),
+      },
+    );
+
+    assert.equal(trophyAvailabilityResponse.status, 200);
+
+    const trophyAvailabilityBody =
+      (await trophyAvailabilityResponse.json()) as {
+        trophySet: {
+          groups: Array<{
+            trophies: Array<{
+              trophyId: number;
+              unobtainable: boolean;
+              unobtainableReason: string | null;
+            }>;
+          }>;
+        };
+      };
+
+    const markedTrophy = trophyAvailabilityBody.trophySet.groups
+      .flatMap((group) => group.trophies)
+      .find((trophy) => trophy.trophyId === 0);
+
+    assert.deepEqual(markedTrophy, {
+      ...markedTrophy,
+      trophyId: 0,
+      unobtainable: true,
+      unobtainableReason: "Server-dependent trophy.",
+    });
+
     assert.equal(library.findById(linkedGame.id)?.playStatus, "completed");
     assert.equal(library.findById(unlinkedGame.id)?.playStatus, "not_started");
 

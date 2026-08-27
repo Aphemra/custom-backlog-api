@@ -1,4 +1,17 @@
 import type { LibraryGame } from "../library/libraryGameTypes.js";
+import type { PlayStationTrophyCounts } from "../playstation/playStationTypes.js";
+
+export interface CollectionTrophySummary {
+  readonly gameCountWithTrophies: number;
+  readonly completedGameCount: number;
+  readonly earnedTrophies: PlayStationTrophyCounts;
+  readonly totalTrophies: PlayStationTrophyCounts;
+  readonly points: {
+    readonly earned: number;
+    readonly total: number;
+    readonly remaining: number;
+  };
+}
 
 export interface CollectionSummary {
   readonly id: string;
@@ -8,6 +21,7 @@ export interface CollectionSummary {
   readonly gameCount: number;
   readonly visibleGameCount: number;
   readonly hiddenGameCount: number;
+  readonly trophySummary: CollectionTrophySummary | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

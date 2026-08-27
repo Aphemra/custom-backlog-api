@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { calculateTrophyPointSummary } from "../playstation/playStationTrophyPoints.js";
+import {
+  PlayStationTrophyIntelligenceService,
+  type PlayStationGameTrophyIntelligence,
+} from "../playstation/playStationTrophyIntelligence.js";
 import {
   createCompatiblePursuitStatus,
   type CreateLibraryGameInput,
@@ -46,24 +51,39 @@ interface GameIdRow {
   id: string;
 }
 
-function mapLibraryGame(row: LibraryGameRow): LibraryGameWithArtwork {
+function mapLibraryGame(
+  row: LibraryGameRow,
+  intelligence: PlayStationGameTrophyIntelligence | null,
+): LibraryGameWithArtwork {
+  const earnedTrophies = {
+    bronze: row.bronze_earned ?? 0,
+    silver: row.silver_earned ?? 0,
+    gold: row.gold_earned ?? 0,
+    platinum: row.platinum_earned ?? 0,
+  };
+  const totalTrophies = {
+    bronze: row.bronze_total ?? 0,
+    silver: row.silver_total ?? 0,
+    gold: row.gold_total ?? 0,
+    platinum: row.platinum_total ?? 0,
+  };
+  const pointSummary = calculateTrophyPointSummary(
+    earnedTrophies,
+    totalTrophies,
+  );
   const trophySummary =
     row.captured_at === null
       ? null
       : {
           progressPercent: row.progress_percent ?? 0,
-          earnedTrophies: {
-            bronze: row.bronze_earned ?? 0,
-            silver: row.silver_earned ?? 0,
-            gold: row.gold_earned ?? 0,
-            platinum: row.platinum_earned ?? 0,
+          earnedTrophies,
+          totalTrophies,
+          points: {
+            earned: pointSummary.earnedPoints,
+            total: pointSummary.totalPoints,
+            remaining: pointSummary.remainingPoints,
           },
-          totalTrophies: {
-            bronze: row.bronze_total ?? 0,
-            silver: row.silver_total ?? 0,
-            gold: row.gold_total ?? 0,
-            platinum: row.platinum_total ?? 0,
-          },
+          timing: intelligence?.timing ?? null,
           hasPlatinum: row.has_platinum === 1,
           platinumEarned: (row.platinum_earned ?? 0) > 0,
           is100Percent: row.is_100_percent === 1,
@@ -107,7 +127,13 @@ function createSortTitle(title: string): string {
 }
 
 export class LibraryGameRepository {
-  constructor(private readonly database: DatabaseSync) {}
+  private readonly trophyIntelligence: PlayStationTrophyIntelligenceService;
+
+  constructor(private readonly database: DatabaseSync) {
+    this.trophyIntelligence = new PlayStationTrophyIntelligenceService(
+      database,
+    );
+  }
 
   list(includeHidden = false): readonly LibraryGameWithArtwork[] {
     const rows = this.database
@@ -199,7 +225,11 @@ export class LibraryGameRepository {
       )
       .all(includeHidden ? 1 : 0) as unknown as LibraryGameRow[];
 
-    return rows.map(mapLibraryGame);
+    const intelligenceByGameId = this.trophyIntelligence.findAll();
+
+    return rows.map((row) =>
+      mapLibraryGame(row, intelligenceByGameId.get(row.id) ?? null),
+    );
   }
 
   findById(gameId: string): LibraryGameWithArtwork | null {
@@ -285,7 +315,9 @@ export class LibraryGameRepository {
       )
       .get(gameId) as unknown as LibraryGameRow | undefined;
 
-    return row === undefined ? null : mapLibraryGame(row);
+    return row === undefined
+      ? null
+      : mapLibraryGame(row, this.trophyIntelligence.findByGameId(gameId));
   }
 
   create(input: CreateLibraryGameInput): LibraryGameWithArtwork {

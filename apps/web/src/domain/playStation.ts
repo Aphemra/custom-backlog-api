@@ -118,3 +118,24 @@ export interface CreatedPlayStationLibraryGame {
   readonly game: LibraryGame;
   readonly link: PlayStationGameLink;
 }
+
+export type PlayStationSyncStatus = "succeeded" | "partial";
+
+export interface PlayStationSyncResult {
+  readonly syncRunId: string;
+  readonly status: PlayStationSyncStatus;
+  readonly targetAccountId: string;
+  readonly expectedTitleCount: number;
+  readonly processedTitleCount: number;
+  readonly snapshotsCreated: number;
+  readonly newTrophyAlertsCreated: number;
+  readonly completionLostAlertsCreated: number;
+  readonly requestsMade: number;
+  readonly startedAt: string;
+  readonly finishedAt: string;
+}
+
+export interface PlayStationSynchronizationResponse {
+  readonly synchronization: PlayStationSyncResult;
+  readonly preview: PlayStationTitlePreview;
+}

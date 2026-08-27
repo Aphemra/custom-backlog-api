@@ -13,6 +13,7 @@ import type {
   PlayStationReconciliationStatus,
   PlayStationTitlePreview,
   ReconciledPlayStationTitle,
+  PlayStationSyncResult,
 } from "../../../domain/playStation";
 import { ApiError } from "../../../services/api/apiClient";
 import { playStationApi } from "../../../services/api/playStationApi";
@@ -448,6 +449,9 @@ export function PlayStationPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isSynchronizing, setIsSynchronizing] = useState(false);
+  const [lastSynchronization, setLastSynchronization] =
+    useState<PlayStationSyncResult | null>(null);
   const [busyIdentity, setBusyIdentity] = useState<string | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -604,6 +608,30 @@ export function PlayStationPage() {
     }
   }
 
+  async function handleSynchronization(): Promise<void> {
+    setIsSynchronizing(true);
+    setErrorMessage(null);
+    setNotice(null);
+
+    try {
+      const result = await playStationApi.synchronize();
+
+      setPreview(result.preview);
+      setLastSynchronization(result.synchronization);
+      setActiveFilter("all");
+
+      if (result.synchronization.status === "succeeded") {
+        setNotice(
+          `Synchronized ${result.synchronization.processedTitleCount} linked games and created ${result.synchronization.snapshotsCreated} trophy snapshots.`,
+        );
+      }
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSynchronizing(false);
+    }
+  }
+
   async function handleConfirmMatch(
     title: ReconciledPlayStationTitle,
     candidate: PlayStationLibraryCandidate,
@@ -713,20 +741,41 @@ export function PlayStationPage() {
           </p>
         </div>
 
-        <button
-          className="button button--primary"
-          type="button"
-          disabled={
-            status?.configured !== true || isPreviewing || busyIdentity !== null
-          }
-          onClick={() => void handlePreview()}
-        >
-          {isPreviewing
-            ? "Reading PlayStation titles…"
-            : preview === null
-              ? "Preview trophy library"
-              : "Refresh preview"}
-        </button>
+        <div className="library-heading__actions">
+          <button
+            className="button button--quiet"
+            type="button"
+            disabled={
+              status?.configured !== true ||
+              isPreviewing ||
+              isSynchronizing ||
+              busyIdentity !== null
+            }
+            onClick={() => void handlePreview()}
+          >
+            {isPreviewing
+              ? "Reading PlayStation titles…"
+              : preview === null
+                ? "Preview trophy library"
+                : "Refresh preview"}
+          </button>
+
+          <button
+            className="button button--primary"
+            type="button"
+            disabled={
+              status?.configured !== true ||
+              isPreviewing ||
+              isSynchronizing ||
+              busyIdentity !== null
+            }
+            onClick={() => void handleSynchronization()}
+          >
+            {isSynchronizing
+              ? "Synchronizing linked games…"
+              : "Synchronize linked games"}
+          </button>
+        </div>
       </div>
 
       <div className="psn-connection-card">
@@ -763,6 +812,87 @@ export function PlayStationPage() {
         <div className="notice notice--success" role="status">
           {notice}
         </div>
+      )}
+
+      {lastSynchronization === null ? null : (
+        <section
+          className={`psn-sync-result${
+            lastSynchronization.status === "partial"
+              ? " psn-sync-result--partial"
+              : ""
+          }`}
+          aria-labelledby="psn-sync-result-title"
+        >
+          <div className="psn-sync-result__heading">
+            <div>
+              <p className="eyebrow">Latest synchronization</p>
+
+              <h3 id="psn-sync-result-title">
+                {lastSynchronization.status === "succeeded"
+                  ? "Linked games synchronized"
+                  : "Synchronization completed partially"}
+              </h3>
+            </div>
+
+            <span
+              className={`psn-sync-status psn-sync-status--${lastSynchronization.status}`}
+            >
+              {lastSynchronization.status === "succeeded"
+                ? "Succeeded"
+                : "Partial"}
+            </span>
+          </div>
+
+          <div className="psn-sync-result__counts">
+            <div>
+              <strong>{lastSynchronization.processedTitleCount}</strong>
+
+              <span>
+                of {lastSynchronization.expectedTitleCount} linked games
+              </span>
+            </div>
+
+            <div>
+              <strong>{lastSynchronization.snapshotsCreated}</strong>
+
+              <span>Snapshots created</span>
+            </div>
+
+            <div>
+              <strong>{lastSynchronization.newTrophyAlertsCreated}</strong>
+
+              <span>Expanded trophy sets</span>
+            </div>
+
+            <div>
+              <strong>{lastSynchronization.completionLostAlertsCreated}</strong>
+
+              <span>Completion lost</span>
+            </div>
+
+            <div>
+              <strong>{lastSynchronization.requestsMade}</strong>
+
+              <span>PlayStation requests</span>
+            </div>
+          </div>
+
+          {lastSynchronization.status === "partial" ? (
+            <p className="psn-sync-result__warning">
+              Some linked trophy stacks were absent from Sony’s response. Their
+              previous snapshots were preserved and no assumptions were made
+              about their current state.
+            </p>
+          ) : null}
+
+          <p className="psn-sync-result__time">
+            Finished{" "}
+            {new Intl.DateTimeFormat(undefined, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }).format(new Date(lastSynchronization.finishedAt))}
+          </p>
+        </section>
       )}
 
       {preview === null ? (

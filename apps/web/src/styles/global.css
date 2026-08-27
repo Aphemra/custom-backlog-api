@@ -2020,6 +2020,112 @@ textarea:focus-visible {
   font-size: 0.64rem;
 }
 
+.psn-sync-result {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(94, 234, 212, 0.26);
+  border-radius: var(--radius-large);
+  padding: 1rem;
+  background: rgba(20, 184, 166, 0.055);
+}
+
+.psn-sync-result--partial {
+  border-color: rgba(251, 191, 36, 0.34);
+  background: rgba(251, 191, 36, 0.055);
+}
+
+.psn-sync-result__heading {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.psn-sync-result__heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.psn-sync-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.64rem;
+  font-weight: 850;
+}
+
+.psn-sync-status--succeeded {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.psn-sync-status--partial {
+  background: rgba(251, 191, 36, 0.13);
+  color: #fde68a;
+}
+
+.psn-sync-result__counts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-border);
+}
+
+.psn-sync-result__counts > div {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  background: rgba(8, 11, 18, 0.68);
+}
+
+.psn-sync-result__counts strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.psn-sync-result__counts span {
+  color: var(--color-text-muted);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.psn-sync-result__warning {
+  margin: 0;
+  border-radius: var(--radius-small);
+  padding: 0.65rem 0.75rem;
+  background: rgba(251, 191, 36, 0.09);
+  color: #fde68a;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.psn-sync-result__time {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+}
+
+@media (max-width: 760px) {
+  .psn-sync-result__counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 440px) {
+  .psn-sync-result__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .psn-sync-status {
+    align-self: flex-start;
+  }
+}
+
 @media (max-width: 520px) {
   .psn-igdb-enrichment__search {
     flex-direction: column;

@@ -5,6 +5,7 @@ import type {
   PlayStationConnectionStatus,
   PlayStationGameLink,
   PlayStationTitlePreview,
+  PlayStationSynchronizationResponse,
 } from "../../domain/playStation";
 import { requestJson } from "./apiClient";
 
@@ -72,6 +73,18 @@ export const playStationApi = {
           "x-trophy-backlog-action": "import-playstation-title",
         },
         body: JSON.stringify(input),
+      },
+    );
+  },
+
+  async synchronize(): Promise<PlayStationSynchronizationResponse> {
+    return requestJson<PlayStationSynchronizationResponse>(
+      "/api/integrations/playstation/syncs",
+      {
+        method: "POST",
+        headers: {
+          "x-trophy-backlog-action": "synchronize-playstation-trophies",
+        },
       },
     );
   },

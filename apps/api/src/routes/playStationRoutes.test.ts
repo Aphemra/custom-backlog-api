@@ -9,6 +9,7 @@ import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
 import type { PlayStationApiOperations } from "../features/playstation/playStationApi.js";
 import { PlayStationRequestGate } from "../features/playstation/playStationRequestGate.js";
+import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 
 async function closeServer(
   server: ReturnType<ReturnType<typeof createApp>["listen"]>,
@@ -312,6 +313,84 @@ test("tests a dedicated reader without exposing credentials", async () => {
       "summary:20002",
       "titles:20002",
     ]);
+
+    const game = new LibraryGameRepository(database).create({
+      title: "Example Game",
+      platform: "PS5",
+    });
+
+    const rejectedLinkResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/title-links`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          gameId: game.id,
+          npServiceName: "trophy2",
+          npCommunicationId: "NPWR00001_00",
+        }),
+      },
+    );
+
+    assert.equal(rejectedLinkResponse.status, 400);
+
+    const linkResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/title-links`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-trophy-backlog-action": "link-playstation-title",
+        },
+        body: JSON.stringify({
+          gameId: game.id,
+          npServiceName: "trophy2",
+          npCommunicationId: "NPWR00001_00",
+        }),
+      },
+    );
+
+    assert.equal(linkResponse.status, 201);
+
+    const linkBody = (await linkResponse.json()) as {
+      link: {
+        gameId: string;
+        npCommunicationId: string;
+        npServiceName: string;
+        linkSource: string;
+      };
+    };
+
+    assert.equal(linkBody.link.gameId, game.id);
+    assert.equal(linkBody.link.npCommunicationId, "NPWR00001_00");
+    assert.equal(linkBody.link.npServiceName, "trophy2");
+    assert.equal(linkBody.link.linkSource, "manual_match");
+
+    const storedLink = database
+      .prepare(
+        `
+        SELECT
+          game_id,
+          np_communication_id,
+          link_source
+        FROM playstation_game_links
+        WHERE game_id = ?
+      `,
+      )
+      .get(game.id) as
+      | {
+          game_id: string;
+          np_communication_id: string;
+          link_source: string;
+        }
+      | undefined;
+
+    assert.notEqual(storedLink, undefined);
+    assert.equal(storedLink?.game_id, game.id);
+    assert.equal(storedLink?.np_communication_id, "NPWR00001_00");
+    assert.equal(storedLink?.link_source, "manual_match");
   } finally {
     await closeServer(server);
     database.close();

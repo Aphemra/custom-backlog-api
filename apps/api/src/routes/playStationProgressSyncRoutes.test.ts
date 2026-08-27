@@ -9,8 +9,15 @@ import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
 import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
-import type { PlayStationApiOperations } from "../features/playstation/playStationApi.js";
+import type {
+  PlayStationApiOperations,
+  PlayStationTrophyDetailApiOperations,
+} from "../features/playstation/playStationApi.js";
 import { PlayStationRequestGate } from "../features/playstation/playStationRequestGate.js";
+
+const pngBytes = Uint8Array.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+]);
 
 interface CountRow {
   count: number;
@@ -183,6 +190,116 @@ function createOperations(): PlayStationApiOperations {
   };
 }
 
+function createDetailOperations(): PlayStationTrophyDetailApiOperations {
+  const trophyTypes = [
+    ...Array.from({ length: 40 }, () => "bronze" as const),
+    ...Array.from({ length: 10 }, () => "silver" as const),
+    ...Array.from({ length: 3 }, () => "gold" as const),
+    "platinum" as const,
+  ];
+
+  return {
+    async getTrophyGroups(_authorization, npCommunicationId, options) {
+      assert.equal(npCommunicationId, "NPWR50000_00");
+      assert.equal(options.npServiceName, "trophy2");
+
+      return {
+        trophySetVersion: "01.00",
+        trophyTitleName: "Linked Provider Game",
+        trophyTitleIconUrl: "https://image.api.playstation.com/linked.png",
+        trophyTitlePlatform: "PS5",
+        definedTrophies: {
+          bronze: 40,
+          silver: 10,
+          gold: 3,
+          platinum: 1,
+        },
+        trophyGroups: [
+          {
+            trophyGroupId: "default",
+            trophyGroupName: "Linked Provider Game",
+            trophyGroupIconUrl: "https://image.api.playstation.com/linked.png",
+            definedTrophies: {
+              bronze: 39,
+              silver: 10,
+              gold: 3,
+              platinum: 1,
+            },
+          },
+          {
+            trophyGroupId: "001",
+            trophyGroupName: "Additional Trophies",
+            trophyGroupIconUrl: "https://image.api.playstation.com/linked.png",
+            definedTrophies: {
+              bronze: 1,
+              silver: 0,
+              gold: 0,
+              platinum: 0,
+            },
+          },
+        ],
+      };
+    },
+
+    async getTrophyDefinitions(
+      _authorization,
+      npCommunicationId,
+      trophyGroupId,
+      options,
+    ) {
+      assert.equal(npCommunicationId, "NPWR50000_00");
+      assert.equal(trophyGroupId, "all");
+      assert.equal(options.offset, 0);
+      assert.equal(options.limit, 500);
+
+      return {
+        trophySetVersion: "01.00",
+        hasTrophyGroups: true,
+        trophies: trophyTypes.map((trophyType, trophyId) => ({
+          trophyId,
+          trophyHidden: false,
+          trophyType,
+          trophyName: `Trophy ${trophyId}`,
+          trophyDetail: `Earn trophy ${trophyId}.`,
+          trophyIconUrl: "https://image.api.playstation.com/linked.png",
+          trophyGroupId: trophyId === 0 ? "001" : "default",
+        })),
+        totalItemCount: trophyTypes.length,
+      };
+    },
+
+    async getTrophyEarnings(
+      _authorization,
+      accountId,
+      npCommunicationId,
+      trophyGroupId,
+      options,
+    ) {
+      assert.equal(accountId, "20002");
+      assert.equal(npCommunicationId, "NPWR50000_00");
+      assert.equal(trophyGroupId, "all");
+      assert.equal(options.offset, 0);
+      assert.equal(options.limit, 500);
+
+      return {
+        trophySetVersion: "01.00",
+        hasTrophyGroups: true,
+        lastUpdatedDateTime: "2026-08-27T12:00:00.000Z",
+        trophies: trophyTypes.map((trophyType, trophyId) => ({
+          trophyId,
+          trophyHidden: false,
+          earned: true,
+          earnedDateTime: "2026-08-27T12:00:00.000Z",
+          trophyType,
+          trophyRare: 2,
+          trophyEarnedRate: "25.00",
+        })),
+        totalItemCount: trophyTypes.length,
+      };
+    },
+  };
+}
+
 test("synchronizes only linked Library games without returning import data", async () => {
   const database = openDatabase(":memory:");
   const cacheDirectory = await mkdtemp(
@@ -210,7 +327,14 @@ test("synchronizes only linked Library games without returning import data", asy
     database,
     cacheDirectory,
     { clientId: null, clientSecret: null },
-    fetch,
+    async () =>
+      new Response(pngBytes, {
+        status: 200,
+        headers: {
+          "content-type": "image/png",
+          etag: '"linked-v1"',
+        },
+      }),
     {
       credentials: {
         readerNpsso: "n".repeat(64),
@@ -218,6 +342,7 @@ test("synchronizes only linked Library games without returning import data", asy
         targetOnlineId: "MainAccount",
       },
       operations: createOperations(),
+      detailOperations: createDetailOperations(),
       requestGate: new PlayStationRequestGate({
         minimumIntervalMs: 0,
       }),
@@ -266,6 +391,19 @@ test("synchronizes only linked Library games without returning import data", asy
           tier: number;
         };
       };
+      detailSynchronization: {
+        fullRefreshCount: number;
+        earningsOnlyRefreshCount: number;
+        unchangedCount: number;
+        requestsMade: number;
+        retriesUsed: number;
+        artworkReferenceCount: number;
+        uniqueArtworkImageCount: number;
+        artworkAttachedCount: number;
+        artworkFailedCount: number;
+        artworkDownloadedCount: number;
+        artworkNotModifiedCount: number;
+      };
       selection: {
         providerTitleCount: number;
         supportedTitleCount: number;
@@ -276,6 +414,20 @@ test("synchronizes only linked Library games without returning import data", asy
     };
 
     assert.equal(Object.hasOwn(responseBody, "preview"), false);
+
+    assert.deepEqual(responseBody.detailSynchronization, {
+      fullRefreshCount: 1,
+      earningsOnlyRefreshCount: 0,
+      unchangedCount: 0,
+      requestsMade: 3,
+      retriesUsed: 0,
+      artworkReferenceCount: 57,
+      uniqueArtworkImageCount: 1,
+      artworkAttachedCount: 57,
+      artworkFailedCount: 0,
+      artworkDownloadedCount: 1,
+      artworkNotModifiedCount: 0,
+    });
 
     assert.deepEqual(responseBody.selection, {
       providerTitleCount: 2,
@@ -338,13 +490,28 @@ test("synchronizes only linked Library games without returning import data", asy
             SELECT COUNT(*)
             FROM playstation_profile_snapshots
           ) AS profile_snapshot_count,
-          (SELECT COUNT(*) FROM cached_images) AS cached_image_count
+          (SELECT COUNT(*) FROM cached_images) AS cached_image_count,
+          (
+            SELECT COUNT(*)
+            FROM playstation_trophy_sets
+          ) AS trophy_set_count,
+          (
+            SELECT COUNT(*)
+            FROM playstation_trophy_groups
+          ) AS trophy_group_count,
+          (
+            SELECT COUNT(*)
+            FROM playstation_trophies
+          ) AS trophy_count
       `,
       )
       .get() as unknown as {
       game_count: number;
       profile_snapshot_count: number;
       cached_image_count: number;
+      trophy_set_count: number;
+      trophy_group_count: number;
+      trophy_count: number;
     };
 
     assert.deepEqual(
@@ -352,7 +519,10 @@ test("synchronizes only linked Library games without returning import data", asy
       {
         game_count: 2,
         profile_snapshot_count: 1,
-        cached_image_count: 0,
+        cached_image_count: 1,
+        trophy_set_count: 1,
+        trophy_group_count: 2,
+        trophy_count: 54,
       },
     );
   } finally {

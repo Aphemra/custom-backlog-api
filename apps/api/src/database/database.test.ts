@@ -23,8 +23,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 6,
-      availableMigrationCount: 6,
+      schemaVersion: 8,
+      availableMigrationCount: 8,
     });
 
     const row = database
@@ -265,6 +265,249 @@ test("stores constrained PlayStation profile snapshots", () => {
   }
 });
 
+test("stores constrained normalized PlayStation trophy data", () => {
+  const database = openDatabase(":memory:");
+  const timestamp = "2026-08-27T12:00:00.000Z";
+
+  try {
+    database
+      .prepare(
+        `
+          INSERT INTO library_games (
+            id,
+            title,
+            sort_title,
+            platform,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "normalized-trophy-game",
+        "Example Trophy Game",
+        "Example Trophy Game",
+        "PS5",
+        timestamp,
+        timestamp,
+      );
+
+    database
+      .prepare(
+        `
+          INSERT INTO playstation_game_links (
+            game_id,
+            np_communication_id,
+            np_service_name,
+            psn_title_name,
+            platforms_json,
+            icon_url,
+            link_source,
+            payload_json,
+            linked_at,
+            first_seen_at,
+            last_seen_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "normalized-trophy-game",
+        "NPWR99999_00",
+        "trophy2",
+        "Example Trophy Game",
+        JSON.stringify(["PS5"]),
+        "https://example.com/title.png",
+        "manual_match",
+        JSON.stringify({ npCommunicationId: "NPWR99999_00" }),
+        timestamp,
+        timestamp,
+        timestamp,
+      );
+
+    database
+      .prepare(
+        `
+          INSERT INTO playstation_trophy_sets (
+            game_id,
+            np_communication_id,
+            np_service_name,
+            trophy_set_version,
+            title_name,
+            platforms_json,
+            icon_url,
+            has_trophy_groups,
+            definitions_refreshed_at,
+            definition_payload_json,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "normalized-trophy-game",
+        "NPWR99999_00",
+        "trophy2",
+        "01.00",
+        "Example Trophy Game",
+        JSON.stringify(["PS5"]),
+        "https://example.com/title.png",
+        0,
+        timestamp,
+        JSON.stringify({ trophySetVersion: "01.00" }),
+        timestamp,
+        timestamp,
+      );
+
+    database
+      .prepare(
+        `
+          INSERT INTO playstation_trophy_groups (
+            game_id,
+            trophy_group_id,
+            name,
+            icon_url,
+            bronze_total,
+            silver_total,
+            gold_total,
+            platinum_total,
+            payload_json,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "normalized-trophy-game",
+        "default",
+        "Example Trophy Game",
+        "https://example.com/group.png",
+        1,
+        0,
+        0,
+        0,
+        JSON.stringify({ trophyGroupId: "default" }),
+        timestamp,
+        timestamp,
+      );
+
+    assert.throws(() => {
+      database
+        .prepare(
+          `
+            INSERT INTO playstation_trophies (
+              game_id,
+              trophy_id,
+              trophy_group_id,
+              trophy_type,
+              name,
+              is_secret,
+              rarity,
+              definition_payload_json,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          "normalized-trophy-game",
+          0,
+          "default",
+          "bronze",
+          "Invalid rarity",
+          0,
+          4,
+          JSON.stringify({ trophyId: 0 }),
+          timestamp,
+          timestamp,
+        );
+    });
+
+    database
+      .prepare(
+        `
+          INSERT INTO playstation_trophies (
+            game_id,
+            trophy_id,
+            trophy_group_id,
+            trophy_type,
+            name,
+            detail,
+            icon_url,
+            is_secret,
+            is_earned,
+            earned_at,
+            rarity,
+            earned_rate,
+            progress_target_value,
+            progress_value,
+            progress_rate,
+            definition_payload_json,
+            earnings_payload_json,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "normalized-trophy-game",
+        0,
+        "default",
+        "bronze",
+        "First Trophy",
+        "Earn the first trophy.",
+        "https://example.com/trophy.png",
+        0,
+        1,
+        timestamp,
+        0,
+        2.5,
+        "100",
+        "100",
+        100,
+        JSON.stringify({
+          trophyId: 0,
+          trophyGroupId: "default",
+          trophyType: "bronze",
+        }),
+        JSON.stringify({
+          trophyId: 0,
+          earned: true,
+          earnedDateTime: timestamp,
+        }),
+        timestamp,
+        timestamp,
+      );
+
+    database
+      .prepare(
+        `
+          DELETE FROM playstation_game_links
+          WHERE game_id = ?
+        `,
+      )
+      .run("normalized-trophy-game");
+
+    for (const tableName of [
+      "playstation_trophy_sets",
+      "playstation_trophy_groups",
+      "playstation_trophies",
+    ]) {
+      const row = database
+        .prepare(
+          `
+            SELECT COUNT(*) AS count
+            FROM ${tableName}
+          `,
+        )
+        .get() as unknown as CountRow;
+
+      assert.equal(row.count, 0, tableName);
+    }
+  } finally {
+    database.close();
+  }
+});
+
 test("upgrades an existing version-one database without replacing it", () => {
   const database = new DatabaseSync(":memory:");
 
@@ -274,15 +517,15 @@ test("upgrades an existing version-one database without replacing it", () => {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
       schemaVersion: 1,
-      availableMigrationCount: 6,
+      availableMigrationCount: 8,
     });
 
     runMigrations(database);
 
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 6,
-      availableMigrationCount: 6,
+      schemaVersion: 8,
+      availableMigrationCount: 8,
     });
 
     const row = database
@@ -295,13 +538,16 @@ test("upgrades an existing version-one database without replacing it", () => {
               'playstation_game_links',
               'cached_images',
               'library_game_images',
-              'playstation_profile_snapshots'
+              'playstation_profile_snapshots',
+              'playstation_trophy_sets',
+              'playstation_trophy_groups',
+              'playstation_trophies'
             )
         `,
       )
       .get() as unknown as CountRow;
 
-    assert.equal(row.count, 4);
+    assert.equal(row.count, 7);
   } finally {
     database.close();
   }
@@ -734,7 +980,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 6);
+      assert.equal(row.count, 8);
     } finally {
       restoredDatabase.close();
     }

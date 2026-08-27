@@ -3,7 +3,9 @@ import { Router } from "express";
 import { HttpError } from "../errors/httpError.js";
 import {
   playStationApiOperations,
+  playStationTrophyDetailApiOperations,
   type PlayStationApiOperations,
+  type PlayStationTrophyDetailApiOperations,
 } from "../features/playstation/playStationApi.js";
 import { ImageCacheRepository } from "../features/imageCache/imageCacheRepository.js";
 import {
@@ -27,6 +29,11 @@ import {
 } from "../features/library/libraryGameTypes.js";
 import { PlayStationSyncCooldownService } from "../features/playstation/playStationSyncCooldownService.js";
 import { PlayStationSyncExecutionLock } from "../features/playstation/playStationSyncExecutionLock.js";
+import { PlayStationTrophyArtworkService } from "../features/playstation/playStationTrophyArtworkService.js";
+import { PlayStationTrophyDetailFetchService } from "../features/playstation/playStationTrophyDetailFetchService.js";
+import { PlayStationTrophyDetailRepository } from "../features/playstation/playStationTrophyDetailRepository.js";
+import { PlayStationTrophyDetailSyncPlanner } from "../features/playstation/playStationTrophyDetailSyncPlanner.js";
+import { PlayStationTrophyDetailSyncService } from "../features/playstation/playStationTrophyDetailSyncService.js";
 import { PlayStationTrophySyncService } from "../features/playstation/playStationTrophySyncService.js";
 
 export interface PlayStationRouteOptions {
@@ -35,6 +42,7 @@ export interface PlayStationRouteOptions {
   imageFetch?: ImageFetch;
   credentials: PlayStationCredentials;
   operations?: PlayStationApiOperations;
+  detailOperations?: PlayStationTrophyDetailApiOperations;
   requestGate?: PlayStationRequestGate;
 }
 
@@ -44,6 +52,8 @@ export function createPlayStationRoutes(
   const routes = Router();
 
   const operations = options.operations ?? playStationApiOperations;
+  const detailOperations =
+    options.detailOperations ?? playStationTrophyDetailApiOperations;
   const requestGate = options.requestGate ?? new PlayStationRequestGate();
 
   const authorizationSession = new PlayStationAuthorizationSession(
@@ -91,6 +101,25 @@ export function createPlayStationRoutes(
   const syncExecutionLock = new PlayStationSyncExecutionLock();
 
   const trophySyncService = new PlayStationTrophySyncService(options.database);
+
+  const trophyDetailRepository = new PlayStationTrophyDetailRepository(
+    options.database,
+  );
+
+  const trophyDetailSyncService = new PlayStationTrophyDetailSyncService(
+    new PlayStationTrophyDetailSyncPlanner(options.database),
+    new PlayStationTrophyDetailFetchService(
+      authorizationSession,
+      detailOperations,
+      requestGate,
+    ),
+    trophyDetailRepository,
+    new PlayStationTrophyArtworkService(
+      options.database,
+      imageCacheService,
+      trophyDetailRepository,
+    ),
+  );
 
   routes.get("/status", (_request, response) => {
     response.json({ status: connectionService.getStatus() });
@@ -338,8 +367,18 @@ export function createPlayStationRoutes(
           await titlePreviewService.previewTitles(),
         );
 
+        const detailSynchronization =
+          await trophyDetailSyncService.synchronize(linkedPreview);
+
+        const synchronization = trophySyncService.synchronize({
+          ...linkedPreview,
+          requestsMade:
+            linkedPreview.requestsMade + detailSynchronization.requestsMade,
+        });
+
         return {
-          synchronization: trophySyncService.synchronize(linkedPreview),
+          synchronization,
+          detailSynchronization,
           selection: {
             providerTitleCount: linkedPreview.providerTitleCount,
             supportedTitleCount: linkedPreview.supportedTitleCount,
@@ -374,16 +413,29 @@ export function createPlayStationRoutes(
       const result = await syncExecutionLock.run(async () => {
         syncCooldownService.enforceAndRecordAttempt();
 
-        const reconciledPreview = titleReconciliationService.reconcile(
-          await titlePreviewService.previewTitles(),
-        );
+        const titlePreview = await titlePreviewService.previewTitles();
+
+        const linkedPreview = linkedTitleSelector.select(titlePreview);
+
+        const reconciledPreview =
+          titleReconciliationService.reconcile(titlePreview);
 
         const preview = titleImageService.attachCachedIcons(reconciledPreview);
 
         titleLinkService.rememberPreview(preview);
 
+        const detailSynchronization =
+          await trophyDetailSyncService.synchronize(linkedPreview);
+
+        const synchronization = trophySyncService.synchronize({
+          ...preview,
+          requestsMade:
+            preview.requestsMade + detailSynchronization.requestsMade,
+        });
+
         return {
-          synchronization: trophySyncService.synchronize(preview),
+          synchronization,
+          detailSynchronization,
           preview,
         };
       });

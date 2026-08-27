@@ -155,6 +155,20 @@ export interface PlayStationSyncResult {
   readonly finishedAt: string;
 }
 
+export interface PlayStationTrophyDetailSynchronizationResult {
+  readonly fullRefreshCount: number;
+  readonly earningsOnlyRefreshCount: number;
+  readonly unchangedCount: number;
+  readonly requestsMade: number;
+  readonly retriesUsed: number;
+  readonly artworkReferenceCount: number;
+  readonly uniqueArtworkImageCount: number;
+  readonly artworkAttachedCount: number;
+  readonly artworkFailedCount: number;
+  readonly artworkDownloadedCount: number;
+  readonly artworkNotModifiedCount: number;
+}
+
 export interface PlayStationProgressSyncSelection {
   readonly providerTitleCount: number;
   readonly supportedTitleCount: number;
@@ -164,10 +178,12 @@ export interface PlayStationProgressSyncSelection {
 
 export interface PlayStationProgressSynchronizationResponse {
   readonly synchronization: PlayStationSyncResult;
+  readonly detailSynchronization: PlayStationTrophyDetailSynchronizationResult;
   readonly selection: PlayStationProgressSyncSelection;
 }
 
 export interface PlayStationSynchronizationResponse {
   readonly synchronization: PlayStationSyncResult;
+  readonly detailSynchronization: PlayStationTrophyDetailSynchronizationResult;
   readonly preview: PlayStationTitlePreview;
 }

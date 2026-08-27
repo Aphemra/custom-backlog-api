@@ -14,6 +14,7 @@ import type {
   PlayStationTitlePreview,
   ReconciledPlayStationTitle,
   PlayStationSyncResult,
+  PlayStationTrophyDetailSynchronizationResult,
 } from "../../../domain/playStation";
 import { ApiError } from "../../../services/api/apiClient";
 import { playStationApi } from "../../../services/api/playStationApi";
@@ -494,6 +495,8 @@ export function PlayStationPage() {
   const [isSynchronizing, setIsSynchronizing] = useState(false);
   const [lastSynchronization, setLastSynchronization] =
     useState<PlayStationSyncResult | null>(null);
+  const [lastDetailSynchronization, setLastDetailSynchronization] =
+    useState<PlayStationTrophyDetailSynchronizationResult | null>(null);
   const [busyIdentity, setBusyIdentity] = useState<string | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -674,6 +677,7 @@ export function PlayStationPage() {
 
       storePreview(result.preview, true);
       setLastSynchronization(result.synchronization);
+      setLastDetailSynchronization(result.detailSynchronization);
 
       if (result.synchronization.status === "succeeded") {
         setNotice(
@@ -926,6 +930,17 @@ export function PlayStationPage() {
 
               <span>PlayStation requests</span>
             </div>
+
+            {lastDetailSynchronization === null ? null : (
+              <div>
+                <strong>
+                  {lastDetailSynchronization.fullRefreshCount +
+                    lastDetailSynchronization.earningsOnlyRefreshCount}
+                </strong>
+
+                <span>Detailed trophy updates</span>
+              </div>
+            )}
           </div>
 
           {lastSynchronization.status === "partial" ? (
@@ -937,6 +952,15 @@ export function PlayStationPage() {
           ) : null}
 
           <p className="psn-sync-result__time">
+            {lastDetailSynchronization === null ? null : (
+              <>
+                {lastDetailSynchronization.unchangedCount} linked{" "}
+                {lastDetailSynchronization.unchangedCount === 1
+                  ? "game required"
+                  : "games required"}{" "}
+                no detailed requests.{" "}
+              </>
+            )}
             Finished{" "}
             {new Intl.DateTimeFormat(undefined, {
               dateStyle: "medium",

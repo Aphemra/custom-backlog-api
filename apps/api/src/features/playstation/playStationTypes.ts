@@ -52,6 +52,93 @@ export interface PlayStationTrophyCounts {
   platinum: number;
 }
 
+export type PlayStationTrophyType = "bronze" | "silver" | "gold" | "platinum";
+
+export type PlayStationTrophyRarity = 0 | 1 | 2 | 3;
+
+export interface PlayStationTrophyGroupDefinition {
+  trophyGroupId: string;
+  name: string;
+  detail: string | null;
+  iconUrl: string;
+  definedTrophies: PlayStationTrophyCounts;
+  providerPayload: Readonly<Record<string, unknown>>;
+}
+
+export interface PlayStationTrophySetDefinition {
+  trophySetVersion: string;
+  titleName: string;
+  titleDetail: string | null;
+  titleIconUrl: string;
+  platforms: PlayStationTrophyPlatform[];
+  hasTrophyGroups: boolean;
+  definedTrophies: PlayStationTrophyCounts;
+  groups: PlayStationTrophyGroupDefinition[];
+  providerPayload: Readonly<Record<string, unknown>>;
+}
+
+export interface PlayStationTrophyDefinition {
+  trophyId: number;
+  trophyGroupId: string;
+  trophyType: PlayStationTrophyType;
+  hidden: boolean;
+  name: string | null;
+  detail: string | null;
+  iconUrl: string | null;
+  providerPayload: Readonly<Record<string, unknown>>;
+}
+
+export interface PlayStationTrophyDefinitionPage {
+  trophySetVersion: string;
+  hasTrophyGroups: boolean;
+  trophies: PlayStationTrophyDefinition[];
+  totalItemCount: number;
+  nextOffset: number | null;
+  providerPayload: Readonly<Record<string, unknown>>;
+}
+
+export interface PlayStationTrophyEarning {
+  trophyId: number;
+  trophyType: PlayStationTrophyType;
+  hidden: boolean;
+  earned: boolean;
+  earnedAt: string | null;
+  rarity: PlayStationTrophyRarity | null;
+  earnedRate: number | null;
+  progressTargetValue: string | null;
+  progressValue: string | null;
+  progressRate: number | null;
+  rewardName: string | null;
+  rewardImageUrl: string | null;
+  providerPayload: Readonly<Record<string, unknown>>;
+}
+
+export interface PlayStationTrophyEarningsPage {
+  trophySetVersion: string;
+  hasTrophyGroups: boolean;
+  lastUpdatedAt: string;
+  trophies: PlayStationTrophyEarning[];
+  totalItemCount: number;
+  nextOffset: number | null;
+  providerPayload: Readonly<Record<string, unknown>>;
+}
+
+export interface PlayStationTrophyDetailFetchResult {
+  trophySet: PlayStationTrophySetDefinition;
+  definitions: PlayStationTrophyDefinition[];
+  earnings: PlayStationTrophyEarning[];
+  lastUpdatedAt: string;
+  requestsMade: number;
+  retriesUsed: number;
+}
+
+export interface PlayStationTrophyEarningsFetchResult {
+  earnings: PlayStationTrophyEarning[];
+  lastUpdatedAt: string;
+  requestsMade: number;
+  retriesUsed: number;
+}
+
 export interface PlayStationTrophyTitlePreview {
   npServiceName: "trophy" | "trophy2";
   npCommunicationId: string;

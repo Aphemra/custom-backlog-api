@@ -2,7 +2,10 @@ import {
   exchangeAccessCodeForAuthTokens,
   exchangeNpssoForAccessCode,
   exchangeRefreshTokenForAuthTokens,
+  getTitleTrophies,
+  getTitleTrophyGroups,
   getUserTitles,
+  getUserTrophiesEarnedForTitle,
   getUserTrophyProfileSummary,
   makeUniversalSearch,
 } from "psn-api";
@@ -30,6 +33,35 @@ export interface PlayStationApiOperations {
   ): Promise<unknown>;
 }
 
+export interface PlayStationTrophyDetailRequestOptions {
+  npServiceName: "trophy" | "trophy2";
+  limit: number;
+  offset: number;
+}
+
+export interface PlayStationTrophyDetailApiOperations {
+  getTrophyGroups(
+    authorization: PlayStationAuthorization,
+    npCommunicationId: string,
+    options: {
+      npServiceName: "trophy" | "trophy2";
+    },
+  ): Promise<unknown>;
+  getTrophyDefinitions(
+    authorization: PlayStationAuthorization,
+    npCommunicationId: string,
+    trophyGroupId: "all",
+    options: PlayStationTrophyDetailRequestOptions,
+  ): Promise<unknown>;
+  getTrophyEarnings(
+    authorization: PlayStationAuthorization,
+    accountId: string,
+    npCommunicationId: string,
+    trophyGroupId: "all",
+    options: PlayStationTrophyDetailRequestOptions,
+  ): Promise<unknown>;
+}
+
 export const playStationApiOperations: PlayStationApiOperations = {
   exchangeNpssoForAccessCode,
   exchangeAccessCodeForAuthTokens,
@@ -41,3 +73,10 @@ export const playStationApiOperations: PlayStationApiOperations = {
   getTrophySummary: getUserTrophyProfileSummary,
   getTrophyTitles: getUserTitles,
 };
+
+export const playStationTrophyDetailApiOperations: PlayStationTrophyDetailApiOperations =
+  {
+    getTrophyGroups: getTitleTrophyGroups,
+    getTrophyDefinitions: getTitleTrophies,
+    getTrophyEarnings: getUserTrophiesEarnedForTitle,
+  };

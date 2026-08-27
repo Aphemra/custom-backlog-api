@@ -5,6 +5,8 @@ import { playStatusFoundationMigration } from "./003PlayStatusFoundation.js";
 import { savedViewPlayStatusMigration } from "./004SavedViewPlayStatus.js";
 import { appSettingsDefaultsMigration } from "./005AppSettingsDefaults.js";
 import { playStationProfileSnapshotsMigration } from "./006PlayStationProfileSnapshots.js";
+import { playStationTrophyStorageMigration } from "./007PlayStationTrophyStorage.js";
+import { playStationTrophyAccountScopeMigration } from "./008PlayStationTrophyAccountScope.js";
 
 export const migrations: readonly Migration[] = [
   initialSchemaMigration,
@@ -13,4 +15,6 @@ export const migrations: readonly Migration[] = [
   savedViewPlayStatusMigration,
   appSettingsDefaultsMigration,
   playStationProfileSnapshotsMigration,
+  playStationTrophyStorageMigration,
+  playStationTrophyAccountScopeMigration,
 ];

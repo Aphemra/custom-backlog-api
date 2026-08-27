@@ -408,6 +408,16 @@ export function LibraryPage() {
 
             <div>
               <strong>
+                {lastProgressSync.detailSynchronization.fullRefreshCount +
+                  lastProgressSync.detailSynchronization
+                    .earningsOnlyRefreshCount}
+              </strong>
+
+              <span>Detailed trophy updates</span>
+            </div>
+
+            <div>
+              <strong>
                 Level{" "}
                 {lastProgressSync.synchronization.profileSnapshot.trophyLevel}
               </strong>
@@ -441,7 +451,13 @@ export function LibraryPage() {
               ? "stack"
               : "stacks"}{" "}
             from {lastProgressSync.selection.supportedTitleCount} supported PSN
-            titles. Finished{" "}
+            titles. {lastProgressSync.detailSynchronization.unchangedCount}{" "}
+            required no detailed requests;{" "}
+            {lastProgressSync.detailSynchronization.requestsMade} detailed PSN{" "}
+            {lastProgressSync.detailSynchronization.requestsMade === 1
+              ? "request"
+              : "requests"}
+            . Finished{" "}
             {formatDateTime(lastProgressSync.synchronization.finishedAt)}
           </p>
         </section>

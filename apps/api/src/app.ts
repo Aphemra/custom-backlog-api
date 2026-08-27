@@ -70,6 +70,11 @@ export function createApp(
       ...(playStationOptions.operations === undefined
         ? {}
         : { operations: playStationOptions.operations }),
+      ...(playStationOptions.detailOperations === undefined
+        ? {}
+        : {
+            detailOperations: playStationOptions.detailOperations,
+          }),
       ...(playStationOptions.requestGate === undefined
         ? {}
         : { requestGate: playStationOptions.requestGate }),

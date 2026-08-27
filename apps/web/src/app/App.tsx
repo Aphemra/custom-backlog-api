@@ -4,6 +4,7 @@ import { CollectionsPage } from "../features/collections/pages/CollectionsPage";
 import { LibraryPage } from "../features/library/pages/LibraryPage";
 import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
 import { SavedViewsPage } from "../features/savedViews/pages/SavedViewsPage";
+import { SettingsPage } from "../features/settings/pages/SettingsPage";
 import { PlayStationPage } from "../features/playstation/pages/PlayStationPage";
 
 type ActivePage =
@@ -12,7 +13,8 @@ type ActivePage =
   | "savedViews"
   | "playstation"
   | "alerts"
-  | "portableData";
+  | "portableData"
+  | "settings";
 
 export function App() {
   const [activePage, setActivePage] = useState<ActivePage>("library");
@@ -90,7 +92,15 @@ export function App() {
           Import / Export
         </button>
 
-        <span className="primary-nav__item">Settings</span>
+        <button
+          className={`primary-nav__item${
+            activePage === "settings" ? " primary-nav__item--active" : ""
+          }`}
+          type="button"
+          onClick={() => setActivePage("settings")}
+        >
+          Settings
+        </button>
       </nav>
 
       {activePage === "library" ? <LibraryPage /> : null}
@@ -104,6 +114,8 @@ export function App() {
       {activePage === "alerts" ? <TrophyAlertsPage /> : null}
 
       {activePage === "portableData" ? <PortableDataPage /> : null}
+
+      {activePage === "settings" ? <SettingsPage /> : null}
     </main>
   );
 }

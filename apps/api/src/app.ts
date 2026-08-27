@@ -21,6 +21,7 @@ import {
   type PlayStationRouteOptions,
 } from "./routes/playStationRoutes.js";
 import { createSavedViewRoutes } from "./routes/savedViewRoutes.js";
+import { createSettingsRoutes } from "./routes/settingsRoutes.js";
 
 export function createApp(
   database: DatabaseSync,
@@ -86,6 +87,8 @@ export function createApp(
 
   app.use("/api/saved-views", createSavedViewRoutes(database));
 
+  app.use("/api/settings", createSettingsRoutes(database));
+
   app.use("/api/trophy-alerts", createTrophyAlertRoutes(database));
 
   app.use(
@@ -120,6 +123,7 @@ export function createApp(
           ok: false,
           error: error.code,
           message: error.message,
+          ...(error.details === undefined ? {} : { details: error.details }),
         });
 
         return;

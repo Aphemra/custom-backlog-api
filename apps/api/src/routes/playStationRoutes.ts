@@ -24,6 +24,8 @@ import {
   type PlayStationPlatform,
   type PlayStatus,
 } from "../features/library/libraryGameTypes.js";
+import { PlayStationSyncCooldownService } from "../features/playstation/playStationSyncCooldownService.js";
+import { PlayStationSyncExecutionLock } from "../features/playstation/playStationSyncExecutionLock.js";
 import { PlayStationTrophySyncService } from "../features/playstation/playStationTrophySyncService.js";
 
 export interface PlayStationRouteOptions {
@@ -76,6 +78,12 @@ export function createPlayStationRoutes(
   );
 
   const titleImageService = new PlayStationTitleImageService(imageCacheService);
+
+  const syncCooldownService = new PlayStationSyncCooldownService(
+    options.database,
+  );
+
+  const syncExecutionLock = new PlayStationSyncExecutionLock();
 
   const trophySyncService = new PlayStationTrophySyncService(options.database);
 
@@ -318,18 +326,24 @@ export function createPlayStationRoutes(
     }
 
     try {
-      const reconciledPreview = titleReconciliationService.reconcile(
-        await titlePreviewService.previewTitles(),
-      );
+      const result = await syncExecutionLock.run(async () => {
+        syncCooldownService.enforceAndRecordAttempt();
 
-      const preview = titleImageService.attachCachedIcons(reconciledPreview);
+        const reconciledPreview = titleReconciliationService.reconcile(
+          await titlePreviewService.previewTitles(),
+        );
 
-      titleLinkService.rememberPreview(preview);
+        const preview = titleImageService.attachCachedIcons(reconciledPreview);
 
-      response.json({
-        synchronization: trophySyncService.synchronize(preview),
-        preview,
+        titleLinkService.rememberPreview(preview);
+
+        return {
+          synchronization: trophySyncService.synchronize(preview),
+          preview,
+        };
       });
+
+      response.json(result);
     } catch (error) {
       next(error);
     }

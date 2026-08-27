@@ -82,10 +82,12 @@ function createPreview(
 test("stores snapshots and detects expanded trophy sets and lost completion", () => {
   const database = openDatabase(":memory:");
 
-  const game = new LibraryGameRepository(database).create({
+  const libraryRepository = new LibraryGameRepository(database);
+
+  const game = libraryRepository.create({
     title: "Expandable Trophy Game",
     platform: "PS5",
-    pursuitStatus: "finished",
+    playStatus: "not_started",
     notes: null,
   });
 
@@ -142,12 +144,16 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
     assert.equal(first.newTrophyAlertsCreated, 0);
     assert.equal(first.completionLostAlertsCreated, 0);
 
+    assert.equal(libraryRepository.findById(game.id)?.playStatus, "completed");
+
     const second = service.synchronize(createPreview(game.id, 92, 45, 4));
 
     assert.equal(second.status, "succeeded");
     assert.equal(second.snapshotsCreated, 1);
     assert.equal(second.newTrophyAlertsCreated, 1);
     assert.equal(second.completionLostAlertsCreated, 1);
+
+    assert.equal(libraryRepository.findById(game.id)?.playStatus, "completed");
 
     const third = service.synchronize(createPreview(game.id, 100, 45, 4));
 

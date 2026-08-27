@@ -83,7 +83,7 @@ test("atomically adds an IGDB result and its metadata to the library", async () 
           name: "Astro Bot",
           summary: "A platforming adventure.",
           platforms: [{ id: 167 }],
-          release_dates: [{ date: 1_725_580_800, platform: 167 }],
+          release_dates: [{ date: 4_102_444_800, platform: 167 }],
           cover: { image_id: "co8abc" },
         },
       ]);
@@ -118,7 +118,7 @@ test("atomically adds an IGDB result and its metadata to the library", async () 
       },
       body: JSON.stringify({
         platform: "PS5",
-        pursuitStatus: "pursuing_soon",
+        playStatus: "playing",
       }),
     });
 
@@ -128,7 +128,7 @@ test("atomically adds an IGDB result and its metadata to the library", async () 
 
     assert.equal(created.game.title, "Astro Bot");
     assert.equal(created.game.platform, "PS5");
-    assert.equal(created.game.pursuitStatus, "pursuing_soon");
+    assert.equal(created.game.playStatus, "unreleased");
     assert.equal(tokenRequests, 1);
     assert.equal(gameRequests, 1);
     assert.equal(readCount(database, "library_games"), 1);

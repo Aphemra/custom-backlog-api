@@ -1,4 +1,7 @@
-import type { PlayStationPlatform } from "../library/libraryGameTypes.js";
+import type {
+  PlayStationPlatform,
+  PlayStatus,
+} from "../library/libraryGameTypes.js";
 
 export interface IgdbCredentials {
   clientId: string | null;
@@ -29,11 +32,5 @@ export interface IgdbGameSearchResult extends Omit<
 export interface AddIgdbGameInput {
   externalId: string;
   platform: PlayStationPlatform;
-  pursuitStatus:
-    | "unplanned"
-    | "pursuing_soon"
-    | "in_progress"
-    | "paused"
-    | "finished"
-    | "abandoned";
+  playStatus: PlayStatus;
 }

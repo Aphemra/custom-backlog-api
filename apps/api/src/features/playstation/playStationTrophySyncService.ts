@@ -332,6 +332,21 @@ export class PlayStationTrophySyncService {
           this.database
             .prepare(
               `
+              UPDATE library_games
+              SET
+                play_status = 'completed',
+                pursuit_status = 'finished',
+                updated_at = ?
+              WHERE
+                id = ?
+                AND play_status <> 'completed'
+            `,
+            )
+            .run(capturedAt, gameId);
+
+          this.database
+            .prepare(
+              `
               UPDATE trophy_alerts
               SET
                 status = 'resolved',

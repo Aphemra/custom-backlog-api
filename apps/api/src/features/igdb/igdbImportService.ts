@@ -75,14 +75,25 @@ export class IgdbImportService {
         );
       }
 
+      const timestamp = new Date().toISOString();
+
+      const releaseTimestamp =
+        igdbGame.releaseDate === null
+          ? Number.NaN
+          : Date.parse(igdbGame.releaseDate);
+
+      const playStatus =
+        Number.isFinite(releaseTimestamp) &&
+        releaseTimestamp > Date.parse(timestamp)
+          ? "unreleased"
+          : input.playStatus;
+
       const libraryGame = this.libraryRepository.create({
         title: igdbGame.title,
         platform: input.platform,
-        pursuitStatus: input.pursuitStatus,
+        playStatus,
         notes: null,
       });
-
-      const timestamp = new Date().toISOString();
 
       const coverUrl =
         igdbGame.coverImageId === null

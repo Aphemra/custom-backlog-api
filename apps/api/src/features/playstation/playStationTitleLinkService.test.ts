@@ -25,7 +25,7 @@ function createPreviewTitle(): ReconciledPlayStationTitle {
       gold: 3,
       platinum: 1,
     },
-    progress: 25,
+    progress: 100,
     earnedTrophies: {
       bronze: 10,
       silver: 2,
@@ -72,12 +72,12 @@ test("atomically creates and links a library game from a PSN preview", () => {
       npServiceName: "trophy2",
       npCommunicationId: "NPWR10000_00",
       platform: "PS5",
-      pursuitStatus: "pursuing_soon",
+      playStatus: "waiting",
     });
 
     assert.equal(result.game.title, "Example PSN Game");
     assert.equal(result.game.platform, "PS5");
-    assert.equal(result.game.pursuitStatus, "pursuing_soon");
+    assert.equal(result.game.playStatus, "completed");
 
     assert.equal(result.link.gameId, result.game.id);
     assert.equal(result.link.npCommunicationId, "NPWR10000_00");
@@ -86,7 +86,7 @@ test("atomically creates and links a library game from a PSN preview", () => {
     const storedGame = database
       .prepare(
         `
-        SELECT title, platform, pursuit_status
+        SELECT title, platform, play_status
         FROM library_games
         WHERE id = ?
       `,
@@ -95,14 +95,14 @@ test("atomically creates and links a library game from a PSN preview", () => {
       | {
           title: string;
           platform: string;
-          pursuit_status: string;
+          play_status: string;
         }
       | undefined;
 
     assert.notEqual(storedGame, undefined);
     assert.equal(storedGame?.title, "Example PSN Game");
     assert.equal(storedGame?.platform, "PS5");
-    assert.equal(storedGame?.pursuit_status, "pursuing_soon");
+    assert.equal(storedGame?.play_status, "completed");
   } finally {
     database.close();
   }
@@ -121,7 +121,7 @@ test("rolls back creation when the selected platform is incompatible", () => {
           npServiceName: "trophy2",
           npCommunicationId: "NPWR10000_00",
           platform: "PS3",
-          pursuitStatus: "unplanned",
+          playStatus: "not_started",
         }),
       (error: unknown) =>
         error instanceof HttpError &&

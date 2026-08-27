@@ -13,9 +13,12 @@ import type {
   IgdbCredentials,
 } from "../features/igdb/igdbTypes.js";
 import {
+  migratePursuitStatus,
   playStationPlatforms,
+  playStatuses,
   pursuitStatuses,
   type PlayStationPlatform,
+  type PlayStatus,
   type PursuitStatus,
 } from "../features/library/libraryGameTypes.js";
 
@@ -110,7 +113,7 @@ function readAddInput(externalId: string, value: unknown): AddIgdbGameInput {
     );
   }
 
-  const allowedKeys = new Set(["platform", "pursuitStatus"]);
+  const allowedKeys = new Set(["platform", "playStatus", "pursuitStatus"]);
 
   if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
     throw new HttpError(
@@ -131,23 +134,50 @@ function readAddInput(externalId: string, value: unknown): AddIgdbGameInput {
     );
   }
 
-  const pursuitStatus = value.pursuitStatus ?? "unplanned";
-
-  if (
-    typeof pursuitStatus !== "string" ||
-    !pursuitStatuses.includes(pursuitStatus as PursuitStatus)
-  ) {
+  if (value.playStatus !== undefined && value.pursuitStatus !== undefined) {
     throw new HttpError(
       400,
-      "invalid_pursuit_status",
-      "pursuitStatus is not supported.",
+      "conflicting_status_fields",
+      "Provide playStatus, not both playStatus and pursuitStatus.",
     );
+  }
+
+  let playStatus: PlayStatus = "not_started";
+
+  if (value.playStatus !== undefined) {
+    if (
+      typeof value.playStatus !== "string" ||
+      !playStatuses.includes(value.playStatus as PlayStatus)
+    ) {
+      throw new HttpError(
+        400,
+        "invalid_play_status",
+        "playStatus is not supported.",
+      );
+    }
+
+    playStatus = value.playStatus as PlayStatus;
+  }
+
+  if (value.pursuitStatus !== undefined) {
+    if (
+      typeof value.pursuitStatus !== "string" ||
+      !pursuitStatuses.includes(value.pursuitStatus as PursuitStatus)
+    ) {
+      throw new HttpError(
+        400,
+        "invalid_pursuit_status",
+        "pursuitStatus is not supported.",
+      );
+    }
+
+    playStatus = migratePursuitStatus(value.pursuitStatus as PursuitStatus);
   }
 
   return {
     externalId,
     platform: value.platform as PlayStationPlatform,
-    pursuitStatus: pursuitStatus as PursuitStatus,
+    playStatus,
   };
 }
 

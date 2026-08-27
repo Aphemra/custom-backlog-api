@@ -1,104 +1,95 @@
 # Trophy Backlog
 
-Trophy Backlog is a local-first personal application for organizing
-PlayStation games and tracking trophy progress.
+Trophy Backlog is a local-first personal web app for organizing a PlayStation trophy backlog, importing trophy progress from a dedicated reader account, and enriching games with IGDB metadata and locally cached artwork.
 
-The application is designed primarily for a vertical desktop monitor. It
-tracks trophy-bearing PS3, PS4, and PS5 titles, including trophy-enabled
-PlayStation Classics.
+The app is designed primarily for a vertical desktop monitor. It runs on one computer, stores its data in a local SQLite database, and exposes its API only on `127.0.0.1` or `localhost`.
 
-## V2 status
+## Current status
 
-The `main` branch contains the v2 application. The previous implementation is
-preserved on the `v1` branch.
+Version 2 is under active development. The current build includes:
 
-V2 currently includes:
+- Library game creation, editing, ordering, hiding through the current archive mechanism, restoration, and permanent deletion.
+- PS3, PS4, and PS5 games only.
+- Ordered Collections with ordered game membership.
+- Saved Views with filters for platform, status, Collections, trophy state, sync state, alerts, and hidden/active state.
+- IGDB search, optional DLC and edition results, Library import, metadata enrichment, and locally cached cover artwork.
+- PlayStation reader-account connection testing, trophy-title preview, reconciliation, Library linking/import, trophy-summary snapshots, and change alerts.
+- Cached PlayStation title icons.
+- Trophy alerts for newly added trophies and loss of 100% completion.
+- Portable JSON export/import format v3, including Library, Collections, Saved Views, integration links, metadata, trophy snapshots, alerts, and cached-image records.
+- Automatic SQLite backup before portable-data import and a manual backup endpoint.
 
-- A local-only Express API
-- SQLite persistence and numbered migrations
-- Local SQLite backup creation
-- Persistent library game creation, editing, ordering, archiving, restoration,
-  and permanent deletion
-- Strict request validation and automated API/database tests
-- A functional React library interface with search, summary counts, manual game
-  entry, editing, archiving, restoration, deletion confirmation, and ordering
-- Collection creation, editing, deletion, ordering, ordered game membership,
-  aggregate counts, and a focused game-selection interface
-- Saved-view API support with built-in views, custom view creation, editing,
-  deletion, ordering, and server-side game filtering
-- Versioned portable JSON export, validation, preview, automatic pre-import
-  SQLite backup, and atomic library/Collection/saved-view replacement through
-  the API; older version-one files remain importable
-- A functional Import / Export interface with native JSON downloads, local file
-  selection, count comparison, and explicit replacement acknowledgement
-- Responsive layouts for portrait desktop monitors and narrow screens
+Several screens and terms are still transitional. In particular, the current `Pursuit Status`, `Archive`, separate Saved Views page, separate Import/Export page, and text-heavy game cards are scheduled for replacement. See [the roadmap](docs/v2/roadmap.md).
 
-The saved-view interface, metadata search, trophy synchronization, and alerts
-are still to be built. Trophy-dependent built-in views are present but remain
-explicitly unavailable until synchronization supplies real trophy data.
+## Technology
 
-## Requirements
+- React 19 and Vite 8
+- TypeScript 6
+- Express 5
+- Node.js 24 or newer
+- Node's built-in SQLite support
+- `psn-api` 2.18.1
+- IGDB API through Twitch application credentials
 
-- Node.js 24.15 or newer
-- npm 11 or newer
+No PlatPrices dependency is used or planned.
 
-Node 24 provides the built-in SQLite runtime used by the local API, so no
-separate database server or third-party native database package is required.
+## Local setup
+
+1. Install Node.js 24.15 or newer.
+2. Run `npm install` from the repository root.
+3. Copy `apps/api/.env.example` to `apps/api/.env`.
+4. Add IGDB and PlayStation credentials to `apps/api/.env` as needed.
+5. Run `npm run dev`.
+6. Open `http://127.0.0.1:5173`.
+
+The API listens on `http://127.0.0.1:3001` by default.
+
+## Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `BACKLOG_HOST` | API host. Only `127.0.0.1` and `localhost` are accepted. |
+| `BACKLOG_PORT` | API port. Defaults to `3001`. |
+| `BACKLOG_DATA_DIRECTORY` | SQLite, backup, and image-cache directory. Defaults to `apps/api/runtime`. |
+| `IGDB_CLIENT_ID` | Twitch application client ID used for IGDB. |
+| `IGDB_CLIENT_SECRET` | Twitch application client secret used for IGDB. |
+| `PSN_READER_NPSSO` | NPSSO token for the dedicated reader account. |
+| `PSN_READER_ONLINE_ID` | Reader account online ID. Must differ from the target account. |
+| `PSN_TARGET_ONLINE_ID` | Trophy account to read. |
+
+Credentials stay server-side and must never be committed. The PlayStation reader account must not be used for normal play or write actions.
 
 ## Commands
 
-Install the workspace:
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the API and web app together. |
+| `npm run dev:api` | Start only the API in watch mode. |
+| `npm run dev:web` | Start only the web app. |
+| `npm run typecheck` | Type-check both workspaces. |
+| `npm run test` | Run available workspace tests. |
+| `npm run lint` | Lint the web workspace. |
+| `npm run build` | Build both workspaces. |
+| `npm run start:api` | Run the built API. |
 
-```bash
-npm install
-```
+## Runtime data
 
-Run the API and web application:
+By default, runtime files live under `apps/api/runtime`:
 
-```bash
-npm run dev
-```
+- `trophy-backlog.sqlite` — the primary database.
+- `backups/` — SQLite backups created by the app.
+- `images/` — locally cached IGDB and PlayStation images.
 
-Verify the project:
+Portable JSON exports are the user-controlled recovery format. Cached image records are portable, but the image files themselves should be treated as a rebuildable cache rather than the only copy of important information.
 
-```bash
-npm run typecheck
-npm run lint
-npm test
-npm run build
-```
+## Documentation
 
-## Local addresses
+- [Product scope](docs/v2/scope.md)
+- [Architecture](docs/v2/architecture.md)
+- [API reference](docs/v2/api.md)
+- [PlayStation API safety](docs/v2/api-safety.md)
+- [Implementation roadmap](docs/v2/roadmap.md)
 
-- Web application: `http://127.0.0.1:5173`
-- API health check: `http://127.0.0.1:3001/api/health`
-- Database status: `http://127.0.0.1:3001/api/database/status`
-- Library API: `http://127.0.0.1:3001/api/library/games`
-- Collections API: `http://127.0.0.1:3001/api/collections`
-- Saved views API: `http://127.0.0.1:3001/api/saved-views`
-- Portable data API: `http://127.0.0.1:3001/api/data`
+## Product boundaries
 
-Both development servers are intentionally restricted to the local computer.
-
-## Local data
-
-The SQLite database is stored at:
-
-```text
-apps/api/runtime/trophy-backlog.sqlite
-```
-
-SQLite backups are stored under:
-
-```text
-apps/api/runtime/backups/
-```
-
-The entire `apps/api/runtime/` directory is ignored by Git.
-
-## Product documentation
-
-- `docs/v2/scope.md`
-- `docs/v2/architecture.md`
-- `docs/v2/api.md`
-- `docs/v2/api-safety.md`
+Trophy Backlog is intentionally a single-user, local-only tool. It will not become a public social network, hosted trophy service, price tracker, trophy-guide host, or replacement for PSNProfiles. External guide, map, and PSNProfiles links may be stored for quick access, but the app will not scrape or republish those services.

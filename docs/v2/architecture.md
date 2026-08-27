@@ -1,337 +1,112 @@
-# V2 architecture
+# Version 2 Architecture
 
 ## Overview
 
-Trophy Backlog is a local application with two workspace packages:
-
-- `apps/web`: the React user interface
-- `apps/api`: the local API, persistence layer, and external-service adapters
-
-The browser communicates only with the local API. External credentials and
-external-service requests must never be placed in browser code.
-
-## Data flow
+Trophy Backlog is a local monorepo with two applications:
 
 ```text
-React interface
-      |
-      | /api
-      v
-Local Express API
-      |
-      +-- SQLite repositories
-      +-- backup and restore services
-      +-- PlayStation read adapter (planned)
-      +-- metadata provider adapter (planned)
+Browser (React/Vite, 127.0.0.1:5173)
+        |
+        | /api through the Vite development proxy
+        v
+Local API (Express, 127.0.0.1:3001)
+        |
+        +-- SQLite database
+        +-- local backups
+        +-- local image cache
+        +-- IGDB/Twitch API
+        +-- PlayStation API through psn-api
 ```
 
-## Storage
+The browser never receives IGDB secrets or the PlayStation NPSSO. External integration calls originate in the API.
 
-SQLite is the canonical store. The API uses the SQLite implementation bundled
-with Node.js 24, avoiding a separate database server and third-party native
-database dependency.
-
-Browser localStorage may be used only for disposable interface preferences,
-such as whether a panel is collapsed. It must not be the only home of library,
-collection, trophy, synchronization, alert, or backup data.
-
-The default database location is:
+## Repository layout
 
 ```text
-apps/api/runtime/trophy-backlog.sqlite
+apps/
+  api/                 Express API, SQLite access, integrations, tests
+  web/                 React and Vite user interface
+docs/v2/               product and engineering documentation
+package.json           workspace scripts
 ```
 
-The data directory can be changed with `BACKLOG_DATA_DIRECTORY`. Relative paths
-are resolved from `apps/api`.
+Within `apps/api/src`, routes validate HTTP input and delegate to feature services or repositories. Database migrations own schema evolution. Integration clients are isolated behind services so stored records and Library behavior do not depend directly on live provider responses.
 
-## Migrations
+Within `apps/web/src`, feature-specific API clients and components support the current page-based interface. The roadmap consolidates Saved Views, search, import/export, and details into the Library while retaining feature boundaries underneath.
 
-Database changes use numbered migrations. Applied migrations are recorded with
-a SHA-256 checksum.
+## Runtime boundaries
 
-An applied migration must never be edited. Every later schema change must be a
-new migration with the next version number.
+### API binding
 
-Each migration runs inside a transaction. A failed migration is rolled back
-rather than leaving a partially updated schema.
+`BACKLOG_HOST` accepts only `127.0.0.1` or `localhost`. The default port is `3001`. This local-only check is an intentional security boundary, not merely a default.
 
-Risky future migrations and imports must create a backup before modifying the
-canonical database.
+### Runtime storage
 
-## Current API structure
+`BACKLOG_DATA_DIRECTORY` defaults to `apps/api/runtime` and contains:
 
-```text
-apps/api/src/
-  config/
-    runtimeConfig.ts
-  database/
-    migrations/
-    database.ts
-    getDatabaseStatus.ts
-    migration.ts
-    runMigrations.ts
-  errors/
-    httpError.ts
-  features/
-    backups/
-    collections/
-    library/
-    portableData/
-    savedViews/
-  routes/
-    collectionRoutes.ts
-    dataRoutes.ts
-    databaseRoutes.ts
-    healthRoutes.ts
-    libraryRoutes.ts
-    savedViewRoutes.ts
-  app.ts
-  index.ts
-```
+- `trophy-backlog.sqlite`
+- `backups/`
+- `images/`
 
-## Current web structure
+Database data is authoritative. Cached image files are replaceable provider cache entries.
 
-```text
-apps/web/src/
-  app/
-    App.tsx
-  domain/
-    collection.ts
-    libraryGame.ts
-    portableData.ts
-  features/
-    collections/
-      components/
-        CollectionCard.tsx
-        CollectionForm.tsx
-        CollectionGameEditor.tsx
-      pages/
-        CollectionsPage.tsx
-    library/
-      components/
-        LibraryGameForm.tsx
-        LibraryGameRow.tsx
-      pages/
-        LibraryPage.tsx
-    portableData/
-      pages/
-        PortableDataPage.tsx
-  services/
-    api/
-      apiClient.ts
-      collectionApi.ts
-      libraryApi.ts
-      portableDataApi.ts
-  styles/
-    global.css
-  main.tsx
-```
+### Credentials
 
-Tests live beside the API code they exercise. The frontend is verified through
-strict TypeScript compilation, ESLint, production builds, and local browser
-testing.
+IGDB and PlayStation credentials are read from the API environment. They are not stored in portable exports, returned by status endpoints, or exposed to the browser.
 
-## Planned API feature structure
+## Data model
 
-```text
-apps/api/src/
-  database/
-    migrations/
-    repositories/
-  features/
-    backups/
-    collections/
-    library/
-    metadata/
-    trophyAlerts/
-    trophySync/
-  integrations/
-    igdb/
-    playstation/
-  routes/
-```
+The current schema contains these main domains:
 
-Directories should be created when their first real implementation is added,
-rather than committed empty.
+- **Library:** games, platform, current Pursuit Status, manual priority, notes, and hidden/archive timestamp.
+- **Collections:** ordered Collections and ordered game membership.
+- **Saved Views:** built-in and custom filter/sort definitions.
+- **Metadata:** provider records and links from Library games to IGDB records.
+- **PlayStation links:** PSN service name and communication ID linked to a Library game.
+- **Trophy synchronization:** sync runs and title-level trophy snapshots.
+- **Alerts:** new-trophy and completion-lost records with lifecycle status.
+- **Images:** provider source records and ordered roles linked to Library games.
+- **Settings:** a schema location exists; typed user settings are scheduled for Checkpoint 3.
 
-## Planned web feature structure
+Checkpoint 2 migrates Pursuit Status to Play Status and separates `unobtainable` from play state. Later migrations add full trophy groups/trophies, profile snapshots, game resources, and richer normalized metadata where querying or durability requires it. Provider payloads may also be retained for forward compatibility, but user-visible behavior must not depend on undocumented JSON shapes alone.
 
-```text
-apps/web/src/
-  app/
-  components/
-  features/
-    alerts/
-    collections/
-    importExport/
-    library/
-    settings/
-  services/
-    api/
-  styles/
-```
+## Integration design
 
-## Domain rules
+### IGDB
 
-- A library game exists once.
-- Separate platform versions or trophy stacks may be separate library games.
-- Collections reference library games; they do not duplicate them.
-- Saved views store query rules; they do not duplicate games.
-- External metadata is replaceable data, not the identity of a library game.
-- PlayStation trophy identifiers are separate from metadata-provider
-  identifiers.
-- Trophy history is append-oriented so changes can be explained.
-- Manual user fields are never overwritten by synchronization.
-- Imports and synchronization must be repeatable without creating accidental
-  duplicates.
-- Archiving is the normal non-destructive removal operation.
-- Permanent deletion requires explicit user confirmation in the interface.
+The API obtains an app access token from Twitch, searches IGDB, stores provider metadata, and caches selected images. Search normalization strips known noise before querying. DLC and edition inclusion are explicit options.
 
-## Library interface behavior
+IGDB is the source of truth for games added outside PSN import. A provider outage must not prevent already-imported Library games and cached art from loading.
 
-The frontend loads active and archived games from the local API. Archived games
-are hidden by default but remain available through a view toggle.
+### PlayStation
 
-Search filters titles and personal notes locally. Ordering controls are disabled
-while search is active because a filtered list is not a complete representation
-of the canonical order.
+The integration uses `psn-api` with a dedicated reader account's NPSSO. It resolves the reader and target identities, previews target trophy titles, reconciles them with the Library, and stores explicit links before synchronization.
 
-API errors are converted into readable interface messages. A stopped API is
-reported as a local connection problem rather than a generic browser failure.
+All PlayStation calls share a serialized request gate. Sync retries use a bounded budget. The future Library fast-sync path will operate only on existing links, enforce a configurable cooldown and in-flight lock, and avoid IGDB work or automatic Library creation.
 
-Permanent deletion uses an explicit confirmation dialog. Archiving remains the
-normal removal action.
+### Image cache
 
-## Library ordering
+Provider image references are stored in SQLite. Binary files are served by opaque image IDs through `/api/images/:imageId`. Missing local files are refreshed from the recorded provider URL where possible. Paths are resolved inside the configured cache directory to prevent traversal.
 
-Active games have integer priority ranks. Reordering supplies every active game
-ID exactly once and updates the ranks inside one transaction.
+## API conventions
 
-Archived games are excluded from the active order. Restored games return at the
-bottom of the active library.
+- JSON request bodies are limited to 25 MB.
+- Validation rejects unknown fields for important mutation contracts.
+- Errors use `{ "ok": false, "error": "stable_code", "message": "..." }` when a message is available.
+- Destructive replacement imports have a preview operation and create a SQLite backup before mutation.
+- External integration mutations require an explicit `x-trophy-backlog-action` header.
+- Ordering endpoints require a complete, duplicate-free set rather than silently accepting partial order changes.
 
-This full-list rule prevents a filtered or stale interface from accidentally
-removing unseen games from the order.
+See [api.md](api.md) for the current endpoint inventory.
 
-## Collections
+## Backup and portability
 
-Collections are manually curated, ordered groups of existing library games.
-They replace the overly complicated v1 bucket model. A collection owns only its
-name, optional description, position, and membership order; it does not copy or
-own game records.
+Portable format v3 includes Library games, Collections and memberships, Saved Views, PlayStation links, IGDB/provider metadata links, trophy snapshots, trophy alerts, cached-image records, and Library image links. Versions 1 through 3 can be read, with safety checks that reject an older import when it would discard newer integration data.
 
-A game may appear in any number of collections. Archived games remain members
-so archiving never destroys personal organization. Permanently deleting a game
-removes its collection memberships through the database foreign key, while
-deleting a collection never deletes games.
+Image binaries are not embedded in JSON. They can be refreshed using the exported cache records. A raw SQLite backup is created before portable import.
 
-A Collection cannot be permanently deleted while a saved view references it.
-The API returns a conflict and requires the view to be edited or deleted first.
-This avoids both stale references and the surprising behavior of silently
-broadening a narrowly filtered view.
+## Planned interface architecture
 
-Collection summaries expose total, active, and archived game counts. Trophy
-aggregates will be added only after trophy snapshots become real application
-data, rather than exposing placeholder totals.
+The final shell keeps Library, Collections, PSN Trophy Import, Alerts, and Settings as primary destinations. Saved Views become Library state. Search, details, backup/restore, and editing use shared accessible dialogs. Transient mutation feedback uses a central toast system. Reordering uses one accessible drag-and-drop foundation with keyboard alternatives.
 
-Both collection ordering and membership replacement use complete ordered ID
-lists and transactions. Stale or invalid lists are rejected before any rows are
-changed. This makes the operations repeatable and prevents partial updates.
-
-## Collections interface behavior
-
-The primary Collections screen remains compact: each ordered card shows its
-name, description, total games, active games, archived games, and concise
-actions. Trophy totals stay labeled as unavailable until real synchronized
-trophy data exists.
-
-Creating and editing a collection uses a small inline form. Deletion requires
-confirmation and explicitly explains that library games are not deleted.
-
-Managing membership opens one focused editor above the collection list. The
-editor shows the selected games in their Collection-specific order and the full
-library as a searchable checklist. Archived games are visible and selectable.
-Changes remain local to the editor until the complete ordered list is saved.
-
-The application currently uses lightweight in-memory navigation between the
-Library, Collections, and Import / Export pages. A routing dependency is
-unnecessary while the personal app has only a small number of top-level screens
-and does not require shareable URLs or browser-history navigation.
-
-## Saved views
-
-Saved views are named, ordered query definitions over the one canonical game
-library. They provide the application's multiple-backlog behavior without
-duplicating games or maintaining multiple independent lists.
-
-The API supports custom view creation, editing, deletion, and complete-list
-ordering. Current server-side filters cover title/notes search, platform,
-pursuit status, archive state, and membership in one or more Collections.
-Collection membership uses any-match semantics when multiple IDs are supplied.
-A temporary search may also be applied while querying a view without changing
-its stored definition.
-
-Seven built-in definitions establish the intended product vocabulary: All
-games, Pursuing soon, In progress, Platinum earned, 100% complete, Completion
-lost, and Needs synchronization. Built-ins may be reordered but cannot be
-edited or deleted.
-
-The four trophy-dependent built-ins are explicitly reported as unavailable
-until trophy synchronization exists. Trophy-related filter and sort fields are
-already valid stored definitions so the data model will not need to change,
-but the query layer refuses to fabricate results from absent trophy data.
-
-## Backups and portable exports
-
-SQLite backups are internal safety copies created with SQLite's backup API.
-They are stored under `apps/api/runtime/backups/` by default.
-
-Portable JSON export/import is a separate safety layer from SQLite backups. It
-provides a versioned, human-accessible format for moving or restoring library
-games, Collections, and saved views without requiring direct SQLite access.
-
-Version two contains the canonical library fields, archive state, manual game
-order, Collections, ordered Collection membership, and every built-in and
-custom saved view. Generated metadata, trophy history, alerts, and settings are
-not represented yet. Version-one files remain importable and preserve the
-database's current saved views because that older format did not contain them.
-The version-one importer refuses to proceed when a current custom view filters
-by Collection, because replacing Collections could otherwise break the
-preserved rule.
-
-Every import validates the complete document and its cross-references before
-changing SQLite. The API previews incoming and current record counts, creates a
-SQLite backup immediately before replacement, and replaces the represented
-tables inside one transaction.
-
-The importer refuses to run when existing metadata links, trophy snapshots, or
-trophy alerts are present. This prevents the current portable format from
-silently deleting data introduced by later features. When those features
-become active, the portable format must be advanced and its importer extended
-before this guard is relaxed.
-
-## Import / Export interface behavior
-
-Export uses a normal same-origin download link to the API attachment endpoint.
-This lets the browser handle filenames and disk saving without holding a second
-generated copy of the JSON in frontend memory.
-
-Import file selection reads JSON locally and submits it to the preview endpoint.
-Selection alone never modifies SQLite. A successful preview shows current and
-incoming game, Collection, and membership counts side by side.
-
-The replacement action remains disabled until the user explicitly acknowledges
-that the current library and Collections will be replaced. The interface states
-that a SQLite backup is created first and reports the exact backup filename
-after a successful import.
-
-## Frontend design direction
-
-The primary layout target is a portrait-oriented desktop display.
-
-Rows expose the current title, platform, pursuit status, ordering controls,
-archive state, trophy-sync placeholder, and compact actions. Summary counts and
-search remain visible above the list without turning the page into a dense
-spreadsheet.
-
-Additional metadata belongs in expandable details or an editing surface.
+The detailed implementation sequence is maintained in [roadmap.md](roadmap.md).

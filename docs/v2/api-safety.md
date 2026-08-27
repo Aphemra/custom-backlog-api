@@ -1,117 +1,83 @@
-# External API safety policy
+# PlayStation API Safety
 
-No third-party integration may be enabled until it follows this policy.
+## Goal
 
-Absolute protection from third-party enforcement cannot be guaranteed.
-The application therefore minimizes credentials, request volume, writable
-behavior, automation, and exposure.
+PlayStation access must remain conservative, read-only, deliberate, and easy to disable. The integration exists to read trophy information for a personal local app—not to imitate a PlayStation client or automate account activity.
 
-## PlayStation account boundary
+No unofficial integration can promise zero enforcement risk. These rules minimize exposure and make accidental abuse materially less likely.
 
-The application must authenticate only with a dedicated disposable reader
-account.
+## Account model
 
-The user's primary PlayStation account credentials, cookies, tokens, and
-NPSSO value must never be entered into or stored by Trophy Backlog.
+- Use a dedicated reader PSN account.
+- Keep `PSN_READER_ONLINE_ID` different from `PSN_TARGET_ONLINE_ID`; the API rejects identical configured IDs.
+- Keep the target account's trophy visibility accessible to the reader account.
+- Do not play games, earn trophies, make purchases, message users, change settings, or perform other normal activity with the reader account.
+- Never use the primary account's NPSSO as a convenience substitute.
 
-The reader account may query only trophy information that the primary account
-makes visible to it through ordinary PlayStation privacy settings.
+## Credential handling
 
-## Allowed PlayStation behavior
+- Store `PSN_READER_NPSSO` only in `apps/api/.env` or the local process environment.
+- The token must contain exactly 64 characters.
+- Never commit `.env`, paste the token into client code, logs, screenshots, portable exports, or documentation.
+- The browser receives only configured/not-configured status and non-secret account results.
+- If the reader account is no longer dedicated or a token may have leaked, sign out/revoke the session and generate a replacement.
 
-- Resolve the configured target account.
-- Read the target account's visible trophy titles.
-- Read visible trophy definitions and earned progress when required.
-- Store normalized local snapshots.
-- Perform synchronization only after an explicit user action.
-- Optionally skip requests when the most recent successful sync is still
-  considered fresh.
+Logging into `playstation.com` with the reader account before retrieving the NPSSO is valid. The NPSSO must come from that same active reader-account session.
 
-## Prohibited PlayStation behavior
+## Current enforced protections
 
-- Sending messages
-- Modifying profiles
-- Managing friends
-- Creating or joining sessions
-- Launching games or altering presence
-- Earning, unlocking, or modifying trophies
-- Purchasing or modifying store content
-- Reading unrelated social data
-- Background polling
-- Concurrent request floods
-- Automatic retries without a strict limit
-- Attempting to bypass privacy settings, authentication challenges,
-  throttling, or access denial
+The current API provides these protections:
 
-## Request controls
+- **Local binding:** the API starts only on `127.0.0.1` or `localhost`.
+- **Server-only credentials:** PlayStation secrets never need to enter the React app.
+- **Explicit actions:** connection test, title preview, title linking, title import, and synchronization require exact `x-trophy-backlog-action` values.
+- **Serialized calls:** all PlayStation operations share one request queue.
+- **Minimum spacing:** the default request gate leaves at least 1,000 ms between provider calls.
+- **Bounded retrying:** each provider request permits at most two attempts, and one synchronization may consume at most five retries total.
+- **Limited platform scope:** preview processing keeps supported PS3, PS4, and PS5 trophy titles.
+- **No background polling:** current PlayStation requests occur only after an explicit user action.
+- **Read-oriented operations:** implemented provider calls resolve accounts and read trophy/profile/title data.
 
-The PlayStation adapter must have one centralized request queue.
+These limits are process-local. Restarting the API resets the in-memory request queue and retry accounting.
 
-Initial safety defaults:
+## Planned protections
 
-- One request at a time
-- At least one second between requests
-- No more than five retry attempts across an entire sync
-- No more than two attempts for an individual failed request
-- A minimum six-hour cooldown between successful full syncs
-- A manual force-sync action may bypass freshness, but not rate or retry
-  limits
-- Stop immediately on authentication or authorization failures
-- Stop on throttling and require a later manual retry
-- Never loop until success
+Checkpoint 3 adds persisted typed sync policy:
 
-If a legitimate synchronization cannot operate within the current request
-budget, development must stop and the budget must be reviewed explicitly.
-Code must not silently increase it.
+- A Library sync cooldown enabled by default at 300 seconds.
+- A deliberate toggle that can disable the cooldown.
+- API rejection with remaining-wait information when the cooldown has not elapsed.
+- A single in-flight synchronization lock so double-clicks or multiple browser tabs cannot overlap a sync.
+- Settings UI that explains the safety tradeoff instead of encouraging a zero-second interval.
 
-## Failure behavior
+Checkpoint 4 separates fast Library progress sync from PSN import/reconciliation. Fast sync will touch only existing PSN links; it will not search IGDB, create Library games, or wade through unlinked titles in the interface.
 
-A failed synchronization must preserve the last successful local snapshot.
+## Safe development rules
 
-Partial data must not replace a complete snapshot. Errors should be presented
-as local application status, not hidden behind repeated requests.
+1. Use fixtures or mocked operations for automated tests. Tests must never consume live NPSSO credentials.
+2. Run one small manual connection test before testing a broader sync.
+3. Do not add automatic sync-on-page-load or a recurring polling timer.
+4. Do not parallelize PlayStation calls to reduce waiting time.
+5. Do not retry authentication failures in a tight loop.
+6. Stop after repeated authorization, rate-limit, or provider-shape failures and inspect the response before trying again.
+7. Prefer stored snapshots for UI development instead of repeatedly fetching live data.
+8. Treat a provider library upgrade as integration-risk work: review changed operations, run mocked tests, then perform one controlled live test.
 
-The application must distinguish:
+## Expected failures
 
-- authentication failure
-- privacy or authorization denial
-- throttling
-- network failure
-- unexpected response shape
-- incomplete synchronization
+An expired or rejected NPSSO should produce a clear failure and require manual replacement. A missing target account should not trigger username guessing. Provider response-shape changes should fail validation instead of writing partial or malformed trophy records.
 
-## Credentials
+Rate limiting or transient provider errors may use the bounded retry budget. Authentication failures, validation failures, and permanent lookup failures should not be blindly retried.
 
-Credentials belong only in ignored local environment files or an appropriate
-operating-system credential store.
+## Incident response
 
-Credentials must never appear in:
+If unexpected requests, account security notices, or repeated failures occur:
 
-- frontend code
-- API responses
-- logs
-- exported backlog backups
-- Git history
-- screenshots or diagnostics
+1. Stop the local API.
+2. Sign the reader account out of active sessions and replace the NPSSO.
+3. Confirm the target ID and privacy visibility manually.
+4. Inspect local logs without sharing credentials.
+5. Use stored Library and snapshot data while the integration is disabled.
+6. Resume with one connection test only after the cause is understood.
 
-## Metadata providers
-
-Metadata integrations such as IGDB must remain separate from trophy
-synchronization.
-
-Metadata failures must not prevent access to locally stored games or trophy
-history. Provider identifiers must not become the application's only game
-identity.
-
-## Required tests before enabling PlayStation access
-
-- The configured account is the dedicated reader account.
-- The target account is separate from the reader account.
-- Every exposed adapter operation is read-only.
-- Request concurrency is one.
-- Retry and cooldown limits are enforced.
-- Authentication failures stop the sync.
-- Throttling stops the sync.
-- Partial results cannot overwrite the last complete snapshot.
-- Secrets are absent from logs, API responses, exports, and frontend bundles.
-- No synchronization begins automatically on page load.
+The rest of the app must remain useful while PSN access is unavailable. Library organization, Collections, Saved Views, cached metadata, backups, and existing snapshots are local features, not contingent on a live reader session.

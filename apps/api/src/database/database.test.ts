@@ -9,6 +9,7 @@ import { createDatabaseBackup } from "../features/backups/createDatabaseBackup.j
 import { openDatabase } from "./database.js";
 import { getDatabaseStatus } from "./getDatabaseStatus.js";
 import { initialSchemaMigration } from "./migrations/001InitialSchema.js";
+import { integrationStorageMigration } from "./migrations/002IntegrationStorage.js";
 import { runMigrations } from "./runMigrations.js";
 
 interface CountRow {
@@ -21,8 +22,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 2,
-      availableMigrationCount: 2,
+      schemaVersion: 3,
+      availableMigrationCount: 3,
     });
 
     const row = database
@@ -138,15 +139,15 @@ test("upgrades an existing version-one database without replacing it", () => {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
       schemaVersion: 1,
-      availableMigrationCount: 2,
+      availableMigrationCount: 3,
     });
 
     runMigrations(database);
 
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 2,
-      availableMigrationCount: 2,
+      schemaVersion: 3,
+      availableMigrationCount: 3,
     });
 
     const row = database
@@ -165,6 +166,124 @@ test("upgrades an existing version-one database without replacing it", () => {
       .get() as unknown as CountRow;
 
     assert.equal(row.count, 3);
+  } finally {
+    database.close();
+  }
+});
+
+test("migrates legacy pursuit statuses into the play-status model", () => {
+  const database = new DatabaseSync(":memory:");
+  const timestamp = new Date().toISOString();
+
+  try {
+    runMigrations(database, [
+      initialSchemaMigration,
+      integrationStorageMigration,
+    ]);
+
+    const insertGame = database.prepare(`
+      INSERT INTO library_games (
+        id,
+        title,
+        sort_title,
+        platform,
+        pursuit_status,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, 'PS5', ?, ?, ?)
+    `);
+
+    const legacyStatuses = [
+      ["unplanned-game", "unplanned"],
+      ["pursuing-soon-game", "pursuing_soon"],
+      ["in-progress-game", "in_progress"],
+      ["paused-game", "paused"],
+      ["finished-game", "finished"],
+      ["abandoned-game", "abandoned"],
+    ] as const;
+
+    for (const [id, pursuitStatus] of legacyStatuses) {
+      insertGame.run(id, id, id, pursuitStatus, timestamp, timestamp);
+    }
+
+    runMigrations(database);
+
+    const rows = database
+      .prepare(
+        `
+          SELECT
+            id,
+            play_status,
+            is_unobtainable
+          FROM library_games
+          ORDER BY id ASC
+        `,
+      )
+      .all() as unknown as Array<{
+      id: string;
+      play_status: string;
+      is_unobtainable: number;
+    }>;
+
+    assert.deepEqual(
+      rows.map((row) => ({ ...row })),
+      [
+        {
+          id: "abandoned-game",
+          play_status: "on_hold",
+          is_unobtainable: 0,
+        },
+        {
+          id: "finished-game",
+          play_status: "completed",
+          is_unobtainable: 0,
+        },
+        {
+          id: "in-progress-game",
+          play_status: "playing",
+          is_unobtainable: 0,
+        },
+        {
+          id: "paused-game",
+          play_status: "on_hold",
+          is_unobtainable: 0,
+        },
+        {
+          id: "pursuing-soon-game",
+          play_status: "not_started",
+          is_unobtainable: 0,
+        },
+        {
+          id: "unplanned-game",
+          play_status: "not_started",
+          is_unobtainable: 0,
+        },
+      ],
+    );
+
+    assert.throws(() => {
+      database
+        .prepare(
+          `
+            UPDATE library_games
+            SET play_status = 'abandoned'
+            WHERE id = 'abandoned-game'
+          `,
+        )
+        .run();
+    });
+
+    assert.throws(() => {
+      database
+        .prepare(
+          `
+            UPDATE library_games
+            SET is_unobtainable = 2
+            WHERE id = 'abandoned-game'
+          `,
+        )
+        .run();
+    });
   } finally {
     database.close();
   }
@@ -395,7 +514,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 2);
+      assert.equal(row.count, 3);
     } finally {
       restoredDatabase.close();
     }

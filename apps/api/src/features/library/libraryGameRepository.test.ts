@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { openDatabase } from "../../database/database.js";
+import { ImageCacheRepository } from "../imageCache/imageCacheRepository.js";
 import { LibraryGameRepository } from "./libraryGameRepository.js";
 
 test("creates, updates, archives, restores, reorders, and deletes library games", () => {
@@ -29,8 +30,30 @@ test("creates, updates, archives, restores, reorders, and deletes library games"
     assert.equal(firstGame.sortTitle, "last of us");
 
     assert.equal(firstGame.trophySummary, null);
+    assert.equal(firstGame.artwork, null);
 
     const capturedAt = "2026-08-27T12:00:00.000Z";
+
+    const coverImage = new ImageCacheRepository(database).register({
+      provider: "igdb",
+      sourceKey: "cover:test-astro-bot",
+      sourceUrl:
+        "https://images.igdb.com/igdb/image/upload/t_cover_big/test.jpg",
+    });
+
+    database
+      .prepare(
+        `
+        INSERT INTO library_game_images (
+          game_id,
+          image_id,
+          role,
+          sort_order,
+          linked_at
+        ) VALUES (?, ?, 'cover', 0, ?)
+      `,
+      )
+      .run(secondGame.id, coverImage.id, capturedAt);
 
     database
       .prepare(
@@ -95,6 +118,12 @@ test("creates, updates, archives, restores, reorders, and deletes library games"
       platinumEarned: false,
       is100Percent: false,
       lastSyncedAt: capturedAt,
+    });
+
+    assert.deepEqual(repository.findById(secondGame.id)?.artwork, {
+      imageId: coverImage.id,
+      url: `/api/images/${coverImage.id}`,
+      role: "cover",
     });
 
     assert.deepEqual(

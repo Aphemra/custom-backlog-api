@@ -3,7 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type {
   CreateLibraryGameInput,
   LibraryGame,
-  LibraryGameWithTrophySummary,
+  LibraryGameWithArtwork,
   PlayStationPlatform,
   PursuitStatus,
   UpdateLibraryGameInput,
@@ -32,6 +32,8 @@ interface LibraryGameRow {
   progress_percent: number | null;
   is_100_percent: number | null;
   has_platinum: number | null;
+  artwork_image_id: string | null;
+  artwork_role: "cover" | "icon" | "background" | null;
 }
 
 interface PriorityRankRow {
@@ -42,7 +44,7 @@ interface GameIdRow {
   id: string;
 }
 
-function mapLibraryGame(row: LibraryGameRow): LibraryGameWithTrophySummary {
+function mapLibraryGame(row: LibraryGameRow): LibraryGameWithArtwork {
   const trophySummary =
     row.captured_at === null
       ? null
@@ -66,6 +68,18 @@ function mapLibraryGame(row: LibraryGameRow): LibraryGameWithTrophySummary {
           lastSyncedAt: row.captured_at,
         };
 
+  const artwork =
+    row.artwork_image_id === null ||
+    row.artwork_image_id === undefined ||
+    row.artwork_role === null ||
+    row.artwork_role === undefined
+      ? null
+      : {
+          imageId: row.artwork_image_id,
+          url: `/api/images/${row.artwork_image_id}`,
+          role: row.artwork_role,
+        };
+
   return {
     id: row.id,
     title: row.title,
@@ -78,6 +92,7 @@ function mapLibraryGame(row: LibraryGameRow): LibraryGameWithTrophySummary {
     updatedAt: row.updated_at,
     archivedAt: row.archived_at,
     trophySummary,
+    artwork,
   };
 }
 
@@ -91,7 +106,7 @@ function createSortTitle(title: string): string {
 export class LibraryGameRepository {
   constructor(private readonly database: DatabaseSync) {}
 
-  list(includeArchived = false): readonly LibraryGameWithTrophySummary[] {
+  list(includeArchived = false): readonly LibraryGameWithArtwork[] {
     const rows = this.database
       .prepare(
         `
@@ -117,8 +132,49 @@ export class LibraryGameRepository {
           ts.platinum_earned,
           ts.progress_percent,
           ts.is_100_percent,
-          ts.has_platinum
+          ts.has_platinum,
+          COALESCE(lgi.image_id, ps_image.id) AS artwork_image_id,
+          CASE
+            WHEN lgi.image_id IS NOT NULL THEN lgi.role
+            WHEN ps_image.id IS NOT NULL THEN 'icon'
+            ELSE NULL
+          END AS artwork_role
         FROM library_games lg
+        LEFT JOIN library_game_images lgi
+          ON lgi.rowid = (
+            SELECT preferred_image.rowid
+            FROM library_game_images preferred_image
+            WHERE preferred_image.game_id = lg.id
+            ORDER BY
+              CASE preferred_image.role
+                WHEN 'cover' THEN 0
+                WHEN 'icon' THEN 1
+                ELSE 2
+              END,
+              preferred_image.sort_order ASC,
+              preferred_image.image_id ASC
+            LIMIT 1
+          )
+        LEFT JOIN playstation_game_links psl
+          ON psl.game_id = lg.id
+        LEFT JOIN cached_images ps_image
+          ON ps_image.id = (
+            SELECT latest_ps_image.id
+            FROM cached_images latest_ps_image
+            WHERE
+              latest_ps_image.provider = 'playstation'
+              AND latest_ps_image.source_key LIKE (
+                'trophy-title:'
+                || psl.np_service_name
+                || ':'
+                || psl.np_communication_id
+                || ':%'
+              )
+            ORDER BY
+              latest_ps_image.updated_at DESC,
+              latest_ps_image.id ASC
+            LIMIT 1
+          )
         LEFT JOIN trophy_snapshots ts
           ON ts.id = (
             SELECT latest.id
@@ -142,7 +198,7 @@ export class LibraryGameRepository {
     return rows.map(mapLibraryGame);
   }
 
-  findById(gameId: string): LibraryGameWithTrophySummary | null {
+  findById(gameId: string): LibraryGameWithArtwork | null {
     const row = this.database
       .prepare(
         `
@@ -168,8 +224,49 @@ export class LibraryGameRepository {
           ts.platinum_earned,
           ts.progress_percent,
           ts.is_100_percent,
-          ts.has_platinum
+          ts.has_platinum,
+          COALESCE(lgi.image_id, ps_image.id) AS artwork_image_id,
+          CASE
+            WHEN lgi.image_id IS NOT NULL THEN lgi.role
+            WHEN ps_image.id IS NOT NULL THEN 'icon'
+            ELSE NULL
+          END AS artwork_role
         FROM library_games lg
+        LEFT JOIN library_game_images lgi
+          ON lgi.rowid = (
+            SELECT preferred_image.rowid
+            FROM library_game_images preferred_image
+            WHERE preferred_image.game_id = lg.id
+            ORDER BY
+              CASE preferred_image.role
+                WHEN 'cover' THEN 0
+                WHEN 'icon' THEN 1
+                ELSE 2
+              END,
+              preferred_image.sort_order ASC,
+              preferred_image.image_id ASC
+            LIMIT 1
+          )
+        LEFT JOIN playstation_game_links psl
+          ON psl.game_id = lg.id
+        LEFT JOIN cached_images ps_image
+          ON ps_image.id = (
+            SELECT latest_ps_image.id
+            FROM cached_images latest_ps_image
+            WHERE
+              latest_ps_image.provider = 'playstation'
+              AND latest_ps_image.source_key LIKE (
+                'trophy-title:'
+                || psl.np_service_name
+                || ':'
+                || psl.np_communication_id
+                || ':%'
+              )
+            ORDER BY
+              latest_ps_image.updated_at DESC,
+              latest_ps_image.id ASC
+            LIMIT 1
+          )
         LEFT JOIN trophy_snapshots ts
           ON ts.id = (
             SELECT latest.id
@@ -186,7 +283,7 @@ export class LibraryGameRepository {
     return row === undefined ? null : mapLibraryGame(row);
   }
 
-  create(input: CreateLibraryGameInput): LibraryGameWithTrophySummary {
+  create(input: CreateLibraryGameInput): LibraryGameWithArtwork {
     const id = randomUUID();
     const timestamp = new Date().toISOString();
     const priorityRank = this.getNextPriorityRank();
@@ -225,7 +322,7 @@ export class LibraryGameRepository {
   update(
     gameId: string,
     input: UpdateLibraryGameInput,
-  ): LibraryGameWithTrophySummary | null {
+  ): LibraryGameWithArtwork | null {
     const currentGame = this.findById(gameId);
 
     if (currentGame === null) {
@@ -265,7 +362,7 @@ export class LibraryGameRepository {
     return this.requireById(gameId);
   }
 
-  archive(gameId: string): LibraryGameWithTrophySummary | null {
+  archive(gameId: string): LibraryGameWithArtwork | null {
     const currentGame = this.findById(gameId);
 
     if (currentGame === null || currentGame.archivedAt !== null) {
@@ -289,7 +386,7 @@ export class LibraryGameRepository {
     return this.requireById(gameId);
   }
 
-  restore(gameId: string): LibraryGameWithTrophySummary | null {
+  restore(gameId: string): LibraryGameWithArtwork | null {
     const currentGame = this.findById(gameId);
 
     if (currentGame === null || currentGame.archivedAt === null) {
@@ -385,7 +482,7 @@ export class LibraryGameRepository {
     return (row.priority_rank ?? 0) + 1_000;
   }
 
-  private requireById(gameId: string): LibraryGameWithTrophySummary {
+  private requireById(gameId: string): LibraryGameWithArtwork {
     const game = this.findById(gameId);
 
     if (game === null) {

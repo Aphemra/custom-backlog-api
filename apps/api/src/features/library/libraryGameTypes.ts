@@ -47,6 +47,16 @@ export interface LibraryGameWithTrophySummary extends LibraryGame {
   readonly trophySummary: LibraryTrophySummary | null;
 }
 
+export interface LibraryGameArtwork {
+  readonly imageId: string;
+  readonly url: string;
+  readonly role: "cover" | "icon" | "background";
+}
+
+export interface LibraryGameWithArtwork extends LibraryGameWithTrophySummary {
+  readonly artwork: LibraryGameArtwork | null;
+}
+
 export interface CreateLibraryGameInput {
   readonly title: string;
   readonly platform: PlayStationPlatform;

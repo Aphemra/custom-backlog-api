@@ -1,10 +1,11 @@
+import { useState } from "react";
 import {
   pursuitStatusLabels,
-  type LibraryGameWithTrophySummary,
+  type LibraryGameWithArtwork,
 } from "../../../domain/libraryGame";
 
 interface LibraryGameRowProps {
-  readonly game: LibraryGameWithTrophySummary;
+  readonly game: LibraryGameWithArtwork;
   readonly position: number | null;
   readonly canMoveUp: boolean;
   readonly canMoveDown: boolean;
@@ -51,7 +52,12 @@ export function LibraryGameRow({
 }: LibraryGameRowProps) {
   const isArchived = game.archivedAt !== null;
 
+  const [failedImageId, setFailedImageId] = useState<string | null>(null);
+
   const trophySummary = game.trophySummary;
+
+  const showArtwork =
+    game.artwork !== null && failedImageId !== game.artwork.imageId;
 
   const earnedTrophyCount =
     trophySummary === null ? 0 : totalTrophies(trophySummary.earnedTrophies);
@@ -89,6 +95,26 @@ export function LibraryGameRow({
               ↓
             </button>
           </>
+        )}
+      </div>
+
+      <div
+        className={`game-row__artwork${
+          game.artwork?.role === "icon" ? " game-row__artwork--icon" : ""
+        }`}
+      >
+        {showArtwork && game.artwork !== null ? (
+          <img
+            src={game.artwork.url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={() => setFailedImageId(game.artwork?.imageId ?? null)}
+          />
+        ) : (
+          <span aria-hidden="true">
+            {game.title.trim().charAt(0).toLocaleUpperCase("en-US")}
+          </span>
         )}
       </div>
 

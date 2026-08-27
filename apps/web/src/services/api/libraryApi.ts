@@ -1,22 +1,20 @@
 import type {
   CreateLibraryGameInput,
-  LibraryGameWithTrophySummary,
+  LibraryGameWithArtwork,
   UpdateLibraryGameInput,
 } from "../../domain/libraryGame";
 import { requestJson, requestVoid } from "./apiClient";
 
 interface GameResponse {
-  readonly game: LibraryGameWithTrophySummary;
+  readonly game: LibraryGameWithArtwork;
 }
 
 interface GamesResponse {
-  readonly games: readonly LibraryGameWithTrophySummary[];
+  readonly games: readonly LibraryGameWithArtwork[];
 }
 
 export const libraryApi = {
-  async list(
-    signal?: AbortSignal,
-  ): Promise<readonly LibraryGameWithTrophySummary[]> {
+  async list(signal?: AbortSignal): Promise<readonly LibraryGameWithArtwork[]> {
     const response = await requestJson<GamesResponse>(
       "/api/library/games?includeArchived=true",
       { signal },
@@ -25,9 +23,7 @@ export const libraryApi = {
     return response.games;
   },
 
-  async create(
-    input: CreateLibraryGameInput,
-  ): Promise<LibraryGameWithTrophySummary> {
+  async create(input: CreateLibraryGameInput): Promise<LibraryGameWithArtwork> {
     const response = await requestJson<GameResponse>("/api/library/games", {
       method: "POST",
       body: JSON.stringify(input),
@@ -39,7 +35,7 @@ export const libraryApi = {
   async update(
     gameId: string,
     input: UpdateLibraryGameInput,
-  ): Promise<LibraryGameWithTrophySummary> {
+  ): Promise<LibraryGameWithArtwork> {
     const response = await requestJson<GameResponse>(
       `/api/library/games/${encodeURIComponent(gameId)}`,
       {
@@ -53,7 +49,7 @@ export const libraryApi = {
 
   async reorder(
     orderedGameIds: readonly string[],
-  ): Promise<readonly LibraryGameWithTrophySummary[]> {
+  ): Promise<readonly LibraryGameWithArtwork[]> {
     const response = await requestJson<GamesResponse>(
       "/api/library/games/order",
       {
@@ -65,7 +61,7 @@ export const libraryApi = {
     return response.games;
   },
 
-  async archive(gameId: string): Promise<LibraryGameWithTrophySummary> {
+  async archive(gameId: string): Promise<LibraryGameWithArtwork> {
     const response = await requestJson<GameResponse>(
       `/api/library/games/${encodeURIComponent(gameId)}/archive`,
       { method: "POST" },
@@ -74,7 +70,7 @@ export const libraryApi = {
     return response.game;
   },
 
-  async restore(gameId: string): Promise<LibraryGameWithTrophySummary> {
+  async restore(gameId: string): Promise<LibraryGameWithArtwork> {
     const response = await requestJson<GameResponse>(
       `/api/library/games/${encodeURIComponent(gameId)}/restore`,
       { method: "POST" },

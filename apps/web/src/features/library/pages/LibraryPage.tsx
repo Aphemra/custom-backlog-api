@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   CreateLibraryGameInput,
   LibraryGame,
-  LibraryGameWithTrophySummary,
+  LibraryGameWithArtwork,
 } from "../../../domain/libraryGame";
 import { ApiError } from "../../../services/api/apiClient";
 import { libraryApi } from "../../../services/api/libraryApi";
@@ -21,9 +21,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function LibraryPage() {
-  const [games, setGames] = useState<readonly LibraryGameWithTrophySummary[]>(
-    [],
-  );
+  const [games, setGames] = useState<readonly LibraryGameWithArtwork[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

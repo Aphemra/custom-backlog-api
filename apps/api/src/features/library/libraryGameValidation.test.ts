@@ -12,11 +12,15 @@ test("normalizes valid create and update input", () => {
     parseCreateLibraryGameInput({
       title: "  Astro Bot  ",
       platform: "PS5",
+      playStatus: "playing",
+      isUnobtainable: false,
       notes: "  Excellent platformer.  ",
     }),
     {
       title: "Astro Bot",
       platform: "PS5",
+      playStatus: "playing",
+      isUnobtainable: false,
       notes: "Excellent platformer.",
     },
   );
@@ -58,5 +62,24 @@ test("rejects unsupported platforms, unknown fields, and duplicate reorder IDs",
       }),
     (error: unknown) =>
       error instanceof HttpError && error.code === "duplicate_game_ids",
+  );
+
+  assert.throws(
+    () =>
+      parseUpdateLibraryGameInput({
+        playStatus: "playing",
+        pursuitStatus: "in_progress",
+      }),
+    (error: unknown) =>
+      error instanceof HttpError && error.code === "conflicting_status_fields",
+  );
+
+  assert.throws(
+    () =>
+      parseUpdateLibraryGameInput({
+        isUnobtainable: "yes",
+      }),
+    (error: unknown) =>
+      error instanceof HttpError && error.code === "invalid_isUnobtainable",
   );
 });

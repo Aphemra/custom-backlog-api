@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type {
-  CreateLibraryGameInput,
-  LibraryGame,
-  LibraryGameWithArtwork,
-  PlayStationPlatform,
-  PursuitStatus,
-  UpdateLibraryGameInput,
+import {
+  createCompatiblePursuitStatus,
+  migratePursuitStatus,
+  type CreateLibraryGameInput,
+  type LibraryGame,
+  type LibraryGameWithArtwork,
+  type PlayStationPlatform,
+  type PlayStatus,
+  type PursuitStatus,
+  type UpdateLibraryGameInput,
 } from "./libraryGameTypes.js";
 
 interface LibraryGameRow {
@@ -15,6 +18,8 @@ interface LibraryGameRow {
   sort_title: string;
   platform: PlayStationPlatform;
   pursuit_status: PursuitStatus;
+  play_status: PlayStatus;
+  is_unobtainable: number;
   priority_rank: number;
   notes: string | null;
   created_at: string;
@@ -85,6 +90,9 @@ function mapLibraryGame(row: LibraryGameRow): LibraryGameWithArtwork {
     title: row.title,
     sortTitle: row.sort_title,
     platform: row.platform,
+    playStatus: row.play_status,
+    isUnobtainable: row.is_unobtainable === 1,
+    hiddenAt: row.archived_at,
     pursuitStatus: row.pursuit_status,
     priorityRank: row.priority_rank,
     notes: row.notes,
@@ -116,6 +124,8 @@ export class LibraryGameRepository {
           lg.sort_title,
           lg.platform,
           lg.pursuit_status,
+          lg.play_status,
+          lg.is_unobtainable,
           lg.priority_rank,
           lg.notes,
           lg.created_at,
@@ -208,6 +218,8 @@ export class LibraryGameRepository {
           lg.sort_title,
           lg.platform,
           lg.pursuit_status,
+          lg.play_status,
+          lg.is_unobtainable,
           lg.priority_rank,
           lg.notes,
           lg.created_at,
@@ -288,6 +300,13 @@ export class LibraryGameRepository {
     const timestamp = new Date().toISOString();
     const priorityRank = this.getNextPriorityRank();
 
+    const playStatus =
+      input.playStatus ??
+      migratePursuitStatus(input.pursuitStatus ?? "unplanned");
+
+    const pursuitStatus =
+      input.pursuitStatus ?? createCompatiblePursuitStatus(playStatus);
+
     this.database
       .prepare(
         `
@@ -297,11 +316,13 @@ export class LibraryGameRepository {
           sort_title,
           platform,
           pursuit_status,
+          play_status,
+          is_unobtainable,
           priority_rank,
           notes,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       )
       .run(
@@ -309,7 +330,9 @@ export class LibraryGameRepository {
         input.title,
         createSortTitle(input.title),
         input.platform,
-        input.pursuitStatus ?? "unplanned",
+        pursuitStatus,
+        playStatus,
+        input.isUnobtainable === true ? 1 : 0,
         priorityRank,
         input.notes ?? null,
         timestamp,
@@ -335,6 +358,21 @@ export class LibraryGameRepository {
       ? (input.notes ?? null)
       : currentGame.notes;
 
+    const currentPlayStatus =
+      currentGame.playStatus ?? migratePursuitStatus(currentGame.pursuitStatus);
+
+    const playStatus =
+      input.playStatus ??
+      (input.pursuitStatus === undefined
+        ? currentPlayStatus
+        : migratePursuitStatus(input.pursuitStatus));
+
+    const pursuitStatus =
+      input.pursuitStatus ?? createCompatiblePursuitStatus(playStatus);
+
+    const isUnobtainable =
+      input.isUnobtainable ?? currentGame.isUnobtainable ?? false;
+
     this.database
       .prepare(
         `
@@ -344,6 +382,8 @@ export class LibraryGameRepository {
           sort_title = ?,
           platform = ?,
           pursuit_status = ?,
+          play_status = ?,
+          is_unobtainable = ?,
           notes = ?,
           updated_at = ?
         WHERE id = ?
@@ -353,7 +393,9 @@ export class LibraryGameRepository {
         title,
         createSortTitle(title),
         input.platform ?? currentGame.platform,
-        input.pursuitStatus ?? currentGame.pursuitStatus,
+        pursuitStatus,
+        playStatus,
+        isUnobtainable ? 1 : 0,
         notes,
         new Date().toISOString(),
         gameId,
@@ -362,10 +404,10 @@ export class LibraryGameRepository {
     return this.requireById(gameId);
   }
 
-  archive(gameId: string): LibraryGameWithArtwork | null {
+  hide(gameId: string): LibraryGameWithArtwork | null {
     const currentGame = this.findById(gameId);
 
-    if (currentGame === null || currentGame.archivedAt !== null) {
+    if (currentGame === null || currentGame.hiddenAt !== null) {
       return currentGame;
     }
 
@@ -386,10 +428,15 @@ export class LibraryGameRepository {
     return this.requireById(gameId);
   }
 
-  restore(gameId: string): LibraryGameWithArtwork | null {
+  /** Transitional alias for callers that have not moved to Hidden Games yet. */
+  archive(gameId: string): LibraryGameWithArtwork | null {
+    return this.hide(gameId);
+  }
+
+  unhide(gameId: string): LibraryGameWithArtwork | null {
     const currentGame = this.findById(gameId);
 
-    if (currentGame === null || currentGame.archivedAt === null) {
+    if (currentGame === null || currentGame.hiddenAt === null) {
       return currentGame;
     }
 
@@ -407,6 +454,11 @@ export class LibraryGameRepository {
       .run(this.getNextPriorityRank(), new Date().toISOString(), gameId);
 
     return this.requireById(gameId);
+  }
+
+  /** Transitional alias for callers that have not moved to Hidden Games yet. */
+  restore(gameId: string): LibraryGameWithArtwork | null {
+    return this.unhide(gameId);
   }
 
   deletePermanently(gameId: string): boolean {

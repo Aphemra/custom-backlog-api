@@ -18,7 +18,7 @@ function readGameId(request: Request): string {
   return gameId.trim();
 }
 
-function readIncludeArchived(value: unknown): boolean {
+function readIncludeHidden(value: unknown): boolean {
   if (value === undefined || value === "false") {
     return false;
   }
@@ -29,8 +29,8 @@ function readIncludeArchived(value: unknown): boolean {
 
   throw new HttpError(
     400,
-    "invalid_include_archived",
-    "includeArchived must be true or false.",
+    "invalid_include_hidden",
+    "includeHidden must be true or false.",
   );
 }
 
@@ -52,10 +52,12 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
   const repository = new LibraryGameRepository(database);
 
   libraryRoutes.get("/games", (request, response) => {
-    const includeArchived = readIncludeArchived(request.query.includeArchived);
+    const includeHidden = readIncludeHidden(
+      request.query.includeHidden ?? request.query.includeArchived,
+    );
 
     response.json({
-      games: repository.list(includeArchived),
+      games: repository.list(includeHidden),
     });
   });
 
@@ -100,14 +102,27 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
     response.json({ game });
   });
 
+  libraryRoutes.post("/games/:gameId/hide", (request, response) => {
+    const game = requireGame(repository.hide(readGameId(request)));
+
+    response.json({ game });
+  });
+
+  libraryRoutes.post("/games/:gameId/unhide", (request, response) => {
+    const game = requireGame(repository.unhide(readGameId(request)));
+
+    response.json({ game });
+  });
+
+  // Transitional routes retained until the web interface moves in Slice 5.
   libraryRoutes.post("/games/:gameId/archive", (request, response) => {
-    const game = requireGame(repository.archive(readGameId(request)));
+    const game = requireGame(repository.hide(readGameId(request)));
 
     response.json({ game });
   });
 
   libraryRoutes.post("/games/:gameId/restore", (request, response) => {
-    const game = requireGame(repository.restore(readGameId(request)));
+    const game = requireGame(repository.unhide(readGameId(request)));
 
     response.json({ game });
   });

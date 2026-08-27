@@ -4,7 +4,7 @@ import { openDatabase } from "../../database/database.js";
 import { ImageCacheRepository } from "../imageCache/imageCacheRepository.js";
 import { LibraryGameRepository } from "./libraryGameRepository.js";
 
-test("creates, updates, archives, restores, reorders, and deletes library games", () => {
+test("creates, updates, hides, unhides, reorders, and deletes library games", () => {
   const database = openDatabase(":memory:");
 
   const repository = new LibraryGameRepository(database);
@@ -13,7 +13,7 @@ test("creates, updates, archives, restores, reorders, and deletes library games"
     const firstGame = repository.create({
       title: "The Last of Us",
       platform: "PS3",
-      pursuitStatus: "finished",
+      playStatus: "completed",
     });
 
     const secondGame = repository.create({
@@ -132,12 +132,13 @@ test("creates, updates, archives, restores, reorders, and deletes library games"
     );
 
     const updatedGame = repository.update(secondGame.id, {
-      pursuitStatus: "pursuing_soon",
+      playStatus: "waiting",
+      isUnobtainable: true,
       notes: null,
     });
 
-    assert.equal(updatedGame?.pursuitStatus, "pursuing_soon");
-
+    assert.equal(updatedGame?.playStatus, "waiting");
+    assert.equal(updatedGame?.isUnobtainable, true);
     assert.equal(updatedGame?.notes, null);
 
     assert.equal(
@@ -150,9 +151,9 @@ test("creates, updates, archives, restores, reorders, and deletes library games"
       [thirdGame.id, firstGame.id, secondGame.id],
     );
 
-    const archivedGame = repository.archive(firstGame.id);
+    const hiddenGame = repository.hide(firstGame.id);
 
-    assert.notEqual(archivedGame?.archivedAt, null);
+    assert.notEqual(hiddenGame?.hiddenAt, null);
 
     assert.equal(
       repository.list().some((game) => game.id === firstGame.id),
@@ -164,9 +165,9 @@ test("creates, updates, archives, restores, reorders, and deletes library games"
       true,
     );
 
-    const restoredGame = repository.restore(firstGame.id);
+    const unhiddenGame = repository.unhide(firstGame.id);
 
-    assert.equal(restoredGame?.archivedAt, null);
+    assert.equal(unhiddenGame?.hiddenAt, null);
 
     assert.equal(repository.deletePermanently(secondGame.id), true);
 

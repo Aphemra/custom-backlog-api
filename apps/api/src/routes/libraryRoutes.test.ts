@@ -64,7 +64,8 @@ test("exposes library CRUD through the local API", async () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        pursuitStatus: "in_progress",
+        playStatus: "playing",
+        isUnobtainable: true,
       }),
     });
 
@@ -72,7 +73,42 @@ test("exposes library CRUD through the local API", async () => {
 
     const updated = (await updateResponse.json()) as GameResponse;
 
-    assert.equal(updated.game.pursuitStatus, "in_progress");
+    assert.equal(updated.game.playStatus, "playing");
+    assert.equal(updated.game.isUnobtainable, true);
+
+    const hideResponse = await fetch(
+      `${baseUrl}/games/${created.game.id}/hide`,
+      {
+        method: "POST",
+      },
+    );
+
+    assert.equal(hideResponse.status, 200);
+
+    const hidden = (await hideResponse.json()) as GameResponse;
+
+    assert.notEqual(hidden.game.hiddenAt, null);
+
+    const hiddenListResponse = await fetch(
+      `${baseUrl}/games?includeHidden=true`,
+    );
+
+    const hiddenList = (await hiddenListResponse.json()) as GamesResponse;
+
+    assert.equal(hiddenList.games.length, 1);
+
+    const unhideResponse = await fetch(
+      `${baseUrl}/games/${created.game.id}/unhide`,
+      {
+        method: "POST",
+      },
+    );
+
+    assert.equal(unhideResponse.status, 200);
+
+    const unhidden = (await unhideResponse.json()) as GameResponse;
+
+    assert.equal(unhidden.game.hiddenAt, null);
 
     const listResponse = await fetch(`${baseUrl}/games`);
 

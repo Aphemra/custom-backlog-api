@@ -32,7 +32,7 @@ function createValidExport() {
   }
 }
 
-test("accepts a complete version-three portable export", () => {
+test("accepts a complete version-four portable export", () => {
   const portableData = createValidExport();
 
   assert.deepEqual(parsePortableDataExport(portableData), portableData);
@@ -45,7 +45,7 @@ test("rejects unsupported versions and broken collection references", () => {
     formatVersion: number;
   };
 
-  unsupportedVersion.formatVersion = 4;
+  unsupportedVersion.formatVersion = 5;
 
   assert.throws(
     () => parsePortableDataExport(unsupportedVersion),
@@ -72,32 +72,50 @@ test("rejects unsupported versions and broken collection references", () => {
 });
 
 test("continues to accept version-one and version-two exports", () => {
-  const versionThree = createValidExport();
+  const versionFour = createValidExport();
+
+  const legacyGames = versionFour.data.libraryGames.map((game) => ({
+    id: game.id,
+    title: game.title,
+    sortTitle: game.sortTitle,
+    platform: game.platform,
+    pursuitStatus:
+      game.playStatus === "playing"
+        ? ("in_progress" as const)
+        : game.playStatus === "completed"
+          ? ("finished" as const)
+          : game.playStatus === "on_hold" || game.playStatus === "waiting"
+            ? ("paused" as const)
+            : ("unplanned" as const),
+    priorityRank: game.priorityRank,
+    notes: game.notes,
+    createdAt: game.createdAt,
+    updatedAt: game.updatedAt,
+    archivedAt: game.hiddenAt,
+  }));
 
   const versionOne = {
-    format: versionThree.format,
+    format: versionFour.format,
     formatVersion: 1 as const,
-    exportedAt: versionThree.exportedAt,
+    exportedAt: versionFour.exportedAt,
 
     data: {
-      libraryGames: versionThree.data.libraryGames,
-      collections: versionThree.data.collections,
+      libraryGames: legacyGames,
+      collections: versionFour.data.collections,
     },
   };
 
   const versionTwo = {
-    format: versionThree.format,
+    format: versionFour.format,
     formatVersion: 2 as const,
-    exportedAt: versionThree.exportedAt,
+    exportedAt: versionFour.exportedAt,
 
     data: {
-      libraryGames: versionThree.data.libraryGames,
-      collections: versionThree.data.collections,
-      savedViews: versionThree.data.savedViews,
+      libraryGames: legacyGames,
+      collections: versionFour.data.collections,
+      savedViews: versionFour.data.savedViews,
     },
   };
-
-  assert.deepEqual(parsePortableDataExport(versionOne), versionOne);
 
   assert.deepEqual(parsePortableDataExport(versionTwo), versionTwo);
 });

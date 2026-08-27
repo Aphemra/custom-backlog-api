@@ -4,9 +4,12 @@ import {
   createDatabaseBackup,
   type DatabaseBackupResult,
 } from "../backups/createDatabaseBackup.js";
-import type {
-  PlayStationPlatform,
-  PursuitStatus,
+import {
+  createCompatiblePursuitStatus,
+  migratePursuitStatus,
+  type PlayStationPlatform,
+  type PlayStatus,
+  type PursuitStatus,
 } from "../library/libraryGameTypes.js";
 import {
   parseSavedViewFilters,
@@ -19,7 +22,6 @@ import {
   type PortableDataCounts,
   type PortableDataExport,
   type PortableImportPreview,
-  type PortableLibraryGame,
   type PortableSavedView,
 } from "./portableDataTypes.js";
 import {
@@ -27,7 +29,10 @@ import {
   insertPortableV3IntegrationData,
   readPortableV3IntegrationData,
 } from "./portableDataV3Storage.js";
-import type { PortableDataExportV3 } from "./portableDataV3Types.js";
+import type {
+  PortableDataExportV4,
+  PortableLibraryGameV4,
+} from "./portableDataV4Types.js";
 
 interface LibraryGameRow {
   id: string;
@@ -35,6 +40,8 @@ interface LibraryGameRow {
   sort_title: string;
   platform: PlayStationPlatform;
   pursuit_status: PursuitStatus;
+  play_status: PlayStatus;
+  is_unobtainable: number;
   priority_rank: number;
   notes: string | null;
   created_at: string;
@@ -89,20 +96,20 @@ function normalizeTimestamp(value: string): string {
   return date.toISOString();
 }
 
-function mapGame(row: LibraryGameRow): PortableLibraryGame {
+function mapGame(row: LibraryGameRow): PortableLibraryGameV4 {
   return {
     id: row.id,
     title: row.title,
     sortTitle: row.sort_title,
     platform: row.platform,
-    pursuitStatus: row.pursuit_status,
+    playStatus: row.play_status,
+    isUnobtainable: row.is_unobtainable === 1,
     priorityRank: row.priority_rank,
     notes: row.notes,
     createdAt: normalizeTimestamp(row.created_at),
-
     updatedAt: normalizeTimestamp(row.updated_at),
 
-    archivedAt:
+    hiddenAt:
       row.archived_at === null ? null : normalizeTimestamp(row.archived_at),
   };
 }
@@ -213,27 +220,27 @@ function getIncomingCounts(
         : readCount(database, "saved_views"),
 
     playstationLinks:
-      portableData.formatVersion === 3
+      portableData.formatVersion === 3 || portableData.formatVersion === 4
         ? portableData.data.playstationGameLinks.length
         : 0,
 
     metadataEntries:
-      portableData.formatVersion === 3
+      portableData.formatVersion === 3 || portableData.formatVersion === 4
         ? portableData.data.externalGameMetadata.length
         : 0,
 
     trophySnapshots:
-      portableData.formatVersion === 3
+      portableData.formatVersion === 3 || portableData.formatVersion === 4
         ? portableData.data.trophySnapshots.length
         : 0,
 
     trophyAlerts:
-      portableData.formatVersion === 3
+      portableData.formatVersion === 3 || portableData.formatVersion === 4
         ? portableData.data.trophyAlerts.length
         : 0,
 
     cachedImages:
-      portableData.formatVersion === 3
+      portableData.formatVersion === 3 || portableData.formatVersion === 4
         ? portableData.data.cachedImages.length
         : 0,
   };
@@ -243,7 +250,7 @@ function assertImportWillNotDiscardUnsupportedData(
   database: DatabaseSync,
   portableData: PortableDataExport,
 ): void {
-  if (portableData.formatVersion === 3) {
+  if (portableData.formatVersion === 3 || portableData.formatVersion === 4) {
     return;
   }
 
@@ -297,14 +304,14 @@ function assertVersionOneCanPreserveSavedViews(
     throw new HttpError(
       409,
       "portable_v1_cannot_preserve_collection_views",
-      "A version-one import could break saved views that use Collections. Export the current app as version three before replacing this data.",
+      "A version-one import could break saved views that use Collections. Export the current app as version four before replacing this data.",
     );
   }
 }
 
 export function createPortableDataExport(
   database: DatabaseSync,
-): PortableDataExportV3 {
+): PortableDataExportV4 {
   const gameRows = database
     .prepare(
       `
@@ -314,6 +321,8 @@ export function createPortableDataExport(
         sort_title,
         platform,
         pursuit_status,
+        play_status,
+        is_unobtainable,
         priority_rank,
         notes,
         created_at,
@@ -436,12 +445,14 @@ export async function importPortableData(
       sort_title,
       platform,
       pursuit_status,
+      play_status,
+      is_unobtainable,
       priority_rank,
       notes,
       created_at,
       updated_at,
       archived_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertCollection = database.prepare(`
@@ -481,7 +492,7 @@ export async function importPortableData(
   database.exec("BEGIN IMMEDIATE");
 
   try {
-    if (portableData.formatVersion === 3) {
+    if (portableData.formatVersion === 3 || portableData.formatVersion === 4) {
       deletePortableV3IntegrationData(database);
     }
 
@@ -496,17 +507,33 @@ export async function importPortableData(
     }
 
     for (const game of portableData.data.libraryGames) {
+      const isVersionFour = "playStatus" in game;
+
+      const playStatus = isVersionFour
+        ? game.playStatus
+        : migratePursuitStatus(game.pursuitStatus);
+
+      const pursuitStatus = isVersionFour
+        ? createCompatiblePursuitStatus(game.playStatus)
+        : game.pursuitStatus;
+
+      const isUnobtainable = isVersionFour ? game.isUnobtainable : false;
+
+      const hiddenAt = isVersionFour ? game.hiddenAt : game.archivedAt;
+
       insertGame.run(
         game.id,
         game.title,
         game.sortTitle,
         game.platform,
-        game.pursuitStatus,
+        pursuitStatus,
+        playStatus,
+        isUnobtainable ? 1 : 0,
         game.priorityRank,
         game.notes,
         game.createdAt,
         game.updatedAt,
-        game.archivedAt,
+        hiddenAt,
       );
     }
 
@@ -546,7 +573,7 @@ export async function importPortableData(
       }
     }
 
-    if (portableData.formatVersion === 3) {
+    if (portableData.formatVersion === 3 || portableData.formatVersion === 4) {
       insertPortableV3IntegrationData(database, portableData.data);
     }
 

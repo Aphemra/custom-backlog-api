@@ -10,6 +10,7 @@ import { openDatabase } from "./database.js";
 import { getDatabaseStatus } from "./getDatabaseStatus.js";
 import { initialSchemaMigration } from "./migrations/001InitialSchema.js";
 import { integrationStorageMigration } from "./migrations/002IntegrationStorage.js";
+import { playStatusFoundationMigration } from "./migrations/003PlayStatusFoundation.js";
 import { runMigrations } from "./runMigrations.js";
 
 interface CountRow {
@@ -22,8 +23,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 3,
-      availableMigrationCount: 3,
+      schemaVersion: 4,
+      availableMigrationCount: 4,
     });
 
     const row = database
@@ -139,15 +140,15 @@ test("upgrades an existing version-one database without replacing it", () => {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
       schemaVersion: 1,
-      availableMigrationCount: 3,
+      availableMigrationCount: 4,
     });
 
     runMigrations(database);
 
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 3,
-      availableMigrationCount: 3,
+      schemaVersion: 4,
+      availableMigrationCount: 4,
     });
 
     const row = database
@@ -283,6 +284,90 @@ test("migrates legacy pursuit statuses into the play-status model", () => {
           `,
         )
         .run();
+    });
+  } finally {
+    database.close();
+  }
+});
+
+test("migrates saved views to Play Status and Hidden Games filters", () => {
+  const database = new DatabaseSync(":memory:");
+  const timestamp = new Date().toISOString();
+
+  try {
+    runMigrations(database, [
+      initialSchemaMigration,
+      integrationStorageMigration,
+      playStatusFoundationMigration,
+    ]);
+
+    database
+      .prepare(
+        `
+          INSERT INTO saved_views (
+            id,
+            builtin_key,
+            name,
+            filters_json,
+            sort_json,
+            sort_order,
+            is_builtin,
+            created_at,
+            updated_at
+          ) VALUES (?, NULL, ?, ?, ?, ?, 0, ?, ?)
+        `,
+      )
+      .run(
+        "legacy-custom-view",
+        "Legacy custom view",
+        JSON.stringify({
+          pursuitStatuses: ["unplanned", "pursuing_soon", "in_progress"],
+          archiveMode: "archived",
+        }),
+        JSON.stringify({
+          field: "pursuitStatus",
+          direction: "asc",
+        }),
+        100,
+        timestamp,
+        timestamp,
+      );
+
+    runMigrations(database);
+
+    const row = database
+      .prepare(
+        `
+          SELECT filters_json, sort_json
+          FROM saved_views
+          WHERE id = 'legacy-custom-view'
+        `,
+      )
+      .get() as unknown as {
+      filters_json: string;
+      sort_json: string;
+    };
+
+    const filters = JSON.parse(row.filters_json) as {
+      playStatuses: string[];
+      hiddenMode: string;
+    };
+
+    const sort = JSON.parse(row.sort_json) as {
+      field: string;
+      direction: string;
+    };
+
+    assert.deepEqual(
+      new Set(filters.playStatuses),
+      new Set(["not_started", "playing"]),
+    );
+
+    assert.equal(filters.hiddenMode, "hidden");
+
+    assert.deepEqual(sort, {
+      field: "playStatus",
+      direction: "asc",
     });
   } finally {
     database.close();
@@ -514,7 +599,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 3);
+      assert.equal(row.count, 4);
     } finally {
       restoredDatabase.close();
     }

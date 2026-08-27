@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type {
   LibraryGameWithTrophySummary,
   PlayStationPlatform,
+  PlayStatus,
   PursuitStatus,
 } from "../library/libraryGameTypes.js";
 import type {
@@ -43,6 +44,8 @@ interface LibraryGameRow {
   sort_title: string;
   platform: PlayStationPlatform;
   pursuit_status: PursuitStatus;
+  play_status: PlayStatus;
+  is_unobtainable: number;
   priority_rank: number;
   notes: string | null;
   created_at: string;
@@ -140,6 +143,9 @@ function mapLibraryGame(row: LibraryGameRow): LibraryGameWithTrophySummary {
     title: row.title,
     sortTitle: row.sort_title,
     platform: row.platform,
+    playStatus: row.play_status,
+    isUnobtainable: row.is_unobtainable === 1,
+    hiddenAt: row.archived_at,
     pursuitStatus: row.pursuit_status,
     priorityRank: row.priority_rank,
     notes: row.notes,
@@ -317,13 +323,13 @@ export class SavedViewRepository {
     const conditions: string[] = [];
     const parameters: Array<string | number> = [];
 
-    const archiveMode = filters.archiveMode ?? "active";
+    const hiddenMode = filters.hiddenMode ?? "visible";
 
-    if (archiveMode === "active") {
+    if (hiddenMode === "visible") {
       conditions.push("lg.archived_at IS NULL");
     }
 
-    if (archiveMode === "archived") {
+    if (hiddenMode === "hidden") {
       conditions.push("lg.archived_at IS NOT NULL");
     }
 
@@ -335,14 +341,12 @@ export class SavedViewRepository {
       parameters.push(...filters.platforms);
     }
 
-    if (filters.pursuitStatuses !== undefined) {
+    if (filters.playStatuses !== undefined) {
       conditions.push(
-        `lg.pursuit_status IN (${filters.pursuitStatuses
-          .map(() => "?")
-          .join(", ")})`,
+        `lg.play_status IN (${filters.playStatuses.map(() => "?").join(", ")})`,
       );
 
-      parameters.push(...filters.pursuitStatuses);
+      parameters.push(...filters.playStatuses);
     }
 
     if (filters.collectionIds !== undefined) {
@@ -439,7 +443,7 @@ export class SavedViewRepository {
       priorityRank: "lg.priority_rank",
       title: "lg.sort_title",
       platform: "lg.platform",
-      pursuitStatus: "lg.pursuit_status",
+      playStatus: "lg.play_status",
       createdAt: "lg.created_at",
       updatedAt: "lg.updated_at",
       progressPercent: "ts.progress_percent",
@@ -467,6 +471,8 @@ export class SavedViewRepository {
           lg.sort_title,
           lg.platform,
           lg.pursuit_status,
+          lg.play_status,
+          lg.is_unobtainable,
           lg.priority_rank,
           lg.notes,
           lg.created_at,

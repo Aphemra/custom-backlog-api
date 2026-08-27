@@ -18,20 +18,20 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
     const astro = games.create({
       title: "Astro Bot",
       platform: "PS5",
-      pursuitStatus: "pursuing_soon",
+      playStatus: "not_started",
       notes: "favorite platformer",
     });
 
     const returnal = games.create({
       title: "Returnal",
       platform: "PS5",
-      pursuitStatus: "in_progress",
+      playStatus: "playing",
     });
 
     const bloodborne = games.create({
       title: "Bloodborne",
       platform: "PS4",
-      pursuitStatus: "finished",
+      playStatus: "completed",
     });
 
     const ratchet = games.create({
@@ -39,7 +39,7 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
       platform: "PS5",
     });
 
-    games.archive(bloodborne.id);
+    games.hide(bloodborne.id);
 
     const capturedAt = "2026-08-27T12:00:00.000Z";
 
@@ -175,6 +175,16 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
 
     assert.equal(builtins.filter((view) => view.isAvailable).length, 7);
 
+    assert.equal(
+      builtins.find((view) => view.builtinKey === "not_started")?.name,
+      "Not started",
+    );
+
+    assert.equal(
+      builtins.find((view) => view.builtinKey === "playing")?.name,
+      "Playing",
+    );
+
     const requireBuiltin = (builtinKey: string) => {
       const view = builtins.find(
         (candidate) => candidate.builtinKey === builtinKey,
@@ -222,7 +232,7 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
       filters: {
         platforms: ["PS5"],
         collectionIds: [favorites.id],
-        archiveMode: "active",
+        hiddenMode: "visible",
       },
       sort: {
         field: "title",
@@ -251,7 +261,7 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
       name: "Returnal only",
       filters: {
         search: "Returnal",
-        archiveMode: "all",
+        hiddenMode: "all",
       },
     });
 

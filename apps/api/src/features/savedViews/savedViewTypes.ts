@@ -1,17 +1,17 @@
 import type {
   PlayStationPlatform,
-  PursuitStatus,
+  PlayStatus,
 } from "../library/libraryGameTypes.js";
 
-export const archiveModes = ["active", "archived", "all"] as const;
+export const hiddenModes = ["visible", "hidden", "all"] as const;
 
-export type ArchiveMode = (typeof archiveModes)[number];
+export type HiddenMode = (typeof hiddenModes)[number];
 
 export const savedViewSortFields = [
   "priorityRank",
   "title",
   "platform",
-  "pursuitStatus",
+  "playStatus",
   "createdAt",
   "updatedAt",
   "progressPercent",
@@ -26,8 +26,8 @@ export type SortDirection = "asc" | "desc";
 export interface SavedViewFilters {
   readonly search?: string;
   readonly platforms?: readonly PlayStationPlatform[];
-  readonly pursuitStatuses?: readonly PursuitStatus[];
-  readonly archiveMode?: ArchiveMode;
+  readonly playStatuses?: readonly PlayStatus[];
+  readonly hiddenMode?: HiddenMode;
   readonly collectionIds?: readonly string[];
   readonly platinumEarned?: boolean;
   readonly is100Percent?: boolean;

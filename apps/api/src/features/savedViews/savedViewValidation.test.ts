@@ -28,8 +28,8 @@ test("normalizes complete saved-view definitions", () => {
       filters: {
         search: "astro",
         platforms: ["PS5"],
-        pursuitStatuses: ["pursuing_soon", "in_progress"],
-        archiveMode: "active",
+        playStatuses: ["not_started", "playing"],
+        hiddenMode: "visible",
         collectionIds: ["collection-one"],
       },
       sort: {

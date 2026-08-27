@@ -26,6 +26,28 @@ function createVersionThreeExport(): PortableDataExportV3 {
     collections.replaceGames(collection.id, [game.id]);
 
     const core = createPortableDataExport(database);
+
+    const legacyLibraryGames = core.data.libraryGames.map((libraryGame) => ({
+      id: libraryGame.id,
+      title: libraryGame.title,
+      sortTitle: libraryGame.sortTitle,
+      platform: libraryGame.platform,
+      pursuitStatus:
+        libraryGame.playStatus === "playing"
+          ? ("in_progress" as const)
+          : libraryGame.playStatus === "completed"
+            ? ("finished" as const)
+            : libraryGame.playStatus === "on_hold" ||
+                libraryGame.playStatus === "waiting"
+              ? ("paused" as const)
+              : ("unplanned" as const),
+      priorityRank: libraryGame.priorityRank,
+      notes: libraryGame.notes,
+      createdAt: libraryGame.createdAt,
+      updatedAt: libraryGame.updatedAt,
+      archivedAt: libraryGame.hiddenAt,
+    }));
+
     const capturedAt = "2026-08-26T12:00:00.000Z";
 
     return {
@@ -34,7 +56,7 @@ function createVersionThreeExport(): PortableDataExportV3 {
       exportedAt: core.exportedAt,
 
       data: {
-        libraryGames: core.data.libraryGames,
+        libraryGames: legacyLibraryGames,
         collections: core.data.collections,
         savedViews: core.data.savedViews,
 

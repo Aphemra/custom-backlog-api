@@ -1,15 +1,18 @@
 import { HttpError } from "../../errors/httpError.js";
 import {
+  migratePursuitStatus,
   playStationPlatforms,
+  playStatuses,
   pursuitStatuses,
   type PlayStationPlatform,
+  type PlayStatus,
   type PursuitStatus,
 } from "../library/libraryGameTypes.js";
 import {
-  archiveModes,
+  hiddenModes,
   savedViewSortFields,
-  type ArchiveMode,
   type CreateSavedViewInput,
+  type HiddenMode,
   type SavedViewFilters,
   type SavedViewSort,
   type SavedViewSortField,
@@ -20,8 +23,13 @@ import {
 const FILTER_KEYS = new Set([
   "search",
   "platforms",
+  "playStatuses",
+  "hiddenMode",
+
+  // Accepted temporarily for portable-data versions 1 through 3.
   "pursuitStatuses",
   "archiveMode",
+
   "collectionIds",
   "platinumEarned",
   "is100Percent",
@@ -153,8 +161,8 @@ export function parseSavedViewFilters(value: unknown): SavedViewFilters {
   const filters: {
     search?: string;
     platforms?: readonly PlayStationPlatform[];
-    pursuitStatuses?: readonly PursuitStatus[];
-    archiveMode?: ArchiveMode;
+    playStatuses?: readonly PlayStatus[];
+    hiddenMode?: HiddenMode;
     collectionIds?: readonly string[];
     platinumEarned?: boolean;
     is100Percent?: boolean;
@@ -162,6 +170,25 @@ export function parseSavedViewFilters(value: unknown): SavedViewFilters {
     alertKinds?: readonly ("new_trophies" | "completion_lost")[];
     alertStatus?: "unread" | "read" | "resolved" | "dismissed";
   } = {};
+
+  if (
+    record.playStatuses !== undefined &&
+    record.pursuitStatuses !== undefined
+  ) {
+    throw new HttpError(
+      400,
+      "conflicting_saved_view_filters",
+      "filters cannot contain both playStatuses and pursuitStatuses.",
+    );
+  }
+
+  if (record.hiddenMode !== undefined && record.archiveMode !== undefined) {
+    throw new HttpError(
+      400,
+      "conflicting_saved_view_filters",
+      "filters cannot contain both hiddenMode and archiveMode.",
+    );
+  }
 
   if (record.search !== undefined) {
     if (
@@ -188,16 +215,48 @@ export function parseSavedViewFilters(value: unknown): SavedViewFilters {
     );
   }
 
+  if (record.playStatuses !== undefined) {
+    filters.playStatuses = readStringArray(
+      record.playStatuses,
+      "filters.playStatuses",
+      playStatuses,
+    );
+  }
+
   if (record.pursuitStatuses !== undefined) {
-    filters.pursuitStatuses = readStringArray(
+    const legacyStatuses = readStringArray(
       record.pursuitStatuses,
       "filters.pursuitStatuses",
       pursuitStatuses,
     );
+
+    filters.playStatuses = [
+      ...new Set(
+        legacyStatuses.map((status) =>
+          migratePursuitStatus(status as PursuitStatus),
+        ),
+      ),
+    ];
+  }
+
+  if (record.hiddenMode !== undefined) {
+    if (!hiddenModes.includes(record.hiddenMode as HiddenMode)) {
+      throw new HttpError(
+        400,
+        "invalid_saved_view_filters",
+        "filters.hiddenMode must be visible, hidden, or all.",
+      );
+    }
+
+    filters.hiddenMode = record.hiddenMode as HiddenMode;
   }
 
   if (record.archiveMode !== undefined) {
-    if (!archiveModes.includes(record.archiveMode as ArchiveMode)) {
+    if (
+      record.archiveMode !== "active" &&
+      record.archiveMode !== "archived" &&
+      record.archiveMode !== "all"
+    ) {
       throw new HttpError(
         400,
         "invalid_saved_view_filters",
@@ -205,7 +264,12 @@ export function parseSavedViewFilters(value: unknown): SavedViewFilters {
       );
     }
 
-    filters.archiveMode = record.archiveMode as ArchiveMode;
+    filters.hiddenMode =
+      record.archiveMode === "archived"
+        ? "hidden"
+        : record.archiveMode === "all"
+          ? "all"
+          : "visible";
   }
 
   if (record.collectionIds !== undefined) {
@@ -266,7 +330,9 @@ export function parseSavedViewSort(value: unknown): SavedViewSort {
 
   rejectUnknownKeys(record, new Set(["field", "direction"]), "sort");
 
-  if (!savedViewSortFields.includes(record.field as SavedViewSortField)) {
+  const field = record.field === "pursuitStatus" ? "playStatus" : record.field;
+
+  if (!savedViewSortFields.includes(field as SavedViewSortField)) {
     throw new HttpError(
       400,
       "invalid_saved_view_sort",
@@ -283,7 +349,7 @@ export function parseSavedViewSort(value: unknown): SavedViewSort {
   }
 
   return {
-    field: record.field as SavedViewSortField,
+    field: field as SavedViewSortField,
     direction: record.direction as SortDirection,
   };
 }

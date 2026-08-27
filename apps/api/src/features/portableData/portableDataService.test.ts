@@ -8,6 +8,9 @@ import { openDatabase } from "../../database/database.js";
 import { HttpError } from "../../errors/httpError.js";
 import { CollectionRepository } from "../collections/collectionRepository.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
+import { createCompatiblePursuitStatus } from "../library/libraryGameTypes.js";
+import type { PortableLibraryGame } from "./portableDataTypes.js";
+import type { PortableLibraryGameV4 } from "./portableDataV4Types.js";
 import { SavedViewRepository } from "../savedViews/savedViewRepository.js";
 import {
   createPortableDataExport,
@@ -15,6 +18,23 @@ import {
   previewPortableImport,
 } from "./portableDataService.js";
 import { parsePortableDataExport } from "./portableDataValidation.js";
+
+function createLegacyPortableLibraryGames(
+  games: readonly PortableLibraryGameV4[],
+): readonly PortableLibraryGame[] {
+  return games.map((game) => ({
+    id: game.id,
+    title: game.title,
+    sortTitle: game.sortTitle,
+    platform: game.platform,
+    pursuitStatus: createCompatiblePursuitStatus(game.playStatus),
+    priorityRank: game.priorityRank,
+    notes: game.notes,
+    createdAt: game.createdAt,
+    updatedAt: game.updatedAt,
+    archivedAt: game.hiddenAt,
+  }));
+}
 
 test("exports, previews, backs up, and atomically replaces portable backlog data", async () => {
   const temporaryDirectory = await mkdtemp(
@@ -33,7 +53,8 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
     const firstGame = sourceGames.create({
       title: "Astro Bot",
       platform: "PS5",
-      pursuitStatus: "finished",
+      playStatus: "completed",
+      isUnobtainable: true,
     });
 
     const secondGame = sourceGames.create({
@@ -41,7 +62,7 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       platform: "PS4",
     });
 
-    sourceGames.archive(secondGame.id);
+    sourceGames.hide(secondGame.id);
 
     const collection = sourceCollections.create({
       name: "Favorites",
@@ -176,17 +197,19 @@ test("refuses an older import that cannot preserve integration data", () => {
       )
       .run(game.id, "metadata", new Date().toISOString());
 
-    const versionThree = createPortableDataExport(database);
+    const versionFour = createPortableDataExport(database);
 
     const portableData = {
-      format: versionThree.format,
+      format: versionFour.format,
       formatVersion: 2 as const,
-      exportedAt: versionThree.exportedAt,
+      exportedAt: versionFour.exportedAt,
 
       data: {
-        libraryGames: versionThree.data.libraryGames,
-        collections: versionThree.data.collections,
-        savedViews: versionThree.data.savedViews,
+        libraryGames: createLegacyPortableLibraryGames(
+          versionFour.data.libraryGames,
+        ),
+        collections: versionFour.data.collections,
+        savedViews: versionFour.data.savedViews,
       },
     };
 
@@ -236,8 +259,9 @@ test("refuses a version-one import that would break Collection saved views", () 
       exportedAt: versionTwo.exportedAt,
 
       data: {
-        libraryGames: versionTwo.data.libraryGames,
-
+        libraryGames: createLegacyPortableLibraryGames(
+          versionTwo.data.libraryGames,
+        ),
         collections: versionTwo.data.collections,
       },
     };

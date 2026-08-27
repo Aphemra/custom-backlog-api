@@ -18,10 +18,11 @@ import {
   type PortableSavedView,
 } from "./portableDataTypes.js";
 import { parsePortableDataV3 } from "./portableDataV3Validation.js";
+import { parsePortableDataV4 } from "./portableDataV4Validation.js";
 
 const MAX_ITEMS = 50_000;
 
-const BUILTIN_VIEW_KEYS = new Set([
+const LEGACY_BUILTIN_VIEW_KEYS = new Set([
   "all_games",
   "pursuing_soon",
   "in_progress",
@@ -29,6 +30,21 @@ const BUILTIN_VIEW_KEYS = new Set([
   "one_hundred_percent",
   "completion_lost",
   "needs_sync",
+]);
+
+const CURRENT_BUILTIN_VIEW_KEYS = new Set([
+  "all_games",
+  "not_started",
+  "playing",
+  "platinum_earned",
+  "one_hundred_percent",
+  "completion_lost",
+  "needs_sync",
+]);
+
+const SUPPORTED_BUILTIN_VIEW_KEYS = new Set([
+  ...LEGACY_BUILTIN_VIEW_KEYS,
+  ...CURRENT_BUILTIN_VIEW_KEYS,
 ]);
 
 function invalid(message: string): never {
@@ -291,7 +307,7 @@ function parseSavedView(value: unknown, index: number): PortableSavedView {
     invalid(`${field}.builtinKey must be present only when isBuiltin is true.`);
   }
 
-  if (builtinKey !== null && !BUILTIN_VIEW_KEYS.has(builtinKey)) {
+  if (builtinKey !== null && !SUPPORTED_BUILTIN_VIEW_KEYS.has(builtinKey)) {
     invalid(`${field}.builtinKey is unsupported.`);
   }
 
@@ -338,6 +354,10 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
 
   if (root.format !== PORTABLE_DATA_FORMAT) {
     invalid(`format must be ${PORTABLE_DATA_FORMAT}.`);
+  }
+
+  if (root.formatVersion === 4) {
+    return parsePortableDataV4(value);
   }
 
   if (root.formatVersion === 3) {
@@ -410,10 +430,16 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
     .filter((view) => view.isBuiltin)
     .map((view) => view.builtinKey);
 
+  const builtinKeySet = new Set(builtinKeys);
+
+  const containsExactly = (expected: ReadonlySet<string>): boolean =>
+    builtinKeys.length === expected.size &&
+    builtinKeySet.size === expected.size &&
+    builtinKeys.every((key) => key !== null && expected.has(key));
+
   if (
-    builtinKeys.length !== BUILTIN_VIEW_KEYS.size ||
-    new Set(builtinKeys).size !== BUILTIN_VIEW_KEYS.size ||
-    builtinKeys.some((key) => key === null || !BUILTIN_VIEW_KEYS.has(key))
+    !containsExactly(LEGACY_BUILTIN_VIEW_KEYS) &&
+    !containsExactly(CURRENT_BUILTIN_VIEW_KEYS)
   ) {
     invalid("data.savedViews must contain each built-in view exactly once.");
   }

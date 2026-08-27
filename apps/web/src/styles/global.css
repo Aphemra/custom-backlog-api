@@ -1148,6 +1148,153 @@ textarea:focus-visible {
   margin: 0.85rem 0 0;
 }
 
+.alert-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.alert-filter {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.48rem 0.75rem;
+  background: rgba(17, 22, 34, 0.72);
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.alert-filter:hover,
+.alert-filter--active {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-soft);
+  color: #f5f3ff;
+}
+
+.trophy-alert-list {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.trophy-alert-card {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-left-width: 0.28rem;
+  border-radius: var(--radius-medium);
+  padding: 1rem;
+  background: rgba(17, 22, 34, 0.84);
+}
+
+.trophy-alert-card--completion_lost {
+  border-left-color: #fb7185;
+}
+
+.trophy-alert-card--new_trophies {
+  border-left-color: var(--color-accent-bright);
+}
+
+.trophy-alert-card__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.trophy-alert-card__heading time {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+
+.trophy-alert-card__title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trophy-alert-card__title-line h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.trophy-alert-card__kind {
+  margin: 0.4rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.trophy-alert-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.24rem 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.trophy-alert-status--unread {
+  background: var(--color-accent-soft);
+  color: #ddd6fe;
+}
+
+.trophy-alert-status--read {
+  background: rgba(59, 130, 246, 0.14);
+  color: #bfdbfe;
+}
+
+.trophy-alert-status--resolved {
+  background: var(--color-success-soft);
+  color: #99f6e4;
+}
+
+.trophy-alert-status--dismissed {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+}
+
+.trophy-alert-card__change {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  border-radius: var(--radius-small);
+  padding: 0.7rem 0.8rem;
+  background: rgba(8, 11, 18, 0.46);
+}
+
+.trophy-alert-card__change strong {
+  color: #f8fafc;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trophy-alert-card__change span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.trophy-alert-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+@media (max-width: 640px) {
+  .trophy-alert-card__heading {
+    flex-direction: column;
+  }
+
+  .trophy-alert-card__actions {
+    justify-content: flex-start;
+  }
+}
+
 .portable-data-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TrophyAlertsPage } from "../features/alerts/pages/TrophyAlertsPage";
 import { CollectionsPage } from "../features/collections/pages/CollectionsPage";
 import { LibraryPage } from "../features/library/pages/LibraryPage";
 import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
@@ -10,6 +11,7 @@ type ActivePage =
   | "collections"
   | "savedViews"
   | "playstation"
+  | "alerts"
   | "portableData";
 
 export function App() {
@@ -68,7 +70,15 @@ export function App() {
           PlayStation
         </button>
 
-        <span className="primary-nav__item">Alerts</span>
+        <button
+          className={`primary-nav__item${
+            activePage === "alerts" ? " primary-nav__item--active" : ""
+          }`}
+          type="button"
+          onClick={() => setActivePage("alerts")}
+        >
+          Alerts
+        </button>
 
         <button
           className={`primary-nav__item${
@@ -90,6 +100,8 @@ export function App() {
       {activePage === "savedViews" ? <SavedViewsPage /> : null}
 
       {activePage === "playstation" ? <PlayStationPage /> : null}
+
+      {activePage === "alerts" ? <TrophyAlertsPage /> : null}
 
       {activePage === "portableData" ? <PortableDataPage /> : null}
     </main>

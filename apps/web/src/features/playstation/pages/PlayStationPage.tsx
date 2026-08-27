@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { LibraryGame } from "../../../domain/libraryGame";
 import type {
   PlayStationConnectionStatus,
   PlayStationLibraryCandidate,
@@ -8,6 +9,7 @@ import type {
 } from "../../../domain/playStation";
 import { ApiError } from "../../../services/api/apiClient";
 import { playStationApi } from "../../../services/api/playStationApi";
+import { libraryApi } from "../../../services/api/libraryApi";
 
 type PreviewFilter = "all" | PlayStationReconciliationStatus;
 
@@ -60,6 +62,8 @@ function updateLinkedTitle(
   title: ReconciledPlayStationTitle,
   candidate: PlayStationLibraryCandidate,
 ): PlayStationTitlePreview {
+  const previousStatus = title.reconciliation.status;
+
   const titles = preview.titles.map((existingTitle) => {
     if (
       existingTitle.npServiceName !== title.npServiceName ||
@@ -81,17 +85,26 @@ function updateLinkedTitle(
     ...preview,
     titles,
     reconciliationCounts: {
-      ...preview.reconciliationCounts,
       linked: preview.reconciliationCounts.linked + 1,
-      suggestedMatch: preview.reconciliationCounts.suggestedMatch - 1,
+      suggestedMatch:
+        preview.reconciliationCounts.suggestedMatch -
+        (previousStatus === "suggested_match" ? 1 : 0),
+      ambiguous:
+        preview.reconciliationCounts.ambiguous -
+        (previousStatus === "ambiguous" ? 1 : 0),
+      new:
+        preview.reconciliationCounts.new - (previousStatus === "new" ? 1 : 0),
     },
   };
 }
 
 interface TrophyTitleRowProps {
   readonly title: ReconciledPlayStationTitle;
+  readonly availableCandidates: readonly PlayStationLibraryCandidate[];
+  readonly selectedCandidateId: string;
   readonly linkingIdentity: string | null;
-  readonly onConfirmSuggestedMatch: (
+  readonly onSelectCandidate: (titleIdentity: string, gameId: string) => void;
+  readonly onConfirmMatch: (
     title: ReconciledPlayStationTitle,
     candidate: PlayStationLibraryCandidate,
   ) => void;
@@ -99,8 +112,11 @@ interface TrophyTitleRowProps {
 
 function TrophyTitleRow({
   title,
+  availableCandidates,
+  selectedCandidateId,
   linkingIdentity,
-  onConfirmSuggestedMatch,
+  onSelectCandidate,
+  onConfirmMatch,
 }: TrophyTitleRowProps) {
   const identity = `${title.npServiceName}:${title.npCommunicationId}`;
 
@@ -108,6 +124,18 @@ function TrophyTitleRow({
     title.reconciliation.status === "suggested_match"
       ? title.reconciliation.candidates[0]
       : undefined;
+
+  const selectedCandidate = availableCandidates.find(
+    (candidate) => candidate.gameId === selectedCandidateId,
+  );
+
+  const exactCandidateIds = new Set(
+    title.reconciliation.candidates.map((candidate) => candidate.gameId),
+  );
+
+  const needsManualSelection =
+    title.reconciliation.status === "ambiguous" ||
+    title.reconciliation.status === "new";
 
   const earned = earnedTrophies(title.earnedTrophies);
   const total = totalTrophies(title.definedTrophies);
@@ -209,24 +237,81 @@ function TrophyTitleRow({
               className="button button--primary"
               type="button"
               disabled={linkingIdentity !== null}
-              onClick={() => onConfirmSuggestedMatch(title, suggestedCandidate)}
+              onClick={() => onConfirmMatch(title, suggestedCandidate)}
             >
               {linkingIdentity === identity ? "Linking…" : "Confirm link"}
             </button>
           </div>
         )}
 
-        {title.reconciliation.status === "ambiguous" ? (
-          <p className="psn-title-row__match psn-title-row__match--warning">
-            Multiple local games match this title. Manual selection comes in the
-            next pass.
-          </p>
-        ) : null}
+        {needsManualSelection ? (
+          <div className="psn-title-row__manual-match">
+            <div>
+              <span>
+                {title.reconciliation.status === "ambiguous"
+                  ? "Choose the correct local game"
+                  : "Link to an existing local game"}
+              </span>
 
-        {title.reconciliation.status === "new" ? (
-          <p className="psn-title-row__match">
-            No compatible local game has the same normalized title.
-          </p>
+              <small>
+                {title.reconciliation.status === "ambiguous"
+                  ? `${title.reconciliation.candidates.length} exact title matches were found.`
+                  : "No exact title match was found, but you can override that judgment."}
+              </small>
+            </div>
+
+            {availableCandidates.length === 0 ? (
+              <p>
+                No unlinked {title.platforms.join(" / ")} library games are
+                available.
+              </p>
+            ) : (
+              <div className="psn-title-row__manual-controls">
+                <label>
+                  <span className="visually-hidden">
+                    Select a local game for {title.name}
+                  </span>
+
+                  <select
+                    value={selectedCandidateId}
+                    disabled={linkingIdentity !== null}
+                    onChange={(event) =>
+                      onSelectCandidate(identity, event.target.value)
+                    }
+                  >
+                    <option value="">Select a local game…</option>
+
+                    {availableCandidates.map((candidate) => (
+                      <option value={candidate.gameId} key={candidate.gameId}>
+                        {candidate.title} · {candidate.platform}
+                        {exactCandidateIds.has(candidate.gameId)
+                          ? " · Exact title match"
+                          : ""}
+                        {candidate.archived ? " · Archived" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  className="button button--primary"
+                  type="button"
+                  disabled={
+                    linkingIdentity !== null || selectedCandidate === undefined
+                  }
+                  onClick={() => {
+                    if (selectedCandidate !== undefined) {
+                      onConfirmMatch(title, selectedCandidate);
+                    }
+                  }}
+                >
+                  {linkingIdentity === identity
+                    ? "Linking…"
+                    : "Link selected game"}
+                </button>
+              </div>
+            )}
+          </div>
         ) : null}
       </div>
     </article>
@@ -239,6 +324,12 @@ export function PlayStationPage() {
   );
 
   const [preview, setPreview] = useState<PlayStationTitlePreview | null>(null);
+
+  const [libraryGames, setLibraryGames] = useState<readonly LibraryGame[]>([]);
+
+  const [selectedGameIds, setSelectedGameIds] = useState<
+    Readonly<Record<string, string>>
+  >({});
 
   const [activeFilter, setActiveFilter] = useState<PreviewFilter>("all");
 
@@ -253,14 +344,16 @@ export function PlayStationPage() {
   useEffect(() => {
     const abortController = new AbortController();
 
-    async function loadStatus() {
+    async function loadPageData() {
       try {
-        const loadedStatus = await playStationApi.getStatus(
-          abortController.signal,
-        );
+        const [loadedStatus, loadedGames] = await Promise.all([
+          playStationApi.getStatus(abortController.signal),
+          libraryApi.list(abortController.signal),
+        ]);
 
         if (!abortController.signal.aborted) {
           setStatus(loadedStatus);
+          setLibraryGames(loadedGames);
         }
       } catch (error) {
         if (!abortController.signal.aborted) {
@@ -269,7 +362,7 @@ export function PlayStationPage() {
       }
     }
 
-    void loadStatus();
+    void loadPageData();
 
     return () => abortController.abort();
   }, []);
@@ -296,6 +389,44 @@ export function PlayStationPage() {
     });
   }, [activeFilter, preview, searchQuery]);
 
+  const linkedGameIds = useMemo(() => {
+    if (preview === null) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      preview.titles
+        .filter((title) => title.reconciliation.status === "linked")
+        .flatMap((title) =>
+          title.reconciliation.candidates.map((candidate) => candidate.gameId),
+        ),
+    );
+  }, [preview]);
+
+  function availableCandidates(
+    title: ReconciledPlayStationTitle,
+  ): readonly PlayStationLibraryCandidate[] {
+    return libraryGames
+      .filter(
+        (game) =>
+          title.platforms.includes(game.platform) &&
+          !linkedGameIds.has(game.id),
+      )
+      .map((game) => ({
+        gameId: game.id,
+        title: game.title,
+        platform: game.platform,
+        archived: game.archivedAt !== null,
+      }));
+  }
+
+  function selectCandidate(titleIdentity: string, gameId: string): void {
+    setSelectedGameIds((currentSelections) => ({
+      ...currentSelections,
+      [titleIdentity]: gameId,
+    }));
+  }
+
   async function handlePreview(): Promise<void> {
     setIsPreviewing(true);
     setErrorMessage(null);
@@ -317,7 +448,7 @@ export function PlayStationPage() {
     }
   }
 
-  async function handleConfirmSuggestedMatch(
+  async function handleConfirmMatch(
     title: ReconciledPlayStationTitle,
     candidate: PlayStationLibraryCandidate,
   ): Promise<void> {
@@ -339,6 +470,14 @@ export function PlayStationPage() {
           ? null
           : updateLinkedTitle(currentPreview, title, candidate),
       );
+
+      setSelectedGameIds((currentSelections) => {
+        const nextSelections = { ...currentSelections };
+
+        delete nextSelections[identity];
+
+        return nextSelections;
+      });
 
       setNotice(`${title.name} was linked to ${candidate.title}.`);
     } catch (error) {
@@ -504,9 +643,16 @@ export function PlayStationPage() {
                 <TrophyTitleRow
                   key={`${title.npServiceName}:${title.npCommunicationId}`}
                   title={title}
+                  availableCandidates={availableCandidates(title)}
+                  selectedCandidateId={
+                    selectedGameIds[
+                      `${title.npServiceName}:${title.npCommunicationId}`
+                    ] ?? ""
+                  }
                   linkingIdentity={linkingIdentity}
-                  onConfirmSuggestedMatch={(selectedTitle, candidate) =>
-                    void handleConfirmSuggestedMatch(selectedTitle, candidate)
+                  onSelectCandidate={selectCandidate}
+                  onConfirmMatch={(selectedTitle, candidate) =>
+                    void handleConfirmMatch(selectedTitle, candidate)
                   }
                 />
               ))}

@@ -297,6 +297,53 @@ test("caches, deduplicates, attaches, and revalidates trophy artwork", async () 
     });
 
     assert.equal(requestCount, 6);
+
+    database
+      .prepare(
+        `
+          UPDATE playstation_trophies
+          SET icon_image_id = NULL
+          WHERE game_id = ?
+            AND trophy_id = ?
+        `,
+      )
+      .run("artwork-game", 1);
+
+    assert.deepEqual(service.findGameIdsNeedingCache(), ["artwork-game"]);
+
+    const progress: Array<{
+      completedReferences: number;
+      totalReferences: number;
+    }> = [];
+
+    const resumed = await service.cacheGame(
+      "artwork-game",
+      (update) => progress.push(update),
+      true,
+    );
+
+    assert.deepEqual(resumed, {
+      referenceCount: 1,
+      uniqueImageCount: 1,
+      attachedCount: 1,
+      failedCount: 0,
+      downloadedCount: 0,
+      notModifiedCount: 1,
+    });
+
+    assert.deepEqual(progress, [
+      {
+        completedReferences: 0,
+        totalReferences: 1,
+      },
+      {
+        completedReferences: 1,
+        totalReferences: 1,
+      },
+    ]);
+
+    assert.deepEqual(service.findGameIdsNeedingCache(), []);
+    assert.equal(requestCount, 7);
   } finally {
     database.close();
     await rm(cacheDirectory, {

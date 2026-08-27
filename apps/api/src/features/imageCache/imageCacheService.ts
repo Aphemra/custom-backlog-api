@@ -12,6 +12,7 @@ import type {
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
+const IMAGE_REQUEST_TIMEOUT_MS = 30_000;
 
 const allowedHosts: Readonly<Record<ImageProvider, ReadonlySet<string>>> = {
   igdb: new Set(["images.igdb.com"]),
@@ -377,6 +378,7 @@ export class ImageCacheService {
         response = await this.fetchImage(currentUrl, {
           headers,
           redirect: "manual",
+          signal: AbortSignal.timeout(IMAGE_REQUEST_TIMEOUT_MS),
         });
       } catch {
         throw new HttpError(

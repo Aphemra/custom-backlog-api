@@ -13,12 +13,22 @@ export interface PlayStationTrophyArtworkCacheResult {
   notModifiedCount: number;
 }
 
+export interface PlayStationTrophyArtworkProgress {
+  completedReferences: number;
+  totalReferences: number;
+}
+
+export type PlayStationTrophyArtworkProgressReporter = (
+  progress: PlayStationTrophyArtworkProgress,
+) => void;
+
 type ArtworkKind = "set" | "group" | "trophy";
 
 interface ArtworkReference {
   kind: ArtworkKind;
   providerId: string;
   sourceUrl: string;
+  imageId: string | null;
   attach(imageId: string): boolean;
 }
 
@@ -64,8 +74,41 @@ export class PlayStationTrophyArtworkService {
     ),
   ) {}
 
+  findGameIdsNeedingCache(): string[] {
+    const rows = this.database
+      .prepare(
+        `
+          SELECT game_id
+          FROM playstation_trophy_sets
+          WHERE icon_url IS NOT NULL
+            AND icon_image_id IS NULL
+
+          UNION
+
+          SELECT game_id
+          FROM playstation_trophy_groups
+          WHERE icon_url IS NOT NULL
+            AND icon_image_id IS NULL
+
+          UNION
+
+          SELECT game_id
+          FROM playstation_trophies
+          WHERE icon_url IS NOT NULL
+            AND icon_image_id IS NULL
+
+          ORDER BY game_id
+        `,
+      )
+      .all() as unknown as Array<{ game_id: string }>;
+
+    return rows.map((row) => row.game_id);
+  }
+
   async cacheGame(
     gameId: string,
+    reportProgress?: PlayStationTrophyArtworkProgressReporter,
+    missingOnly = false,
   ): Promise<PlayStationTrophyArtworkCacheResult> {
     const trophySet = this.trophyRepository.findByGameId(gameId);
 
@@ -82,6 +125,7 @@ export class PlayStationTrophyArtworkService {
         kind: "set",
         providerId: "title",
         sourceUrl: trophySet.titleIconUrl,
+        imageId: trophySet.titleIconImageId,
         attach: (imageId) =>
           this.database
             .prepare(
@@ -101,6 +145,7 @@ export class PlayStationTrophyArtworkService {
         kind: "group",
         providerId: group.trophyGroupId,
         sourceUrl: group.iconUrl,
+        imageId: group.iconImageId,
         attach: (imageId) =>
           this.database
             .prepare(
@@ -127,6 +172,7 @@ export class PlayStationTrophyArtworkService {
           kind: "trophy",
           providerId: String(trophy.trophyId),
           sourceUrl: trophyIconUrl,
+          imageId: trophy.iconImageId,
           attach: (imageId) =>
             this.database
               .prepare(
@@ -144,6 +190,10 @@ export class PlayStationTrophyArtworkService {
       }
     }
 
+    const referencesToCache = missingOnly
+      ? references.filter((reference) => reference.imageId === null)
+      : references;
+
     const cachedByUrl = new Map<string, CachedArtworkResult | null>();
 
     let attachedCount = 0;
@@ -151,7 +201,12 @@ export class PlayStationTrophyArtworkService {
     let downloadedCount = 0;
     let notModifiedCount = 0;
 
-    for (const reference of references) {
+    reportProgress?.({
+      completedReferences: 0,
+      totalReferences: referencesToCache.length,
+    });
+
+    for (const [index, reference] of referencesToCache.entries()) {
       let cached = cachedByUrl.get(reference.sourceUrl);
 
       if (cached === undefined) {
@@ -175,10 +230,15 @@ export class PlayStationTrophyArtworkService {
       } else {
         attachedCount += 1;
       }
+
+      reportProgress?.({
+        completedReferences: index + 1,
+        totalReferences: referencesToCache.length,
+      });
     }
 
     return {
-      referenceCount: references.length,
+      referenceCount: referencesToCache.length,
       uniqueImageCount: cachedByUrl.size,
       attachedCount,
       failedCount,

@@ -7,6 +7,8 @@ import {
   type PlayStatus,
 } from "../../../domain/libraryGame";
 import { PlayStationIgdbEnrichment } from "../components/PlayStationIgdbEnrichment";
+import { PlayStationSyncProgressPanel } from "../components/PlayStationSyncProgressPanel";
+import { usePlayStationSyncProgress } from "../hooks/usePlayStationSyncProgress";
 import type {
   PlayStationConnectionStatus,
   PlayStationLibraryCandidate,
@@ -502,6 +504,10 @@ export function PlayStationPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [notice, setNotice] = useState<string | null>(null);
+  const { syncProgress, refreshSyncProgress } =
+    usePlayStationSyncProgress(isSynchronizing);
+  const synchronizationActive =
+    isSynchronizing || syncProgress?.status === "running";
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -685,6 +691,17 @@ export function PlayStationPage() {
         );
       }
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === "playstation_sync_in_progress"
+      ) {
+        const progress = await refreshSyncProgress().catch(() => null);
+
+        if (progress?.status === "running") {
+          return;
+        }
+      }
+
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsSynchronizing(false);
@@ -803,7 +820,7 @@ export function PlayStationPage() {
             disabled={
               status?.configured !== true ||
               isPreviewing ||
-              isSynchronizing ||
+              synchronizationActive ||
               busyIdentity !== null
             }
             onClick={() => void handlePreview()}
@@ -821,17 +838,19 @@ export function PlayStationPage() {
             disabled={
               status?.configured !== true ||
               isPreviewing ||
-              isSynchronizing ||
+              synchronizationActive ||
               busyIdentity !== null
             }
             onClick={() => void handleSynchronization()}
           >
-            {isSynchronizing
+            {synchronizationActive
               ? "Synchronizing linked games…"
               : "Synchronize linked games"}
           </button>
         </div>
       </div>
+
+      <PlayStationSyncProgressPanel progress={syncProgress} />
 
       <div className="psn-connection-card">
         <div>

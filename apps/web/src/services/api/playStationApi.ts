@@ -5,6 +5,7 @@ import type {
   PlayStationConnectionStatus,
   PlayStationGameLink,
   PlayStationProgressSynchronizationResponse,
+  PlayStationSyncProgress,
   PlayStationTitlePreview,
   PlayStationSynchronizationResponse,
 } from "../../domain/playStation";
@@ -22,6 +23,10 @@ interface LinkResponse {
   readonly link: PlayStationGameLink;
 }
 
+interface SyncProgressResponse {
+  readonly progress: PlayStationSyncProgress;
+}
+
 export const playStationApi = {
   async getStatus(signal?: AbortSignal): Promise<PlayStationConnectionStatus> {
     const response = await requestJson<StatusResponse>(
@@ -30,6 +35,17 @@ export const playStationApi = {
     );
 
     return response.status;
+  },
+
+  async getSyncProgress(
+    signal?: AbortSignal,
+  ): Promise<PlayStationSyncProgress> {
+    const response = await requestJson<SyncProgressResponse>(
+      "/api/integrations/playstation/sync-progress",
+      { signal },
+    );
+
+    return response.progress;
   },
 
   async previewTitles(): Promise<PlayStationTitlePreview> {

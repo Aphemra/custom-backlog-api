@@ -29,6 +29,10 @@ import {
 } from "../features/library/libraryGameTypes.js";
 import { PlayStationSyncCooldownService } from "../features/playstation/playStationSyncCooldownService.js";
 import { PlayStationSyncExecutionLock } from "../features/playstation/playStationSyncExecutionLock.js";
+import {
+  PlayStationSyncProgressTracker,
+  type PlayStationSyncOperation,
+} from "../features/playstation/playStationSyncProgressTracker.js";
 import { PlayStationTrophyArtworkService } from "../features/playstation/playStationTrophyArtworkService.js";
 import { PlayStationTrophyDetailFetchService } from "../features/playstation/playStationTrophyDetailFetchService.js";
 import { PlayStationTrophyDetailRepository } from "../features/playstation/playStationTrophyDetailRepository.js";
@@ -99,6 +103,28 @@ export function createPlayStationRoutes(
   );
 
   const syncExecutionLock = new PlayStationSyncExecutionLock();
+  const syncProgressTracker = new PlayStationSyncProgressTracker();
+
+  async function runTrackedSynchronization<T>(
+    operation: PlayStationSyncOperation,
+    synchronize: () => Promise<T>,
+  ): Promise<T> {
+    return syncExecutionLock.run(async () => {
+      syncCooldownService.enforceAndRecordAttempt();
+      syncProgressTracker.start(operation);
+
+      try {
+        const result = await synchronize();
+
+        syncProgressTracker.succeed();
+
+        return result;
+      } catch (error) {
+        syncProgressTracker.fail(error);
+        throw error;
+      }
+    });
+  }
 
   const trophySyncService = new PlayStationTrophySyncService(options.database);
 
@@ -123,6 +149,10 @@ export function createPlayStationRoutes(
 
   routes.get("/status", (_request, response) => {
     response.json({ status: connectionService.getStatus() });
+  });
+
+  routes.get("/sync-progress", (_request, response) => {
+    response.json({ progress: syncProgressTracker.getSnapshot() });
   });
 
   routes.post("/connection-tests", async (request, response, next) => {
@@ -360,15 +390,23 @@ export function createPlayStationRoutes(
     }
 
     try {
-      const result = await syncExecutionLock.run(async () => {
-        syncCooldownService.enforceAndRecordAttempt();
-
+      const result = await runTrackedSynchronization("progress", async () => {
         const linkedPreview = linkedTitleSelector.select(
           await titlePreviewService.previewTitles(),
         );
 
-        const detailSynchronization =
-          await trophyDetailSyncService.synchronize(linkedPreview);
+        const detailSynchronization = await trophyDetailSyncService.synchronize(
+          linkedPreview,
+          (progress) => syncProgressTracker.update(progress),
+        );
+
+        syncProgressTracker.update({
+          phase: "saving_snapshots",
+          completedItems: 0,
+          totalItems: linkedPreview.linkedTitleCount,
+          currentItem: null,
+          message: "Saving trophy snapshots and creating alerts.",
+        });
 
         const synchronization = trophySyncService.synchronize({
           ...linkedPreview,
@@ -410,9 +448,7 @@ export function createPlayStationRoutes(
     }
 
     try {
-      const result = await syncExecutionLock.run(async () => {
-        syncCooldownService.enforceAndRecordAttempt();
-
+      const result = await runTrackedSynchronization("full", async () => {
         const titlePreview = await titlePreviewService.previewTitles();
 
         const linkedPreview = linkedTitleSelector.select(titlePreview);
@@ -424,8 +460,18 @@ export function createPlayStationRoutes(
 
         titleLinkService.rememberPreview(preview);
 
-        const detailSynchronization =
-          await trophyDetailSyncService.synchronize(linkedPreview);
+        const detailSynchronization = await trophyDetailSyncService.synchronize(
+          linkedPreview,
+          (progress) => syncProgressTracker.update(progress),
+        );
+
+        syncProgressTracker.update({
+          phase: "saving_snapshots",
+          completedItems: 0,
+          totalItems: linkedPreview.linkedTitleCount,
+          currentItem: null,
+          message: "Saving trophy snapshots and creating alerts.",
+        });
 
         const synchronization = trophySyncService.synchronize({
           ...preview,

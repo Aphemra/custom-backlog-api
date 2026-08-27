@@ -2269,6 +2269,113 @@ textarea:focus-visible {
   background: rgba(251, 191, 36, 0.055);
 }
 
+.psn-sync-progress {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(96, 165, 250, 0.34);
+  border-radius: var(--radius-large);
+  padding: 1rem;
+  background: rgba(37, 99, 235, 0.075);
+}
+
+.psn-sync-progress--failed {
+  border-color: rgba(248, 113, 113, 0.38);
+  background: rgba(127, 29, 29, 0.12);
+}
+
+.psn-sync-progress__heading {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.psn-sync-progress__heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.psn-sync-progress__message,
+.psn-sync-progress__current,
+.psn-sync-progress__error,
+.psn-sync-progress__elapsed {
+  margin: 0;
+}
+
+.psn-sync-progress__message,
+.psn-sync-progress__elapsed {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.psn-sync-progress__current {
+  color: #dbeafe;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.psn-sync-progress__error {
+  border-radius: var(--radius-small);
+  padding: 0.65rem 0.75rem;
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+  font-size: 0.72rem;
+}
+
+.psn-sync-progress__meter {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.psn-sync-progress__meter > div {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
+.psn-sync-progress__meter strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.psn-sync-progress__meter progress {
+  width: 100%;
+  height: 0.55rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.psn-sync-progress__meter progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.psn-sync-progress__meter progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
+.psn-sync-progress__meter progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
+.psn-sync-status--running {
+  background: rgba(96, 165, 250, 0.14);
+  color: #bfdbfe;
+}
+
+.psn-sync-status--failed {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+}
+
 .psn-sync-result__heading {
   display: flex;
   gap: 1rem;

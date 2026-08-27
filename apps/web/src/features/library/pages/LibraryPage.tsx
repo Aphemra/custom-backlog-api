@@ -8,6 +8,8 @@ import type { PlayStationProgressSynchronizationResponse } from "../../../domain
 import { ApiError } from "../../../services/api/apiClient";
 import { libraryApi } from "../../../services/api/libraryApi";
 import { playStationApi } from "../../../services/api/playStationApi";
+import { PlayStationSyncProgressPanel } from "../../playstation/components/PlayStationSyncProgressPanel";
+import { usePlayStationSyncProgress } from "../../playstation/hooks/usePlayStationSyncProgress";
 import { IgdbGameSearch } from "../components/IgdbGameSearch";
 import { LibraryGameForm } from "../components/LibraryGameForm";
 import { LibraryGameRow } from "../components/LibraryGameRow";
@@ -45,6 +47,11 @@ export function LibraryPage() {
   const [isSynchronizingTrophies, setIsSynchronizingTrophies] = useState(false);
   const [lastProgressSync, setLastProgressSync] =
     useState<PlayStationProgressSynchronizationResponse | null>(null);
+  const { syncProgress, refreshSyncProgress } = usePlayStationSyncProgress(
+    isSynchronizingTrophies,
+  );
+  const synchronizationActive =
+    isSynchronizingTrophies || syncProgress?.status === "running";
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -69,6 +76,19 @@ export function LibraryPage() {
 
     return () => abortController.abort();
   }, []);
+
+  useEffect(() => {
+    if (
+      syncProgress?.status !== "succeeded" ||
+      syncProgress.finishedAt === null
+    ) {
+      return;
+    }
+
+    void refreshGames().catch((error: unknown) => {
+      setErrorMessage(getErrorMessage(error));
+    });
+  }, [syncProgress?.finishedAt, syncProgress?.status]);
 
   const orderedVisibleGames = useMemo(
     () => games.filter((game) => game.hiddenAt === null),
@@ -156,6 +176,17 @@ export function LibraryPage() {
       setLastProgressSync(result);
       await refreshGames();
     } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === "playstation_sync_in_progress"
+      ) {
+        const progress = await refreshSyncProgress().catch(() => null);
+
+        if (progress?.status === "running") {
+          return;
+        }
+      }
+
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsSynchronizingTrophies(false);
@@ -307,7 +338,7 @@ export function LibraryPage() {
             className="button button--quiet"
             type="button"
             onClick={openAddForm}
-            disabled={isSynchronizingTrophies}
+            disabled={synchronizationActive}
           >
             Add manually
           </button>
@@ -316,7 +347,7 @@ export function LibraryPage() {
             className="button button--quiet"
             type="button"
             onClick={openIgdbSearch}
-            disabled={isSynchronizingTrophies}
+            disabled={synchronizationActive}
           >
             Search IGDB
           </button>
@@ -328,16 +359,18 @@ export function LibraryPage() {
             disabled={
               loadState === "loading" ||
               busyKey !== null ||
-              isSynchronizingTrophies
+              synchronizationActive
             }
-            aria-busy={isSynchronizingTrophies}
+            aria-busy={synchronizationActive}
           >
-            {isSynchronizingTrophies
+            {synchronizationActive
               ? "Syncing Trophy Progress…"
               : "Sync Trophy Progress"}
           </button>
         </div>
       </div>
+
+      <PlayStationSyncProgressPanel progress={syncProgress} />
 
       {lastProgressSync === null && latestStoredTrophyUpdate !== null ? (
         <p className="library-sync-history">

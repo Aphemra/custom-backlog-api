@@ -265,6 +265,28 @@ test("rejects an overlapping sync without consuming another cooldown", async () 
 
     await titleRequestStarted.promise;
 
+    const runningProgressResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/sync-progress`,
+    );
+
+    assert.equal(runningProgressResponse.status, 200);
+
+    const runningProgressBody = (await runningProgressResponse.json()) as {
+      progress: {
+        status: string;
+        operation: string | null;
+        phase: string;
+        startedAt: string | null;
+        finishedAt: string | null;
+      };
+    };
+
+    assert.equal(runningProgressBody.progress.status, "running");
+    assert.equal(runningProgressBody.progress.operation, "progress");
+    assert.equal(runningProgressBody.progress.phase, "fetching_titles");
+    assert.notEqual(runningProgressBody.progress.startedAt, null);
+    assert.equal(runningProgressBody.progress.finishedAt, null);
+
     const callsWhileFirstSyncIsActive = [...calls];
     const overlappingResponse = await synchronizeFull(baseUrl);
 
@@ -282,6 +304,21 @@ test("rejects an overlapping sync without consuming another cooldown", async () 
     const firstResponse = await firstResponsePromise;
 
     assert.equal(firstResponse.status, 200);
+
+    const completedProgressResponse = await fetch(
+      `${baseUrl}/api/integrations/playstation/sync-progress`,
+    );
+    const completedProgressBody = (await completedProgressResponse.json()) as {
+      progress: {
+        status: string;
+        phase: string;
+        finishedAt: string | null;
+      };
+    };
+
+    assert.equal(completedProgressBody.progress.status, "succeeded");
+    assert.equal(completedProgressBody.progress.phase, "complete");
+    assert.notEqual(completedProgressBody.progress.finishedAt, null);
 
     const replacementResponse = await synchronizeProgress(baseUrl);
 

@@ -140,6 +140,37 @@ export interface PlayStationProfileSnapshot {
 
 export type PlayStationSyncStatus = "succeeded" | "partial";
 
+export type PlayStationSyncProgressStatus =
+  | "idle"
+  | "running"
+  | "succeeded"
+  | "failed";
+
+export type PlayStationSyncProgressPhase =
+  | "idle"
+  | "fetching_titles"
+  | "fetching_trophies"
+  | "caching_artwork"
+  | "saving_snapshots"
+  | "complete"
+  | "failed";
+
+export interface PlayStationSyncProgress {
+  readonly status: PlayStationSyncProgressStatus;
+  readonly operation: "progress" | "full" | null;
+  readonly phase: PlayStationSyncProgressPhase;
+  readonly completedItems: number;
+  readonly totalItems: number | null;
+  readonly subtaskCompletedItems: number | null;
+  readonly subtaskTotalItems: number | null;
+  readonly currentItem: string | null;
+  readonly message: string;
+  readonly startedAt: string | null;
+  readonly updatedAt: string;
+  readonly finishedAt: string | null;
+  readonly errorMessage: string | null;
+}
+
 export interface PlayStationSyncResult {
   readonly syncRunId: string;
   readonly status: PlayStationSyncStatus;

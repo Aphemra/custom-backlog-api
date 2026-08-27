@@ -130,11 +130,20 @@ async function closeServer(
   });
 }
 
-function synchronize(baseUrl: string): Promise<Response> {
+function synchronizeFull(baseUrl: string): Promise<Response> {
   return fetch(`${baseUrl}/api/integrations/playstation/syncs`, {
     method: "POST",
     headers: {
       "x-trophy-backlog-action": "synchronize-playstation-trophies",
+    },
+  });
+}
+
+function synchronizeProgress(baseUrl: string): Promise<Response> {
+  return fetch(`${baseUrl}/api/integrations/playstation/progress-syncs`, {
+    method: "POST",
+    headers: {
+      "x-trophy-backlog-action": "synchronize-playstation-trophy-progress",
     },
   });
 }
@@ -168,12 +177,12 @@ test("rejects a repeated sync before making another PlayStation request", async 
     const address = server.address() as AddressInfo;
     const baseUrl = `http://127.0.0.1:${address.port}`;
 
-    const firstResponse = await synchronize(baseUrl);
+    const firstResponse = await synchronizeProgress(baseUrl);
 
     assert.equal(firstResponse.status, 200);
 
     const callsAfterFirstSync = [...calls];
-    const secondResponse = await synchronize(baseUrl);
+    const secondResponse = await synchronizeFull(baseUrl);
 
     assert.equal(secondResponse.status, 429);
 
@@ -252,12 +261,12 @@ test("rejects an overlapping sync without consuming another cooldown", async () 
     const address = server.address() as AddressInfo;
     const baseUrl = `http://127.0.0.1:${address.port}`;
 
-    const firstResponsePromise = synchronize(baseUrl);
+    const firstResponsePromise = synchronizeProgress(baseUrl);
 
     await titleRequestStarted.promise;
 
     const callsWhileFirstSyncIsActive = [...calls];
-    const overlappingResponse = await synchronize(baseUrl);
+    const overlappingResponse = await synchronizeFull(baseUrl);
 
     assert.equal(overlappingResponse.status, 409);
     assert.deepEqual(await overlappingResponse.json(), {
@@ -274,7 +283,7 @@ test("rejects an overlapping sync without consuming another cooldown", async () 
 
     assert.equal(firstResponse.status, 200);
 
-    const replacementResponse = await synchronize(baseUrl);
+    const replacementResponse = await synchronizeProgress(baseUrl);
 
     assert.equal(replacementResponse.status, 200);
     assert.equal(calls.filter((call) => call.startsWith("titles:")).length, 2);

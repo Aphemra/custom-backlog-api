@@ -65,6 +65,17 @@ function createPreview(
       accountId: "20002",
       onlineId: "MainAccount",
     },
+    targetTrophySummary: {
+      trophyLevel: 425,
+      progress: 52,
+      tier: 5,
+      earnedTrophies: {
+        bronze: 1_234,
+        silver: 456,
+        gold: 78,
+        platinum: 42,
+      },
+    },
     providerTitleCount: 1,
     supportedTitleCount: 1,
     excludedTitleCount: 0,
@@ -143,6 +154,18 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
     assert.equal(first.snapshotsCreated, 1);
     assert.equal(first.newTrophyAlertsCreated, 0);
     assert.equal(first.completionLostAlertsCreated, 0);
+    assert.equal(first.profileSnapshot.syncRunId, first.syncRunId);
+    assert.equal(first.profileSnapshot.accountId, "20002");
+    assert.equal(first.profileSnapshot.capturedAt, "2026-08-26T12:00:00.000Z");
+    assert.equal(first.profileSnapshot.trophyLevel, 425);
+    assert.equal(first.profileSnapshot.levelProgressPercent, 52);
+    assert.equal(first.profileSnapshot.tier, 5);
+    assert.deepEqual(first.profileSnapshot.earnedTrophies, {
+      bronze: 1_234,
+      silver: 456,
+      gold: 78,
+      platinum: 42,
+    });
 
     assert.equal(libraryRepository.findById(game.id)?.playStatus, "completed");
 
@@ -170,6 +193,37 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
       `,
       )
       .get() as unknown as { count: number };
+
+    const profileSnapshots = database
+      .prepare(
+        `
+        SELECT
+          sync_run_id,
+          account_id,
+          captured_at,
+          trophy_level,
+          level_progress_percent,
+          tier,
+          bronze_earned,
+          silver_earned,
+          gold_earned,
+          platinum_earned
+        FROM playstation_profile_snapshots
+        ORDER BY captured_at ASC
+      `,
+      )
+      .all() as unknown as Array<{
+      sync_run_id: string;
+      account_id: string;
+      captured_at: string;
+      trophy_level: number;
+      level_progress_percent: number;
+      tier: number;
+      bronze_earned: number;
+      silver_earned: number;
+      gold_earned: number;
+      platinum_earned: number;
+    }>;
 
     const alertCounts = database
       .prepare(
@@ -200,6 +254,49 @@ test("stores snapshots and detects expanded trophy sets and lost completion", ()
     }>;
 
     assert.equal(snapshotCount.count, 3);
+    assert.equal(profileSnapshots.length, 3);
+
+    assert.deepEqual(
+      profileSnapshots.map((row) => ({ ...row })),
+      [
+        {
+          sync_run_id: first.syncRunId,
+          account_id: "20002",
+          captured_at: "2026-08-26T12:00:00.000Z",
+          trophy_level: 425,
+          level_progress_percent: 52,
+          tier: 5,
+          bronze_earned: 1_234,
+          silver_earned: 456,
+          gold_earned: 78,
+          platinum_earned: 42,
+        },
+        {
+          sync_run_id: second.syncRunId,
+          account_id: "20002",
+          captured_at: "2026-08-27T12:00:00.000Z",
+          trophy_level: 425,
+          level_progress_percent: 52,
+          tier: 5,
+          bronze_earned: 1_234,
+          silver_earned: 456,
+          gold_earned: 78,
+          platinum_earned: 42,
+        },
+        {
+          sync_run_id: third.syncRunId,
+          account_id: "20002",
+          captured_at: "2026-08-28T12:00:00.000Z",
+          trophy_level: 425,
+          level_progress_percent: 52,
+          tier: 5,
+          bronze_earned: 1_234,
+          silver_earned: 456,
+          gold_earned: 78,
+          platinum_earned: 42,
+        },
+      ],
+    );
 
     assert.deepEqual(
       alertCounts.map((row) => ({ ...row })),

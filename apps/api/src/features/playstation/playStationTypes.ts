@@ -70,6 +70,7 @@ export interface PlayStationTrophyTitlePreview {
 
 export interface PlayStationTitlePreviewResult {
   target: PlayStationAccountIdentity;
+  targetTrophySummary: PlayStationTrophySummary;
   providerTitleCount: number;
   supportedTitleCount: number;
   excludedTitleCount: number;
@@ -126,6 +127,31 @@ export interface ReconciledPlayStationTitlePreviewResult extends Omit<
   reconciliationCounts: PlayStationReconciliationCounts;
 }
 
+export interface PlayStationTrophySyncPreview {
+  target: PlayStationAccountIdentity;
+  targetTrophySummary: PlayStationTrophySummary;
+  titles: ReconciledPlayStationTitle[];
+  requestsMade: number;
+}
+
+export interface LinkedPlayStationTitlePreviewResult extends PlayStationTrophySyncPreview {
+  providerTitleCount: number;
+  supportedTitleCount: number;
+  excludedTitleCount: number;
+  linkedTitleCount: number;
+}
+
+export interface PlayStationProfileSnapshot {
+  id: string;
+  syncRunId: string;
+  accountId: string;
+  capturedAt: string;
+  trophyLevel: number;
+  levelProgressPercent: number;
+  tier: number;
+  earnedTrophies: PlayStationTrophyCounts;
+}
+
 export type PlayStationSyncStatus = "succeeded" | "partial";
 
 export interface PlayStationSyncResult {
@@ -137,6 +163,7 @@ export interface PlayStationSyncResult {
   snapshotsCreated: number;
   newTrophyAlertsCreated: number;
   completionLostAlertsCreated: number;
+  profileSnapshot: PlayStationProfileSnapshot;
   requestsMade: number;
   startedAt: string;
   finishedAt: string;

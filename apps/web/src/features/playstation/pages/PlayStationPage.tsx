@@ -22,13 +22,54 @@ import { libraryApi } from "../../../services/api/libraryApi";
 type PreviewFilter = "all" | "missing_igdb" | PlayStationReconciliationStatus;
 
 const filterLabels: Readonly<Record<PreviewFilter, string>> = {
-  all: "All",
+  new: "New",
   missing_igdb: "Missing IGDB",
+  all: "All",
   linked: "Linked",
   suggested_match: "Suggested",
   ambiguous: "Ambiguous",
-  new: "New",
 };
+
+function isMissingIgdbMetadata(title: ReconciledPlayStationTitle): boolean {
+  if (title.reconciliation.status !== "linked") {
+    return false;
+  }
+
+  const linkedCandidate = title.reconciliation.candidates[0];
+
+  return (
+    linkedCandidate !== undefined && linkedCandidate.metadataProvider === null
+  );
+}
+
+function titleMatchesPreviewFilter(
+  title: ReconciledPlayStationTitle,
+  filter: PreviewFilter,
+): boolean {
+  if (filter === "all") {
+    return true;
+  }
+
+  if (filter === "missing_igdb") {
+    return isMissingIgdbMetadata(title);
+  }
+
+  return title.reconciliation.status === filter;
+}
+
+function choosePreferredPreviewFilter(
+  preview: PlayStationTitlePreview,
+): PreviewFilter {
+  if (preview.reconciliationCounts.new > 0) {
+    return "new";
+  }
+
+  if (preview.titles.some(isMissingIgdbMetadata)) {
+    return "missing_igdb";
+  }
+
+  return "all";
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -493,22 +534,7 @@ export function PlayStationPage() {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase("en-US");
 
     return preview.titles.filter((title) => {
-      if (activeFilter === "missing_igdb") {
-        const linkedCandidate =
-          title.reconciliation.status === "linked"
-            ? title.reconciliation.candidates[0]
-            : undefined;
-
-        if (
-          linkedCandidate === undefined ||
-          linkedCandidate.metadataProvider !== null
-        ) {
-          return false;
-        }
-      } else if (
-        activeFilter !== "all" &&
-        title.reconciliation.status !== activeFilter
-      ) {
+      if (!titleMatchesPreviewFilter(title, activeFilter)) {
         return false;
       }
 
@@ -559,44 +585,62 @@ export function PlayStationPage() {
     }));
   }
 
+  function storePreview(
+    nextPreview: PlayStationTitlePreview,
+    selectPreferredFilter = false,
+  ): void {
+    setPreview(nextPreview);
+
+    setActiveFilter((currentFilter) => {
+      const currentFilterStillHasTitles = nextPreview.titles.some((title) =>
+        titleMatchesPreviewFilter(title, currentFilter),
+      );
+
+      if (selectPreferredFilter || !currentFilterStillHasTitles) {
+        return choosePreferredPreviewFilter(nextPreview);
+      }
+
+      return currentFilter;
+    });
+  }
+
   function handleMetadataEnriched(
     title: ReconciledPlayStationTitle,
     candidate: PlayStationLibraryCandidate,
   ): void {
-    setPreview((currentPreview) => {
-      if (currentPreview === null) {
-        return null;
-      }
+    if (preview === null) {
+      return;
+    }
 
-      return {
-        ...currentPreview,
-        titles: currentPreview.titles.map((existingTitle) => {
-          if (
-            existingTitle.npServiceName !== title.npServiceName ||
-            existingTitle.npCommunicationId !== title.npCommunicationId
-          ) {
-            return existingTitle;
-          }
+    const updatedPreview: PlayStationTitlePreview = {
+      ...preview,
+      titles: preview.titles.map((existingTitle) => {
+        if (
+          existingTitle.npServiceName !== title.npServiceName ||
+          existingTitle.npCommunicationId !== title.npCommunicationId
+        ) {
+          return existingTitle;
+        }
 
-          return {
-            ...existingTitle,
-            reconciliation: {
-              ...existingTitle.reconciliation,
-              candidates: existingTitle.reconciliation.candidates.map(
-                (existingCandidate) =>
-                  existingCandidate.gameId === candidate.gameId
-                    ? {
-                        ...existingCandidate,
-                        metadataProvider: "igdb",
-                      }
-                    : existingCandidate,
-              ),
-            },
-          };
-        }),
-      };
-    });
+        return {
+          ...existingTitle,
+          reconciliation: {
+            ...existingTitle.reconciliation,
+            candidates: existingTitle.reconciliation.candidates.map(
+              (existingCandidate) =>
+                existingCandidate.gameId === candidate.gameId
+                  ? {
+                      ...existingCandidate,
+                      metadataProvider: "igdb",
+                    }
+                  : existingCandidate,
+            ),
+          },
+        };
+      }),
+    };
 
+    storePreview(updatedPreview);
     setNotice(`IGDB metadata was attached to ${candidate.title}.`);
   }
 
@@ -608,8 +652,7 @@ export function PlayStationPage() {
     try {
       const loadedPreview = await playStationApi.previewTitles();
 
-      setPreview(loadedPreview);
-      setActiveFilter("all");
+      storePreview(loadedPreview, true);
 
       setNotice(
         `Read ${loadedPreview.supportedTitleCount} supported trophy titles using ${loadedPreview.requestsMade} PlayStation requests.`,
@@ -629,9 +672,8 @@ export function PlayStationPage() {
     try {
       const result = await playStationApi.synchronize();
 
-      setPreview(result.preview);
+      storePreview(result.preview, true);
       setLastSynchronization(result.synchronization);
-      setActiveFilter("all");
 
       if (result.synchronization.status === "succeeded") {
         setNotice(
@@ -662,11 +704,9 @@ export function PlayStationPage() {
         npCommunicationId: title.npCommunicationId,
       });
 
-      setPreview((currentPreview) =>
-        currentPreview === null
-          ? null
-          : updateLinkedTitle(currentPreview, title, candidate),
-      );
+      if (preview !== null) {
+        storePreview(updateLinkedTitle(preview, title, candidate));
+      }
 
       setSelectedGameIds((currentSelections) => {
         const nextSelections = { ...currentSelections };
@@ -714,11 +754,9 @@ export function PlayStationPage() {
 
       setLibraryGames((currentGames) => [...currentGames, result.game]);
 
-      setPreview((currentPreview) =>
-        currentPreview === null
-          ? null
-          : updateLinkedTitle(currentPreview, title, candidate),
-      );
+      if (preview !== null) {
+        storePreview(updateLinkedTitle(preview, title, candidate));
+      }
 
       setSelectedGameIds((currentSelections) => {
         const nextSelections = { ...currentSelections };

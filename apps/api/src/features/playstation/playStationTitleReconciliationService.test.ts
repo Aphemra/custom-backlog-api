@@ -101,6 +101,17 @@ test("reconciles linked, suggested, ambiguous, and new PSN titles", () => {
         accountId: "20002",
         onlineId: "MainAccount",
       },
+      targetTrophySummary: {
+        trophyLevel: 425,
+        progress: 52,
+        tier: 5,
+        earnedTrophies: {
+          bronze: 1_234,
+          silver: 456,
+          gold: 78,
+          platinum: 42,
+        },
+      },
       providerTitleCount: 4,
       supportedTitleCount: 4,
       excludedTitleCount: 0,

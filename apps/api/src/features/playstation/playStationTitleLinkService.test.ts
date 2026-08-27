@@ -47,6 +47,17 @@ function createPreview(): ReconciledPlayStationTitlePreviewResult {
       accountId: "20002",
       onlineId: "MainAccount",
     },
+    targetTrophySummary: {
+      trophyLevel: 425,
+      progress: 52,
+      tier: 5,
+      earnedTrophies: {
+        bronze: 1_234,
+        silver: 456,
+        gold: 78,
+        platinum: 42,
+      },
+    },
     providerTitleCount: 1,
     supportedTitleCount: 1,
     excludedTitleCount: 0,

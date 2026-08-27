@@ -23,8 +23,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 5,
-      availableMigrationCount: 5,
+      schemaVersion: 6,
+      availableMigrationCount: 6,
     });
 
     const row = database
@@ -131,6 +131,140 @@ test("enforces platform and trophy-count constraints", () => {
   }
 });
 
+test("stores constrained PlayStation profile snapshots", () => {
+  const database = openDatabase(":memory:");
+  const timestamp = "2026-08-27T12:00:00.000Z";
+
+  try {
+    database
+      .prepare(
+        `
+          INSERT INTO trophy_sync_runs (
+            id,
+            target_account_id,
+            status,
+            request_count,
+            started_at
+          ) VALUES (?, ?, ?, ?, ?)
+        `,
+      )
+      .run("profile-sync-run", "20002", "succeeded", 5, timestamp);
+
+    assert.throws(() => {
+      database
+        .prepare(
+          `
+            INSERT INTO playstation_profile_snapshots (
+              id,
+              sync_run_id,
+              account_id,
+              captured_at,
+              trophy_level,
+              level_progress_percent,
+              tier,
+              bronze_earned,
+              silver_earned,
+              gold_earned,
+              platinum_earned,
+              payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          "invalid-profile-snapshot",
+          "profile-sync-run",
+          "20002",
+          timestamp,
+          425,
+          101,
+          5,
+          1_234,
+          456,
+          78,
+          42,
+          JSON.stringify({ trophyLevel: 425 }),
+        );
+    });
+
+    database
+      .prepare(
+        `
+          INSERT INTO playstation_profile_snapshots (
+            id,
+            sync_run_id,
+            account_id,
+            captured_at,
+            trophy_level,
+            level_progress_percent,
+            tier,
+            bronze_earned,
+            silver_earned,
+            gold_earned,
+            platinum_earned,
+            payload_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "valid-profile-snapshot",
+        "profile-sync-run",
+        "20002",
+        timestamp,
+        425,
+        52,
+        5,
+        1_234,
+        456,
+        78,
+        42,
+        JSON.stringify({
+          trophyLevel: 425,
+          progress: 52,
+          tier: 5,
+          earnedTrophies: {
+            bronze: 1_234,
+            silver: 456,
+            gold: 78,
+            platinum: 42,
+          },
+        }),
+      );
+
+    const storedCount = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM playstation_profile_snapshots
+        `,
+      )
+      .get() as unknown as CountRow;
+
+    assert.equal(storedCount.count, 1);
+
+    database
+      .prepare(
+        `
+          DELETE FROM trophy_sync_runs
+          WHERE id = ?
+        `,
+      )
+      .run("profile-sync-run");
+
+    const remainingCount = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM playstation_profile_snapshots
+        `,
+      )
+      .get() as unknown as CountRow;
+
+    assert.equal(remainingCount.count, 0);
+  } finally {
+    database.close();
+  }
+});
+
 test("upgrades an existing version-one database without replacing it", () => {
   const database = new DatabaseSync(":memory:");
 
@@ -140,15 +274,15 @@ test("upgrades an existing version-one database without replacing it", () => {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
       schemaVersion: 1,
-      availableMigrationCount: 5,
+      availableMigrationCount: 6,
     });
 
     runMigrations(database);
 
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 5,
-      availableMigrationCount: 5,
+      schemaVersion: 6,
+      availableMigrationCount: 6,
     });
 
     const row = database
@@ -160,13 +294,14 @@ test("upgrades an existing version-one database without replacing it", () => {
             AND name IN (
               'playstation_game_links',
               'cached_images',
-              'library_game_images'
+              'library_game_images',
+              'playstation_profile_snapshots'
             )
         `,
       )
       .get() as unknown as CountRow;
 
-    assert.equal(row.count, 3);
+    assert.equal(row.count, 4);
   } finally {
     database.close();
   }
@@ -599,7 +734,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 5);
+      assert.equal(row.count, 6);
     } finally {
       restoredDatabase.close();
     }

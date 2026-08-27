@@ -1569,6 +1569,20 @@ textarea:focus-visible {
 
 .library-heading__actions {
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.library-sync-history {
+  margin: 0.75rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.library-sync-history strong {
+  color: #cbd5e1;
+  font-weight: 700;
 }
 
 .igdb-search__intro {

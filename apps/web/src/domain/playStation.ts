@@ -30,6 +30,13 @@ export interface PlayStationTrophyCounts {
   readonly platinum: number;
 }
 
+export interface PlayStationTrophySummary {
+  readonly trophyLevel: number;
+  readonly progress: number;
+  readonly tier: number;
+  readonly earnedTrophies: PlayStationTrophyCounts;
+}
+
 export interface PlayStationLibraryCandidate {
   readonly gameId: string;
   readonly title: string;
@@ -80,6 +87,7 @@ export interface PlayStationReconciliationCounts {
 
 export interface PlayStationTitlePreview {
   readonly target: PlayStationAccountIdentity;
+  readonly targetTrophySummary: PlayStationTrophySummary;
   readonly providerTitleCount: number;
   readonly supportedTitleCount: number;
   readonly excludedTitleCount: number;
@@ -119,6 +127,17 @@ export interface CreatedPlayStationLibraryGame {
   readonly link: PlayStationGameLink;
 }
 
+export interface PlayStationProfileSnapshot {
+  readonly id: string;
+  readonly syncRunId: string;
+  readonly accountId: string;
+  readonly capturedAt: string;
+  readonly trophyLevel: number;
+  readonly levelProgressPercent: number;
+  readonly tier: number;
+  readonly earnedTrophies: PlayStationTrophyCounts;
+}
+
 export type PlayStationSyncStatus = "succeeded" | "partial";
 
 export interface PlayStationSyncResult {
@@ -130,9 +149,22 @@ export interface PlayStationSyncResult {
   readonly snapshotsCreated: number;
   readonly newTrophyAlertsCreated: number;
   readonly completionLostAlertsCreated: number;
+  readonly profileSnapshot: PlayStationProfileSnapshot;
   readonly requestsMade: number;
   readonly startedAt: string;
   readonly finishedAt: string;
+}
+
+export interface PlayStationProgressSyncSelection {
+  readonly providerTitleCount: number;
+  readonly supportedTitleCount: number;
+  readonly excludedTitleCount: number;
+  readonly linkedTitleCount: number;
+}
+
+export interface PlayStationProgressSynchronizationResponse {
+  readonly synchronization: PlayStationSyncResult;
+  readonly selection: PlayStationProgressSyncSelection;
 }
 
 export interface PlayStationSynchronizationResponse {

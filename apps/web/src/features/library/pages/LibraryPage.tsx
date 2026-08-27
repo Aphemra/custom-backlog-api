@@ -4,13 +4,24 @@ import type {
   LibraryGame,
   LibraryGameWithArtwork,
 } from "../../../domain/libraryGame";
+import type { PlayStationProgressSynchronizationResponse } from "../../../domain/playStation";
 import { ApiError } from "../../../services/api/apiClient";
 import { libraryApi } from "../../../services/api/libraryApi";
+import { playStationApi } from "../../../services/api/playStationApi";
 import { IgdbGameSearch } from "../components/IgdbGameSearch";
 import { LibraryGameForm } from "../components/LibraryGameForm";
 import { LibraryGameRow } from "../components/LibraryGameRow";
 
 type LoadState = "loading" | "ready" | "error";
+
+const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function formatDateTime(value: string): string {
+  return dateTimeFormatter.format(new Date(value));
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -31,6 +42,9 @@ export function LibraryPage() {
   const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
   const [editingGame, setEditingGame] = useState<LibraryGame | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [isSynchronizingTrophies, setIsSynchronizingTrophies] = useState(false);
+  const [lastProgressSync, setLastProgressSync] =
+    useState<PlayStationProgressSynchronizationResponse | null>(null);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -88,6 +102,23 @@ export function LibraryPage() {
 
   const orderingDisabled = searchQuery.trim().length > 0;
 
+  const latestStoredTrophyUpdate = useMemo(() => {
+    let latest: string | null = null;
+
+    for (const game of games) {
+      const candidate = game.trophySummary?.lastSyncedAt;
+
+      if (
+        candidate !== undefined &&
+        (latest === null || Date.parse(candidate) > Date.parse(latest))
+      ) {
+        latest = candidate;
+      }
+    }
+
+    return latest;
+  }, [games]);
+
   async function refreshGames(): Promise<void> {
     setGames(await libraryApi.list());
   }
@@ -111,6 +142,23 @@ export function LibraryPage() {
       return false;
     } finally {
       setBusyKey(null);
+    }
+  }
+
+  async function handleSyncTrophyProgress(): Promise<void> {
+    setIsSynchronizingTrophies(true);
+    setErrorMessage(null);
+    setNotice(null);
+
+    try {
+      const result = await playStationApi.synchronizeProgress();
+
+      setLastProgressSync(result);
+      await refreshGames();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSynchronizingTrophies(false);
     }
   }
 
@@ -259,19 +307,145 @@ export function LibraryPage() {
             className="button button--quiet"
             type="button"
             onClick={openAddForm}
+            disabled={isSynchronizingTrophies}
           >
             Add manually
           </button>
 
           <button
-            className="button button--primary"
+            className="button button--quiet"
             type="button"
             onClick={openIgdbSearch}
+            disabled={isSynchronizingTrophies}
           >
             Search IGDB
           </button>
+
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={() => void handleSyncTrophyProgress()}
+            disabled={
+              loadState === "loading" ||
+              busyKey !== null ||
+              isSynchronizingTrophies
+            }
+            aria-busy={isSynchronizingTrophies}
+          >
+            {isSynchronizingTrophies
+              ? "Syncing Trophy Progress…"
+              : "Sync Trophy Progress"}
+          </button>
         </div>
       </div>
+
+      {lastProgressSync === null && latestStoredTrophyUpdate !== null ? (
+        <p className="library-sync-history">
+          Last stored trophy update{" "}
+          <strong>{formatDateTime(latestStoredTrophyUpdate)}</strong>
+        </p>
+      ) : null}
+
+      {lastProgressSync === null ? null : (
+        <section
+          className={`psn-sync-result${
+            lastProgressSync.synchronization.status === "partial"
+              ? " psn-sync-result--partial"
+              : ""
+          }`}
+          aria-labelledby="library-sync-result-title"
+        >
+          <div className="psn-sync-result__heading">
+            <div>
+              <p className="eyebrow">Latest trophy refresh</p>
+
+              <h3 id="library-sync-result-title">
+                {lastProgressSync.synchronization.status === "succeeded"
+                  ? "Library trophy progress updated"
+                  : "Trophy progress updated partially"}
+              </h3>
+            </div>
+
+            <span
+              className={`psn-sync-status psn-sync-status--${
+                lastProgressSync.synchronization.status
+              }`}
+            >
+              {lastProgressSync.synchronization.status === "succeeded"
+                ? "Succeeded"
+                : "Partial"}
+            </span>
+          </div>
+
+          <div className="psn-sync-result__counts">
+            <div>
+              <strong>
+                {lastProgressSync.synchronization.processedTitleCount}
+              </strong>
+
+              <span>
+                of {lastProgressSync.synchronization.expectedTitleCount} linked
+                games
+              </span>
+            </div>
+
+            <div>
+              <strong>
+                {lastProgressSync.synchronization.snapshotsCreated}
+              </strong>
+
+              <span>Game snapshots</span>
+            </div>
+
+            <div>
+              <strong>
+                {lastProgressSync.synchronization.newTrophyAlertsCreated +
+                  lastProgressSync.synchronization.completionLostAlertsCreated}
+              </strong>
+
+              <span>New alerts</span>
+            </div>
+
+            <div>
+              <strong>
+                Level{" "}
+                {lastProgressSync.synchronization.profileSnapshot.trophyLevel}
+              </strong>
+
+              <span>PSN trophy level</span>
+            </div>
+
+            <div>
+              <strong>
+                {
+                  lastProgressSync.synchronization.profileSnapshot
+                    .levelProgressPercent
+                }
+                %
+              </strong>
+
+              <span>To next level</span>
+            </div>
+          </div>
+
+          {lastProgressSync.synchronization.status === "partial" ? (
+            <p className="psn-sync-result__warning">
+              Sony’s response did not include every linked trophy stack.
+              Existing data for missing stacks was preserved.
+            </p>
+          ) : null}
+
+          <p className="psn-sync-result__time">
+            Selected {lastProgressSync.selection.linkedTitleCount} linked trophy{" "}
+            {lastProgressSync.selection.linkedTitleCount === 1
+              ? "stack"
+              : "stacks"}{" "}
+            from {lastProgressSync.selection.supportedTitleCount} supported PSN
+            titles. Finished{" "}
+            {formatDateTime(lastProgressSync.synchronization.finishedAt)}
+          </p>
+        </section>
+      )}
 
       <div className="stats-strip" aria-label="Library summary">
         <div>
@@ -421,7 +595,7 @@ export function LibraryPage() {
                   !isHidden && activeIndex < orderedVisibleGames.length - 1
                 }
                 orderingDisabled={orderingDisabled}
-                busy={busyKey !== null}
+                busy={busyKey !== null || isSynchronizingTrophies}
                 onMoveUp={() => void moveGame(game.id, -1)}
                 onMoveDown={() => void moveGame(game.id, 1)}
                 onEdit={() => openEditForm(game)}

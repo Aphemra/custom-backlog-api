@@ -277,6 +277,17 @@ test("tests a dedicated reader without exposing credentials", async () => {
 
     const previewBody = (await previewResponse.json()) as {
       preview: {
+        targetTrophySummary: {
+          trophyLevel: number;
+          progress: number;
+          tier: number;
+          earnedTrophies: {
+            bronze: number;
+            silver: number;
+            gold: number;
+            platinum: number;
+          };
+        };
         providerTitleCount: number;
         supportedTitleCount: number;
         excludedTitleCount: number;
@@ -298,6 +309,17 @@ test("tests a dedicated reader without exposing credentials", async () => {
       };
     };
 
+    assert.deepEqual(previewBody.preview.targetTrophySummary, {
+      trophyLevel: 425,
+      progress: 52,
+      tier: 5,
+      earnedTrophies: {
+        bronze: 1_234,
+        silver: 456,
+        gold: 78,
+        platinum: 42,
+      },
+    });
     assert.equal(previewBody.preview.providerTitleCount, 1);
     assert.equal(previewBody.preview.supportedTitleCount, 1);
     assert.equal(previewBody.preview.excludedTitleCount, 0);

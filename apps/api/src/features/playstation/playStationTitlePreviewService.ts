@@ -309,6 +309,7 @@ export class PlayStationTitlePreviewService {
 
     return {
       target: connection.target,
+      targetTrophySummary: connection.targetTrophySummary,
       providerTitleCount,
       supportedTitleCount: titles.length,
       excludedTitleCount,

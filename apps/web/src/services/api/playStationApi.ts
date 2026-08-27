@@ -4,6 +4,7 @@ import type {
   CreatedPlayStationLibraryGame,
   PlayStationConnectionStatus,
   PlayStationGameLink,
+  PlayStationProgressSynchronizationResponse,
   PlayStationTitlePreview,
   PlayStationSynchronizationResponse,
 } from "../../domain/playStation";
@@ -73,6 +74,18 @@ export const playStationApi = {
           "x-trophy-backlog-action": "import-playstation-title",
         },
         body: JSON.stringify(input),
+      },
+    );
+  },
+
+  async synchronizeProgress(): Promise<PlayStationProgressSynchronizationResponse> {
+    return requestJson<PlayStationProgressSynchronizationResponse>(
+      "/api/integrations/playstation/progress-syncs",
+      {
+        method: "POST",
+        headers: {
+          "x-trophy-backlog-action": "synchronize-playstation-trophy-progress",
+        },
       },
     );
   },

@@ -3,8 +3,8 @@ import type { DatabaseSync } from "node:sqlite";
 import type {
   PlayStationSyncResult,
   PlayStationTrophyCounts,
+  PlayStationTrophySyncPreview,
   ReconciledPlayStationTitle,
-  ReconciledPlayStationTitlePreviewResult,
 } from "./playStationTypes.js";
 
 interface CountRow {
@@ -61,10 +61,9 @@ export class PlayStationTrophySyncService {
     private readonly clock: Clock = () => new Date(),
   ) {}
 
-  synchronize(
-    preview: ReconciledPlayStationTitlePreviewResult,
-  ): PlayStationSyncResult {
+  synchronize(preview: PlayStationTrophySyncPreview): PlayStationSyncResult {
     const syncRunId = randomUUID();
+    const profileSnapshotId = randomUUID();
     const startedAt = this.clock().toISOString();
 
     const expectedTitleCount = (
@@ -119,6 +118,40 @@ export class PlayStationTrophySyncService {
           preview.requestsMade,
           expectedTitleCount,
           startedAt,
+        );
+
+      this.database
+        .prepare(
+          `
+          INSERT INTO playstation_profile_snapshots (
+            id,
+            sync_run_id,
+            account_id,
+            captured_at,
+            trophy_level,
+            level_progress_percent,
+            tier,
+            bronze_earned,
+            silver_earned,
+            gold_earned,
+            platinum_earned,
+            payload_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        )
+        .run(
+          profileSnapshotId,
+          syncRunId,
+          preview.target.accountId,
+          startedAt,
+          preview.targetTrophySummary.trophyLevel,
+          preview.targetTrophySummary.progress,
+          preview.targetTrophySummary.tier,
+          preview.targetTrophySummary.earnedTrophies.bronze,
+          preview.targetTrophySummary.earnedTrophies.silver,
+          preview.targetTrophySummary.earnedTrophies.gold,
+          preview.targetTrophySummary.earnedTrophies.platinum,
+          JSON.stringify(preview.targetTrophySummary),
         );
 
       for (const { title, gameId } of linkedTitles) {
@@ -390,6 +423,18 @@ export class PlayStationTrophySyncService {
         snapshotsCreated,
         newTrophyAlertsCreated,
         completionLostAlertsCreated,
+        profileSnapshot: {
+          id: profileSnapshotId,
+          syncRunId,
+          accountId: preview.target.accountId,
+          capturedAt: startedAt,
+          trophyLevel: preview.targetTrophySummary.trophyLevel,
+          levelProgressPercent: preview.targetTrophySummary.progress,
+          tier: preview.targetTrophySummary.tier,
+          earnedTrophies: {
+            ...preview.targetTrophySummary.earnedTrophies,
+          },
+        },
         requestsMade: preview.requestsMade,
         startedAt,
         finishedAt,

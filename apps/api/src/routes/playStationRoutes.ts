@@ -13,6 +13,7 @@ import {
 import { PlayStationTitleImageService } from "../features/playstation/playStationTitleImageService.js";
 import { PlayStationAuthorizationSession } from "../features/playstation/playStationAuthorizationSession.js";
 import { PlayStationConnectionService } from "../features/playstation/playStationConnectionService.js";
+import { PlayStationLinkedTitleSelector } from "../features/playstation/playStationLinkedTitleSelector.js";
 import { PlayStationRequestGate } from "../features/playstation/playStationRequestGate.js";
 import { PlayStationTitlePreviewService } from "../features/playstation/playStationTitlePreviewService.js";
 import { PlayStationTitleReconciliationService } from "../features/playstation/playStationTitleReconciliationService.js";
@@ -66,6 +67,10 @@ export function createPlayStationRoutes(
   );
 
   const titleReconciliationService = new PlayStationTitleReconciliationService(
+    options.database,
+  );
+
+  const linkedTitleSelector = new PlayStationLinkedTitleSelector(
     options.database,
   );
 
@@ -305,6 +310,46 @@ export function createPlayStationRoutes(
         .location(`/api/library/games/${result.game.id}`)
         .status(201)
         .json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  routes.post("/progress-syncs", async (request, response, next) => {
+    if (
+      request.get("x-trophy-backlog-action") !==
+      "synchronize-playstation-trophy-progress"
+    ) {
+      response.status(400).json({
+        ok: false,
+        error: "explicit_playstation_action_required",
+        message:
+          "An explicit PlayStation trophy-progress synchronization action is required.",
+      });
+
+      return;
+    }
+
+    try {
+      const result = await syncExecutionLock.run(async () => {
+        syncCooldownService.enforceAndRecordAttempt();
+
+        const linkedPreview = linkedTitleSelector.select(
+          await titlePreviewService.previewTitles(),
+        );
+
+        return {
+          synchronization: trophySyncService.synchronize(linkedPreview),
+          selection: {
+            providerTitleCount: linkedPreview.providerTitleCount,
+            supportedTitleCount: linkedPreview.supportedTitleCount,
+            excludedTitleCount: linkedPreview.excludedTitleCount,
+            linkedTitleCount: linkedPreview.linkedTitleCount,
+          },
+        };
+      });
+
+      response.json(result);
     } catch (error) {
       next(error);
     }

@@ -143,6 +143,8 @@ test("reconciles linked, suggested, ambiguous, and new PSN titles", () => {
           title: "Ratchet and Clank",
           platform: "PS5",
           archived: false,
+          metadataProvider: null,
+          playStationLinkSource: null,
         },
       ],
     });

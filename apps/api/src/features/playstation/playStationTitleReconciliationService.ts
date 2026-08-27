@@ -13,6 +13,8 @@ interface ReconciliationRow {
   title: string;
   platform: "PS3" | "PS4" | "PS5";
   archived_at: string | null;
+  metadata_provider: string | null;
+  link_source: "sync_created" | "automatic_match" | "manual_match" | null;
   np_communication_id: string | null;
   np_service_name: "trophy" | "trophy2" | null;
 }
@@ -103,11 +105,17 @@ export class PlayStationTitleReconciliationService {
           library_games.title,
           library_games.platform,
           library_games.archived_at,
+          external_game_metadata.provider AS metadata_provider,
+          playstation_game_links.link_source,
           playstation_game_links.np_communication_id,
           playstation_game_links.np_service_name
         FROM library_games
         LEFT JOIN playstation_game_links
           ON playstation_game_links.game_id = library_games.id
+        LEFT JOIN game_metadata_links
+          ON game_metadata_links.game_id = library_games.id
+        LEFT JOIN external_game_metadata
+          ON external_game_metadata.id = game_metadata_links.metadata_id
         ORDER BY
           library_games.archived_at IS NOT NULL,
           library_games.priority_rank,
@@ -122,6 +130,8 @@ export class PlayStationTitleReconciliationService {
         title: row.title,
         platform: row.platform,
         archived: row.archived_at !== null,
+        metadataProvider: row.metadata_provider,
+        playStationLinkSource: row.link_source,
       },
       normalizedTitle: normalizeTitle(row.title),
       npCommunicationId: row.np_communication_id,

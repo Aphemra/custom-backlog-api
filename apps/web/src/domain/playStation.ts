@@ -35,6 +35,12 @@ export interface PlayStationLibraryCandidate {
   readonly title: string;
   readonly platform: PlayStationPlatform;
   readonly archived: boolean;
+  readonly metadataProvider: string | null;
+  readonly playStationLinkSource:
+    | "sync_created"
+    | "automatic_match"
+    | "manual_match"
+    | null;
 }
 
 export interface PlayStationTitleReconciliation {

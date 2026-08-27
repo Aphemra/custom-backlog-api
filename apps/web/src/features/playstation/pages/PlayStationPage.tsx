@@ -6,6 +6,7 @@ import {
   type PlayStationPlatform,
   type PursuitStatus,
 } from "../../../domain/libraryGame";
+import { PlayStationIgdbEnrichment } from "../components/PlayStationIgdbEnrichment";
 import type {
   PlayStationConnectionStatus,
   PlayStationLibraryCandidate,
@@ -119,6 +120,10 @@ interface TrophyTitleRowProps {
     platform: PlayStationPlatform,
     pursuitStatus: PursuitStatus,
   ) => void;
+  readonly onMetadataEnriched: (
+    title: ReconciledPlayStationTitle,
+    candidate: PlayStationLibraryCandidate,
+  ) => void;
 }
 
 function TrophyTitleRow({
@@ -129,6 +134,7 @@ function TrophyTitleRow({
   onSelectCandidate,
   onConfirmMatch,
   onImportTitle,
+  onMetadataEnriched,
 }: TrophyTitleRowProps) {
   const identity = `${title.npServiceName}:${title.npCommunicationId}`;
 
@@ -143,6 +149,15 @@ function TrophyTitleRow({
     title.reconciliation.status === "suggested_match"
       ? title.reconciliation.candidates[0]
       : undefined;
+
+  const linkedCandidate =
+    title.reconciliation.status === "linked"
+      ? title.reconciliation.candidates[0]
+      : undefined;
+
+  const canEnrichFromIgdb =
+    linkedCandidate?.playStationLinkSource === "sync_created" &&
+    linkedCandidate.metadataProvider === null;
 
   const selectedCandidate = availableCandidates.find(
     (candidate) => candidate.gameId === selectedCandidateId,
@@ -236,14 +251,25 @@ function TrophyTitleRow({
           </span>
         </div>
 
-        {title.reconciliation.status === "linked" ? (
-          <p className="psn-title-row__match">
-            Linked to{" "}
-            <strong>
-              {title.reconciliation.candidates[0]?.title ?? "a library game"}
-            </strong>
-          </p>
-        ) : null}
+        {linkedCandidate === undefined ? null : (
+          <>
+            <p className="psn-title-row__match">
+              Linked to <strong>{linkedCandidate.title}</strong>
+              {linkedCandidate.metadataProvider === null
+                ? ""
+                : ` · ${linkedCandidate.metadataProvider.toUpperCase()} metadata`}
+            </p>
+
+            {canEnrichFromIgdb ? (
+              <PlayStationIgdbEnrichment
+                title={title}
+                candidate={linkedCandidate}
+                disabled={busyIdentity !== null}
+                onEnriched={() => onMetadataEnriched(title, linkedCandidate)}
+              />
+            ) : null}
+          </>
+        )}
 
         {suggestedCandidate === undefined ? null : (
           <div className="psn-title-row__suggestion">
@@ -504,6 +530,8 @@ export function PlayStationPage() {
         title: game.title,
         platform: game.platform,
         archived: game.archivedAt !== null,
+        metadataProvider: null,
+        playStationLinkSource: null,
       }));
   }
 
@@ -512,6 +540,47 @@ export function PlayStationPage() {
       ...currentSelections,
       [titleIdentity]: gameId,
     }));
+  }
+
+  function handleMetadataEnriched(
+    title: ReconciledPlayStationTitle,
+    candidate: PlayStationLibraryCandidate,
+  ): void {
+    setPreview((currentPreview) => {
+      if (currentPreview === null) {
+        return null;
+      }
+
+      return {
+        ...currentPreview,
+        titles: currentPreview.titles.map((existingTitle) => {
+          if (
+            existingTitle.npServiceName !== title.npServiceName ||
+            existingTitle.npCommunicationId !== title.npCommunicationId
+          ) {
+            return existingTitle;
+          }
+
+          return {
+            ...existingTitle,
+            reconciliation: {
+              ...existingTitle.reconciliation,
+              candidates: existingTitle.reconciliation.candidates.map(
+                (existingCandidate) =>
+                  existingCandidate.gameId === candidate.gameId
+                    ? {
+                        ...existingCandidate,
+                        metadataProvider: "igdb",
+                      }
+                    : existingCandidate,
+              ),
+            },
+          };
+        }),
+      };
+    });
+
+    setNotice(`IGDB metadata was attached to ${candidate.title}.`);
   }
 
   async function handlePreview(): Promise<void> {
@@ -598,6 +667,8 @@ export function PlayStationPage() {
         title: result.game.title,
         platform: result.game.platform,
         archived: false,
+        metadataProvider: null,
+        playStationLinkSource: "sync_created",
       };
 
       setLibraryGames((currentGames) => [...currentGames, result.game]);
@@ -787,6 +858,7 @@ export function PlayStationPage() {
                     ] ?? ""
                   }
                   busyIdentity={busyIdentity}
+                  onMetadataEnriched={handleMetadataEnriched}
                   onSelectCandidate={selectCandidate}
                   onConfirmMatch={(selectedTitle, candidate) =>
                     void handleConfirmMatch(selectedTitle, candidate)

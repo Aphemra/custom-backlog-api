@@ -88,6 +88,12 @@ export interface PlayStationLibraryCandidate {
   title: string;
   platform: PlayStationTrophyPlatform;
   archived: boolean;
+  metadataProvider: string | null;
+  playStationLinkSource:
+    | "sync_created"
+    | "automatic_match"
+    | "manual_match"
+    | null;
 }
 
 export interface PlayStationTitleReconciliation {

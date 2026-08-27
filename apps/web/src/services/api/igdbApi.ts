@@ -1,4 +1,8 @@
-import type { AddIgdbGameInput, IgdbGameSearchResult } from "../../domain/igdb";
+import type {
+  AddIgdbGameInput,
+  IgdbEnrichmentResult,
+  IgdbGameSearchResult,
+} from "../../domain/igdb";
 import type { LibraryGame } from "../../domain/libraryGame";
 import { requestJson } from "./apiClient";
 
@@ -38,5 +42,22 @@ export const igdbApi = {
     );
 
     return response.game;
+  },
+
+  async enrichExistingGame(
+    externalId: string,
+    gameId: string,
+  ): Promise<IgdbEnrichmentResult> {
+    return requestJson<IgdbEnrichmentResult>(
+      `/api/integrations/igdb/games/` +
+        `${encodeURIComponent(externalId)}/library/` +
+        `${encodeURIComponent(gameId)}/metadata`,
+      {
+        method: "POST",
+        headers: {
+          "x-trophy-backlog-action": "enrich-library-game-from-igdb",
+        },
+      },
+    );
   },
 };

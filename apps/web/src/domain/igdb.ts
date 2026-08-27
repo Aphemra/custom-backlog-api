@@ -26,3 +26,17 @@ export interface AddedIgdbGame {
   readonly game: LibraryGame;
   readonly externalId: string;
 }
+
+export interface IgdbEnrichmentResult {
+  readonly game: LibraryGame;
+  readonly metadata: {
+    readonly provider: "igdb";
+    readonly externalId: string;
+    readonly title: string;
+    readonly releaseDate: string | null;
+    readonly cover: {
+      readonly imageId: string;
+      readonly url: string;
+    } | null;
+  };
+}

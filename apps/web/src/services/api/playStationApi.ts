@@ -1,5 +1,7 @@
 import type {
+  CreatePlayStationTitleImportInput,
   CreatePlayStationTitleLinkInput,
+  CreatedPlayStationLibraryGame,
   PlayStationConnectionStatus,
   PlayStationGameLink,
   PlayStationTitlePreview,
@@ -57,5 +59,20 @@ export const playStationApi = {
     );
 
     return response.link;
+  },
+
+  async importTitle(
+    input: CreatePlayStationTitleImportInput,
+  ): Promise<CreatedPlayStationLibraryGame> {
+    return requestJson<CreatedPlayStationLibraryGame>(
+      "/api/integrations/playstation/title-imports",
+      {
+        method: "POST",
+        headers: {
+          "x-trophy-backlog-action": "import-playstation-title",
+        },
+        body: JSON.stringify(input),
+      },
+    );
   },
 };

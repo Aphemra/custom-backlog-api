@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { LibraryGame } from "../../../domain/libraryGame";
+import {
+  pursuitStatuses,
+  pursuitStatusLabels,
+  type LibraryGame,
+  type PlayStationPlatform,
+  type PursuitStatus,
+} from "../../../domain/libraryGame";
 import type {
   PlayStationConnectionStatus,
   PlayStationLibraryCandidate,
@@ -102,11 +108,16 @@ interface TrophyTitleRowProps {
   readonly title: ReconciledPlayStationTitle;
   readonly availableCandidates: readonly PlayStationLibraryCandidate[];
   readonly selectedCandidateId: string;
-  readonly linkingIdentity: string | null;
+  readonly busyIdentity: string | null;
   readonly onSelectCandidate: (titleIdentity: string, gameId: string) => void;
   readonly onConfirmMatch: (
     title: ReconciledPlayStationTitle,
     candidate: PlayStationLibraryCandidate,
+  ) => void;
+  readonly onImportTitle: (
+    title: ReconciledPlayStationTitle,
+    platform: PlayStationPlatform,
+    pursuitStatus: PursuitStatus,
   ) => void;
 }
 
@@ -114,11 +125,19 @@ function TrophyTitleRow({
   title,
   availableCandidates,
   selectedCandidateId,
-  linkingIdentity,
+  busyIdentity,
   onSelectCandidate,
   onConfirmMatch,
+  onImportTitle,
 }: TrophyTitleRowProps) {
   const identity = `${title.npServiceName}:${title.npCommunicationId}`;
+
+  const [importPlatform, setImportPlatform] = useState<PlayStationPlatform>(
+    title.platforms[0] ?? "PS5",
+  );
+
+  const [importPursuitStatus, setImportPursuitStatus] =
+    useState<PursuitStatus>("unplanned");
 
   const suggestedCandidate =
     title.reconciliation.status === "suggested_match"
@@ -134,6 +153,10 @@ function TrophyTitleRow({
   );
 
   const needsManualSelection =
+    title.reconciliation.status === "ambiguous" ||
+    title.reconciliation.status === "new";
+
+  const canCreateLibraryGame =
     title.reconciliation.status === "ambiguous" ||
     title.reconciliation.status === "new";
 
@@ -236,10 +259,10 @@ function TrophyTitleRow({
             <button
               className="button button--primary"
               type="button"
-              disabled={linkingIdentity !== null}
+              disabled={busyIdentity !== null}
               onClick={() => onConfirmMatch(title, suggestedCandidate)}
             >
-              {linkingIdentity === identity ? "Linking…" : "Confirm link"}
+              {busyIdentity === identity ? "Linking…" : "Confirm link"}
             </button>
           </div>
         )}
@@ -274,7 +297,7 @@ function TrophyTitleRow({
 
                   <select
                     value={selectedCandidateId}
-                    disabled={linkingIdentity !== null}
+                    disabled={busyIdentity !== null}
                     onChange={(event) =>
                       onSelectCandidate(identity, event.target.value)
                     }
@@ -297,7 +320,7 @@ function TrophyTitleRow({
                   className="button button--primary"
                   type="button"
                   disabled={
-                    linkingIdentity !== null || selectedCandidate === undefined
+                    busyIdentity !== null || selectedCandidate === undefined
                   }
                   onClick={() => {
                     if (selectedCandidate !== undefined) {
@@ -305,12 +328,76 @@ function TrophyTitleRow({
                     }
                   }}
                 >
-                  {linkingIdentity === identity
+                  {busyIdentity === identity
                     ? "Linking…"
                     : "Link selected game"}
                 </button>
               </div>
             )}
+          </div>
+        ) : null}
+
+        {canCreateLibraryGame ? (
+          <div className="psn-title-row__import">
+            <div>
+              <span>Create a separate library game</span>
+
+              <small>
+                Uses the PSN trophy title now. IGDB metadata can be attached
+                afterward.
+              </small>
+            </div>
+
+            <div className="psn-title-row__import-controls">
+              <label className="field">
+                <span>Platform</span>
+
+                <select
+                  value={importPlatform}
+                  disabled={busyIdentity !== null}
+                  onChange={(event) =>
+                    setImportPlatform(event.target.value as PlayStationPlatform)
+                  }
+                >
+                  {title.platforms.map((platform) => (
+                    <option value={platform} key={platform}>
+                      {platform}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Backlog status</span>
+
+                <select
+                  value={importPursuitStatus}
+                  disabled={busyIdentity !== null}
+                  onChange={(event) =>
+                    setImportPursuitStatus(event.target.value as PursuitStatus)
+                  }
+                >
+                  {pursuitStatuses.map((status) => (
+                    <option value={status} key={status}>
+                      {pursuitStatusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                className="button button--quiet"
+                type="button"
+                disabled={busyIdentity !== null}
+                onClick={() =>
+                  onImportTitle(title, importPlatform, importPursuitStatus)
+                }
+              >
+                {busyIdentity === identity
+                  ? "Creating and linking…"
+                  : "Create from PSN"}
+              </button>
+            </div>
           </div>
         ) : null}
       </div>
@@ -335,7 +422,7 @@ export function PlayStationPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const [linkingIdentity, setLinkingIdentity] = useState<string | null>(null);
+  const [busyIdentity, setBusyIdentity] = useState<string | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -454,7 +541,7 @@ export function PlayStationPage() {
   ): Promise<void> {
     const identity = `${title.npServiceName}:${title.npCommunicationId}`;
 
-    setLinkingIdentity(identity);
+    setBusyIdentity(identity);
     setErrorMessage(null);
     setNotice(null);
 
@@ -483,7 +570,59 @@ export function PlayStationPage() {
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
-      setLinkingIdentity(null);
+      setBusyIdentity(null);
+    }
+  }
+
+  async function handleImportTitle(
+    title: ReconciledPlayStationTitle,
+    platform: PlayStationPlatform,
+    pursuitStatus: PursuitStatus,
+  ): Promise<void> {
+    const identity = `${title.npServiceName}:${title.npCommunicationId}`;
+
+    setBusyIdentity(identity);
+    setErrorMessage(null);
+    setNotice(null);
+
+    try {
+      const result = await playStationApi.importTitle({
+        npServiceName: title.npServiceName,
+        npCommunicationId: title.npCommunicationId,
+        platform,
+        pursuitStatus,
+      });
+
+      const candidate: PlayStationLibraryCandidate = {
+        gameId: result.game.id,
+        title: result.game.title,
+        platform: result.game.platform,
+        archived: false,
+      };
+
+      setLibraryGames((currentGames) => [...currentGames, result.game]);
+
+      setPreview((currentPreview) =>
+        currentPreview === null
+          ? null
+          : updateLinkedTitle(currentPreview, title, candidate),
+      );
+
+      setSelectedGameIds((currentSelections) => {
+        const nextSelections = { ...currentSelections };
+
+        delete nextSelections[identity];
+
+        return nextSelections;
+      });
+
+      setNotice(
+        `${result.game.title} was created as a ${platform} library game and linked to its trophy stack.`,
+      );
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setBusyIdentity(null);
     }
   }
 
@@ -507,9 +646,7 @@ export function PlayStationPage() {
           className="button button--primary"
           type="button"
           disabled={
-            status?.configured !== true ||
-            isPreviewing ||
-            linkingIdentity !== null
+            status?.configured !== true || isPreviewing || busyIdentity !== null
           }
           onClick={() => void handlePreview()}
         >
@@ -649,10 +786,17 @@ export function PlayStationPage() {
                       `${title.npServiceName}:${title.npCommunicationId}`
                     ] ?? ""
                   }
-                  linkingIdentity={linkingIdentity}
+                  busyIdentity={busyIdentity}
                   onSelectCandidate={selectCandidate}
                   onConfirmMatch={(selectedTitle, candidate) =>
                     void handleConfirmMatch(selectedTitle, candidate)
+                  }
+                  onImportTitle={(selectedTitle, platform, pursuitStatus) =>
+                    void handleImportTitle(
+                      selectedTitle,
+                      platform,
+                      pursuitStatus,
+                    )
                   }
                 />
               ))}

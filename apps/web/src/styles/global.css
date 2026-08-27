@@ -1827,6 +1827,84 @@ textarea:focus-visible {
   font-size: 0.68rem;
 }
 
+.psn-title-row__import {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+  border: 1px solid rgba(94, 234, 212, 0.2);
+  border-radius: var(--radius-small);
+  padding: 0.65rem 0.7rem;
+  background: rgba(20, 184, 166, 0.045);
+}
+
+.psn-title-row__import > div:first-child {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.psn-title-row__import > div:first-child > span {
+  color: #99f6e4;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.psn-title-row__import small {
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
+.psn-title-row__import-controls {
+  display: grid;
+  grid-template-columns:
+    minmax(5.5rem, 0.55fr)
+    minmax(8rem, 1fr)
+    auto;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+.psn-title-row__import-controls .field {
+  margin: 0;
+}
+
+.psn-title-row__import-controls .field > span {
+  font-size: 0.62rem;
+}
+
+.psn-title-row__import-controls select {
+  min-height: 2.15rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+.psn-title-row__import-controls .button {
+  min-height: 2.15rem;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.68rem;
+}
+
+@media (max-width: 620px) {
+  .psn-title-row__import-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .psn-title-row__import-controls .button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 440px) {
+  .psn-title-row__import-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .psn-title-row__import-controls .button {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 560px) {
   .psn-title-row__manual-controls {
     flex-direction: column;

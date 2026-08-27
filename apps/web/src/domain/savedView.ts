@@ -1,5 +1,5 @@
 import type {
-  LibraryGame,
+  LibraryGameWithTrophySummary,
   PlayStationPlatform,
   PursuitStatus,
 } from "./libraryGame";
@@ -70,7 +70,7 @@ export interface SavedViewInput {
 
 export interface SavedViewGames {
   readonly view: SavedView;
-  readonly games: readonly LibraryGame[];
+  readonly games: readonly LibraryGameWithTrophySummary[];
 }
 
 export const archiveModeLabels: Readonly<Record<ArchiveMode, string>> = {

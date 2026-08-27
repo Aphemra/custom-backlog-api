@@ -24,7 +24,30 @@ const currentSortFields: readonly SavedViewSortField[] = [
   "pursuitStatus",
   "createdAt",
   "updatedAt",
+  "progressPercent",
+  "lastSyncedAt",
+  "alertCreatedAt",
 ];
+
+type BooleanFilterValue = "" | "true" | "false";
+
+function toBooleanFilterValue(value: boolean | undefined): BooleanFilterValue {
+  if (value === undefined) {
+    return "";
+  }
+
+  return value ? "true" : "false";
+}
+
+function fromBooleanFilterValue(
+  value: BooleanFilterValue,
+): boolean | undefined {
+  if (value === "") {
+    return undefined;
+  }
+
+  return value === "true";
+}
 
 interface SavedViewFormProps {
   readonly initialView?: SavedView;
@@ -68,6 +91,18 @@ export function SavedViewForm({
     initialView?.filters.collectionIds ?? [],
   );
 
+  const [platinumEarned, setPlatinumEarned] = useState<BooleanFilterValue>(
+    toBooleanFilterValue(initialView?.filters.platinumEarned),
+  );
+
+  const [is100Percent, setIs100Percent] = useState<BooleanFilterValue>(
+    toBooleanFilterValue(initialView?.filters.is100Percent),
+  );
+
+  const [needsSync, setNeedsSync] = useState<BooleanFilterValue>(
+    toBooleanFilterValue(initialView?.filters.needsSync),
+  );
+
   const [sortField, setSortField] = useState<SavedViewSortField>(
     initialView?.sort.field ?? "priorityRank",
   );
@@ -98,6 +133,12 @@ export function SavedViewForm({
           archiveMode,
 
           collectionIds: collectionIds.length === 0 ? undefined : collectionIds,
+
+          platinumEarned: fromBooleanFilterValue(platinumEarned),
+
+          is100Percent: fromBooleanFilterValue(is100Percent),
+
+          needsSync: fromBooleanFilterValue(needsSync),
         },
 
         sort: {
@@ -208,6 +249,51 @@ export function SavedViewForm({
                 {label}
               </option>
             ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Platinum earned</span>
+
+          <select
+            value={platinumEarned}
+            onChange={(event) =>
+              setPlatinumEarned(event.target.value as BooleanFilterValue)
+            }
+          >
+            <option value="">Any</option>
+            <option value="true">Earned</option>
+            <option value="false">Not earned</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>100% completion</span>
+
+          <select
+            value={is100Percent}
+            onChange={(event) =>
+              setIs100Percent(event.target.value as BooleanFilterValue)
+            }
+          >
+            <option value="">Any</option>
+            <option value="true">Complete</option>
+            <option value="false">Incomplete</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Synchronization state</span>
+
+          <select
+            value={needsSync}
+            onChange={(event) =>
+              setNeedsSync(event.target.value as BooleanFilterValue)
+            }
+          >
+            <option value="">Any</option>
+            <option value="true">Needs first sync</option>
+            <option value="false">Does not need first sync</option>
           </select>
         </label>
 

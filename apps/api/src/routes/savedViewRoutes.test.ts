@@ -73,7 +73,7 @@ test("exposes saved-view filtering and protects built-in views", async () => {
 
     assert.equal(listed.views.length, 7);
 
-    assert.equal(listed.views.filter((view) => view.isAvailable).length, 3);
+    assert.equal(listed.views.filter((view) => view.isAvailable).length, 7);
 
     const createResponse = await fetch(`${apiUrl}/saved-views`, {
       method: "POST",
@@ -126,15 +126,20 @@ test("exposes saved-view filtering and protects built-in views", async () => {
 
     assert.equal(editBuiltinResponse.status, 409);
 
-    const unavailable = listed.views.find(
+    const completionLost = listed.views.find(
       (view) => view.builtinKey === "completion_lost",
     )!;
 
-    const unavailableResponse = await fetch(
-      `${apiUrl}/saved-views/${unavailable.id}/games`,
+    const completionLostResponse = await fetch(
+      `${apiUrl}/saved-views/${completionLost.id}/games`,
     );
 
-    assert.equal(unavailableResponse.status, 409);
+    assert.equal(completionLostResponse.status, 200);
+
+    const completionLostGames =
+      (await completionLostResponse.json()) as ViewGamesResponse;
+
+    assert.deepEqual(completionLostGames.games, []);
 
     const deleteResponse = await fetch(
       `${apiUrl}/saved-views/${created.view.id}`,

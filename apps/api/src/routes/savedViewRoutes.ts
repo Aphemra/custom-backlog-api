@@ -94,14 +94,6 @@ export function createSavedViewRoutes(database: DatabaseSync): Router {
       );
     }
 
-    if (!view.isAvailable) {
-      throw new HttpError(
-        409,
-        "saved_view_unavailable",
-        "This saved view requires trophy synchronization data that is not available yet.",
-      );
-    }
-
     response.json({
       view,
       games: repository.listGames(view, readSearch(request.query.search)),

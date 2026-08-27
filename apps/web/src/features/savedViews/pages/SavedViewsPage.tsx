@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CollectionSummary } from "../../../domain/collection";
 import {
   pursuitStatusLabels,
-  type LibraryGame,
+  type LibraryGameWithTrophySummary,
 } from "../../../domain/libraryGame";
 import {
   archiveModeLabels,
@@ -25,14 +25,19 @@ function getErrorMessage(error: unknown): string {
   return "Something unexpected went wrong while updating saved views.";
 }
 
+function totalTrophies(counts: {
+  readonly bronze: number;
+  readonly silver: number;
+  readonly gold: number;
+  readonly platinum: number;
+}): number {
+  return counts.bronze + counts.silver + counts.gold + counts.platinum;
+}
+
 function describeView(
   view: SavedView,
   collections: readonly CollectionSummary[],
 ): string {
-  if (!view.isAvailable) {
-    return "Trophy synchronization required";
-  }
-
   const parts: string[] = [];
   const filters = view.filters;
 
@@ -62,6 +67,32 @@ function describeView(
     parts.push(`“${filters.search}”`);
   }
 
+  if (filters.platinumEarned !== undefined) {
+    parts.push(
+      filters.platinumEarned ? "Platinum earned" : "Platinum not earned",
+    );
+  }
+
+  if (filters.is100Percent !== undefined) {
+    parts.push(filters.is100Percent ? "100% complete" : "Incomplete");
+  }
+
+  if (filters.needsSync !== undefined) {
+    parts.push(filters.needsSync ? "Needs first sync" : "No first sync needed");
+  }
+
+  if (filters.alertKinds?.includes("completion_lost") === true) {
+    parts.push("Completion lost");
+  }
+
+  if (filters.alertKinds?.includes("new_trophies") === true) {
+    parts.push("New trophies detected");
+  }
+
+  if (filters.alertStatus !== undefined) {
+    parts.push(`${filters.alertStatus} alerts`);
+  }
+
   parts.push(archiveModeLabels[filters.archiveMode ?? "active"]);
 
   return parts.join(" · ");
@@ -74,7 +105,9 @@ export function SavedViewsPage() {
     [],
   );
 
-  const [games, setGames] = useState<readonly LibraryGame[]>([]);
+  const [games, setGames] = useState<readonly LibraryGameWithTrophySummary[]>(
+    [],
+  );
 
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
 
@@ -106,7 +139,7 @@ export function SavedViewsPage() {
 
       available: views.filter((view) => view.isAvailable).length,
 
-      waiting: views.filter((view) => !view.isAvailable).length,
+      builtin: views.filter((view) => view.isBuiltin).length,
     }),
 
     [views],
@@ -153,7 +186,7 @@ export function SavedViewsPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedView === null || !selectedView.isAvailable) {
+    if (selectedView === null) {
       return;
     }
 
@@ -368,9 +401,9 @@ export function SavedViewsPage() {
         </div>
 
         <div>
-          <strong>{summary.waiting}</strong>
+          <strong>{summary.builtin}</strong>
 
-          <span>Awaiting trophy sync</span>
+          <span>Built-in views</span>
         </div>
       </div>
 
@@ -471,12 +504,7 @@ export function SavedViewsPage() {
                       <button
                         className="text-button"
                         type="button"
-                        disabled={busy || !view.isAvailable}
-                        title={
-                          view.isAvailable
-                            ? undefined
-                            : "Trophy-dependent views cannot be edited yet."
-                        }
+                        disabled={busy}
                         onClick={() => openEditForm(view)}
                       >
                         Edit
@@ -579,6 +607,43 @@ export function SavedViewsPage() {
                               <span className="status-label">
                                 {pursuitStatusLabels[game.pursuitStatus]}
                               </span>
+
+                              {game.trophySummary === null ? (
+                                <span className="trophy-placeholder">
+                                  No trophy snapshot
+                                </span>
+                              ) : (
+                                <>
+                                  <span className="trophy-progress">
+                                    <strong>
+                                      {game.trophySummary.progressPercent}%
+                                    </strong>
+
+                                    <span>
+                                      {totalTrophies(
+                                        game.trophySummary.earnedTrophies,
+                                      )}{" "}
+                                      /{" "}
+                                      {totalTrophies(
+                                        game.trophySummary.totalTrophies,
+                                      )}
+                                    </span>
+                                  </span>
+
+                                  {game.trophySummary.platinumEarned ? (
+                                    <span className="trophy-badge trophy-badge--platinum">
+                                      Platinum
+                                    </span>
+                                  ) : null}
+
+                                  {game.trophySummary.is100Percent &&
+                                  !game.trophySummary.platinumEarned ? (
+                                    <span className="trophy-badge trophy-badge--complete">
+                                      100%
+                                    </span>
+                                  ) : null}
+                                </>
+                              )}
 
                               {game.archivedAt === null ? null : (
                                 <span className="archive-badge">Archived</span>

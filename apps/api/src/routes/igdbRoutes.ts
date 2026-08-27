@@ -6,6 +6,7 @@ import { ImageCacheService } from "../features/imageCache/imageCacheService.js";
 import { IgdbClient, type IgdbFetch } from "../features/igdb/igdbClient.js";
 import { IgdbImportService } from "../features/igdb/igdbImportService.js";
 import { IgdbSearchService } from "../features/igdb/igdbSearchService.js";
+import { IgdbEnrichmentService } from "../features/igdb/igdbEnrichmentService.js";
 import type {
   AddIgdbGameInput,
   IgdbCredentials,
@@ -69,6 +70,18 @@ function readExternalId(value: unknown): string {
   }
 
   return value;
+}
+
+function readLibraryGameId(value: unknown): string {
+  if (typeof value !== "string" || value.trim() === "" || value.length > 200) {
+    throw new HttpError(
+      400,
+      "invalid_game_id",
+      "A valid library game ID is required.",
+    );
+  }
+
+  return value.trim();
 }
 
 function readAddInput(externalId: string, value: unknown): AddIgdbGameInput {
@@ -138,6 +151,11 @@ export function createIgdbRoutes(
   const client = new IgdbClient(credentials, fetchIgdb);
   const searchService = new IgdbSearchService(client, imageCache);
   const importService = new IgdbImportService(database, client, imageCache);
+  const enrichmentService = new IgdbEnrichmentService(
+    database,
+    client,
+    imageCache,
+  );
 
   igdbRoutes.get("/games", async (request, response, next) => {
     try {
@@ -164,6 +182,39 @@ export function createIgdbRoutes(
           .location(`/api/library/games/${game.id}`)
           .status(201)
           .json({ game });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  igdbRoutes.post(
+    "/games/:externalId/library/:gameId/metadata",
+    async (request, response, next) => {
+      if (
+        request.get("x-trophy-backlog-action") !==
+        "enrich-library-game-from-igdb"
+      ) {
+        response.status(400).json({
+          ok: false,
+          error: "explicit_igdb_action_required",
+          message: "An explicit IGDB metadata-enrichment action is required.",
+        });
+
+        return;
+      }
+
+      try {
+        const externalId = readExternalId(request.params.externalId);
+
+        const gameId = readLibraryGameId(request.params.gameId);
+
+        const result = await enrichmentService.enrichExistingGame(
+          gameId,
+          externalId,
+        );
+
+        response.json(result);
       } catch (error) {
         next(error);
       }

@@ -117,12 +117,10 @@ export interface LibraryGameListItem extends LibraryGameWithArtwork {
   readonly viewData: LibraryGameViewData;
 }
 
-export interface CreateLibraryGameInput {
+export interface UpdateLibraryGameInput {
   readonly title: string;
   readonly platform: PlayStationPlatform;
   readonly playStatus: PlayStatus;
   readonly isUnobtainable: boolean;
   readonly notes: string | null;
 }
-
-export type UpdateLibraryGameInput = CreateLibraryGameInput;

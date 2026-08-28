@@ -2,14 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { HttpError } from "../../errors/httpError.js";
 import {
-  parseCreateLibraryGameInput,
   parseLibraryGameOrder,
   parseUpdateLibraryGameInput,
 } from "./libraryGameValidation.js";
 
-test("normalizes valid create and update input", () => {
+test("normalizes valid update input", () => {
   assert.deepEqual(
-    parseCreateLibraryGameInput({
+    parseUpdateLibraryGameInput({
       title: "  Astro Bot  ",
       platform: "PS5",
       playStatus: "playing",
@@ -38,8 +37,7 @@ test("normalizes valid create and update input", () => {
 test("rejects unsupported platforms, unknown fields, and duplicate reorder IDs", () => {
   assert.throws(
     () =>
-      parseCreateLibraryGameInput({
-        title: "Example",
+      parseUpdateLibraryGameInput({
         platform: "Vita",
       }),
     (error: unknown) =>

@@ -250,7 +250,7 @@ function TrophyTitleRow({
 
         <span
           style={{
-            height: `${Math.max(3, title.progress)}%`,
+            width: `${Math.max(3, title.progress)}%`,
           }}
         />
       </div>

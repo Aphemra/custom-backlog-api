@@ -5,7 +5,6 @@ import { LibraryGameDetailsRepository } from "../features/library/libraryGameDet
 import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 import { LibraryGameViewDataRepository } from "../features/library/libraryGameViewDataRepository.js";
 import {
-  parseCreateLibraryGameInput,
   parseLibraryGameOrder,
   parseUpdateLibraryGameInput,
 } from "../features/library/libraryGameValidation.js";
@@ -229,17 +228,6 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
       response.status(204).send();
     },
   );
-
-  libraryRoutes.post("/games", (request, response) => {
-    const input = parseCreateLibraryGameInput(request.body);
-
-    const game = repository.create(input);
-
-    response
-      .location(`/api/library/games/${game.id}`)
-      .status(201)
-      .json({ game });
-  });
 
   libraryRoutes.patch("/games/:gameId", (request, response) => {
     const input = parseUpdateLibraryGameInput(request.body);

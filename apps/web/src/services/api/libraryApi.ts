@@ -1,5 +1,4 @@
 import type {
-  CreateLibraryGameInput,
   LibraryGameListItem,
   LibraryGameWithArtwork,
   UpdateLibraryGameInput,
@@ -39,15 +38,6 @@ export const libraryApi = {
     );
 
     return response.details;
-  },
-
-  async create(input: CreateLibraryGameInput): Promise<LibraryGameWithArtwork> {
-    const response = await requestJson<GameResponse>("/api/library/games", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
-
-    return response.game;
   },
 
   async update(

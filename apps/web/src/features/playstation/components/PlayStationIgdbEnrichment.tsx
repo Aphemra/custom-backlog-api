@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { IconButton } from "../../../components/ui/IconButton";
-import { CloseIcon } from "../../../components/ui/icons";
+import { Dialog } from "../../../components/ui/Dialog";
 import type { IgdbGameSearchResult } from "../../../domain/igdb";
 import type {
   PlayStationLibraryCandidate,
@@ -8,6 +7,7 @@ import type {
 } from "../../../domain/playStation";
 import { ApiError } from "../../../services/api/apiClient";
 import { igdbApi } from "../../../services/api/igdbApi";
+import { IgdbMetadataOverview } from "../../library/components/IgdbMetadataOverview";
 
 interface PlayStationIgdbEnrichmentProps {
   readonly title: ReconciledPlayStationTitle;
@@ -66,6 +66,10 @@ export function PlayStationIgdbEnrichment({
     readonly IgdbGameSearchResult[] | null
   >(null);
 
+  const [selectedExternalId, setSelectedExternalId] = useState<string | null>(
+    null,
+  );
+
   const [includeEditions, setIncludeEditions] = useState(false);
 
   const [isSearching, setIsSearching] = useState(false);
@@ -76,6 +80,11 @@ export function PlayStationIgdbEnrichment({
   const compatibleResults =
     results?.filter((result) =>
       result.platforms.includes(candidate.platform),
+    ) ?? null;
+
+  const selectedResult =
+    compatibleResults?.find(
+      (result) => result.externalId === selectedExternalId,
     ) ?? null;
 
   async function search(): Promise<void> {
@@ -90,12 +99,17 @@ export function PlayStationIgdbEnrichment({
     setErrorMessage(null);
 
     try {
-      setResults(
-        await igdbApi.search(normalizedQuery, {
-          platform: candidate.platform,
-          scope: includeEditions ? "editions" : "games",
-        }),
+      const loadedResults = await igdbApi.search(normalizedQuery, {
+        platform: candidate.platform,
+        scope: includeEditions ? "editions" : "games",
+      });
+
+      const loadedCompatibleResults = loadedResults.filter((result) =>
+        result.platforms.includes(candidate.platform),
       );
+
+      setResults(loadedResults);
+      setSelectedExternalId(loadedCompatibleResults[0]?.externalId ?? null);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -126,8 +140,8 @@ export function PlayStationIgdbEnrichment({
     }
   }
 
-  if (!isOpen) {
-    return (
+  return (
+    <>
       <button
         className="text-button"
         type="button"
@@ -139,115 +153,181 @@ export function PlayStationIgdbEnrichment({
       >
         Find IGDB metadata
       </button>
-    );
-  }
 
-  return (
-    <section
-      className="psn-igdb-enrichment"
-      aria-label={`IGDB metadata for ${title.name}`}
-    >
-      <div className="psn-igdb-enrichment__heading">
-        <div>
-          <strong>Attach IGDB metadata</strong>
-
-          <span>The selected result must support {candidate.platform}.</span>
-        </div>
-
-        <IconButton
-          label="Close IGDB metadata search"
-          icon={<CloseIcon />}
-          disabled={isSearching || enrichingId !== null}
-          onClick={() => setIsOpen(false)}
-        />
-      </div>
-
-      <form
-        className="psn-igdb-enrichment__search"
-        onSubmit={(event) => void handleSearch(event)}
+      <Dialog
+        open={isOpen}
+        title={`Attach IGDB metadata to ${candidate.title}`}
+        description={`Search for the matching ${candidate.platform} release, inspect its complete metadata, and attach it to this imported trophy list.`}
+        size="xlarge"
+        dismissible={!isSearching && enrichingId === null}
+        onClose={() => setIsOpen(false)}
       >
-        <label className="search-field">
-          <span className="visually-hidden">Search IGDB for {title.name}</span>
-
-          <input
-            type="search"
-            minLength={2}
-            maxLength={100}
-            value={query}
-            disabled={isSearching || enrichingId !== null}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-
-        <button
-          className="button button--quiet"
-          type="submit"
-          disabled={isSearching || enrichingId !== null}
+        <section
+          className="psn-igdb-enrichment"
+          aria-label={`IGDB metadata for ${title.name}`}
         >
-          {isSearching ? "Searching…" : "Search"}
-        </button>
-      </form>
+          <form
+            className="psn-igdb-enrichment__search"
+            onSubmit={(event) => void handleSearch(event)}
+          >
+            <label className="search-field">
+              <span className="visually-hidden">
+                Search IGDB for {title.name}
+              </span>
 
-      <label className="checkbox-control psn-igdb-enrichment__edition-toggle">
-        <input
-          type="checkbox"
-          checked={includeEditions}
-          disabled={isSearching || enrichingId !== null}
-          onChange={(event) => {
-            setIncludeEditions(event.target.checked);
-            setResults(null);
-          }}
-        />
+              <input
+                data-dialog-initial-focus
+                type="search"
+                minLength={2}
+                maxLength={100}
+                value={query}
+                disabled={isSearching || enrichingId !== null}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
 
-        <span>Include editions, compilations, and bundles</span>
-      </label>
+            <button
+              className="button button--quiet"
+              type="submit"
+              disabled={isSearching || enrichingId !== null}
+            >
+              {isSearching ? "Searching…" : "Search"}
+            </button>
+          </form>
 
-      {errorMessage === null ? null : (
-        <div className="notice notice--error" role="alert">
-          {errorMessage}
-        </div>
-      )}
+          <label className="checkbox-control psn-igdb-enrichment__edition-toggle">
+            <input
+              type="checkbox"
+              checked={includeEditions}
+              disabled={isSearching || enrichingId !== null}
+              onChange={(event) => {
+                setIncludeEditions(event.target.checked);
+                setResults(null);
+                setSelectedExternalId(null);
+              }}
+            />
 
-      {compatibleResults !== null && compatibleResults.length === 0 ? (
-        <p className="psn-igdb-enrichment__empty">
-          IGDB returned no {candidate.platform} games for this search.
-        </p>
-      ) : null}
+            <span>Include editions, compilations, and bundles</span>
+          </label>
 
-      {compatibleResults !== null && compatibleResults.length > 0 ? (
-        <div className="psn-igdb-results">
-          {compatibleResults.map((result) => (
-            <article className="psn-igdb-result" key={result.externalId}>
-              <ResultCover result={result} />
+          {errorMessage === null ? null : (
+            <div className="notice notice--error" role="alert">
+              {errorMessage}
+            </div>
+          )}
 
-              <div className="psn-igdb-result__content">
-                <div>
-                  <strong>{result.title}</strong>
+          {compatibleResults !== null && compatibleResults.length === 0 ? (
+            <p className="psn-igdb-enrichment__empty">
+              IGDB returned no {candidate.platform} games for this search.
+            </p>
+          ) : null}
 
-                  <span>
-                    {result.releaseDate === null
-                      ? candidate.platform
-                      : `${candidate.platform} · ${result.releaseDate.slice(0, 4)}`}
-                  </span>
+          {compatibleResults !== null && compatibleResults.length > 0 ? (
+            <div className="psn-igdb-enrichment__workspace">
+              <section
+                className="psn-igdb-enrichment__results-pane"
+                aria-label="IGDB matching results"
+              >
+                <div className="psn-igdb-enrichment__pane-heading">
+                  <h3>Results</h3>
+
+                  <span>{compatibleResults.length}</span>
                 </div>
 
-                <p>{result.summary ?? "IGDB does not provide a summary."}</p>
-
-                <button
-                  className="button button--primary"
-                  type="button"
-                  disabled={enrichingId !== null}
-                  onClick={() => void handleEnrich(result)}
+                <div
+                  className="psn-igdb-results"
+                  role="listbox"
+                  aria-label={`IGDB matches for ${title.name}`}
                 >
-                  {enrichingId === result.externalId
-                    ? "Attaching…"
-                    : "Use this metadata"}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : null}
-    </section>
+                  {compatibleResults.map((result) => {
+                    const selected = result.externalId === selectedExternalId;
+
+                    return (
+                      <button
+                        className={`psn-igdb-result${
+                          selected ? " psn-igdb-result--selected" : ""
+                        }`}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        key={result.externalId}
+                        disabled={enrichingId !== null}
+                        onClick={() => setSelectedExternalId(result.externalId)}
+                      >
+                        <ResultCover result={result} />
+
+                        <span className="psn-igdb-result__content">
+                          <span className="psn-igdb-result__heading">
+                            <strong>{result.title}</strong>
+
+                            <span>
+                              {result.releaseDate === null
+                                ? candidate.platform
+                                : `${candidate.platform} · ${result.releaseDate.slice(0, 4)}`}
+                            </span>
+                          </span>
+
+                          <span className="psn-igdb-result__summary">
+                            {result.summary ??
+                              "IGDB does not provide a summary."}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <aside
+                className="psn-igdb-enrichment__details-pane"
+                aria-label="Selected IGDB metadata"
+              >
+                {selectedResult === null ? (
+                  <div className="psn-igdb-enrichment__selection-empty">
+                    Select a result to inspect its metadata.
+                  </div>
+                ) : (
+                  <div className="game-details" key={selectedResult.externalId}>
+                    <IgdbMetadataOverview
+                      title={selectedResult.title}
+                      metadata={selectedResult}
+                      badges={
+                        <>
+                          <span className="platform-badge">
+                            {candidate.platform}
+                          </span>
+
+                          <span className="status-label">
+                            {selectedResult.gameType.name ?? "Game"}
+                          </span>
+                        </>
+                      }
+                      actions={
+                        <div className="psn-igdb-enrichment__attach-panel">
+                          <span>Attach this metadata to</span>
+
+                          <strong>{candidate.title}</strong>
+
+                          <button
+                            className="button button--primary"
+                            type="button"
+                            disabled={enrichingId !== null}
+                            onClick={() => void handleEnrich(selectedResult)}
+                          >
+                            {enrichingId === selectedResult.externalId
+                              ? "Attaching…"
+                              : "Use this metadata"}
+                          </button>
+                        </div>
+                      }
+                    />
+                  </div>
+                )}
+              </aside>
+            </div>
+          ) : null}
+        </section>
+      </Dialog>
+    </>
   );
 }

@@ -7,6 +7,7 @@ import type {
 } from "../igdb/igdbTypes.js";
 import type {
   LibraryGameWithArtwork,
+  LibraryTrophyCounts,
   PlayStationPlatform,
 } from "./libraryGameTypes.js";
 
@@ -57,8 +58,18 @@ export interface LibraryGamePlayStationDetails {
   readonly lastSeenAt: string;
 }
 
+export interface LibraryGameTrophySnapshot {
+  readonly capturedAt: string;
+  readonly earnedTrophies: LibraryTrophyCounts;
+  readonly totalTrophies: LibraryTrophyCounts;
+  readonly progressPercent: number;
+  readonly is100Percent: boolean;
+  readonly platinumEarned: boolean;
+}
+
 export interface LibraryGameDetails {
   readonly game: LibraryGameWithArtwork;
   readonly igdb: LibraryGameIgdbDetails | null;
   readonly playStation: LibraryGamePlayStationDetails | null;
+  readonly trophyHistory: readonly LibraryGameTrophySnapshot[];
 }

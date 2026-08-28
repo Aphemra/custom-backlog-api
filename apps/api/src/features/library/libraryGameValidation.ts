@@ -2,7 +2,6 @@ import { HttpError } from "../../errors/httpError.js";
 import {
   playStationPlatforms,
   playStatuses,
-  type CreateLibraryGameInput,
   type PlayStationPlatform,
   type PlayStatus,
   type UpdateLibraryGameInput,
@@ -118,42 +117,6 @@ function readNotes(value: unknown): string | null {
   }
 
   return notes.length === 0 ? null : notes;
-}
-
-export function parseCreateLibraryGameInput(
-  value: unknown,
-): CreateLibraryGameInput {
-  const record = requireRecord(value);
-
-  rejectUnknownKeys(
-    record,
-    new Set(["title", "platform", "playStatus", "isUnobtainable", "notes"]),
-  );
-
-  const input: {
-    title: string;
-    platform: PlayStationPlatform;
-    playStatus?: PlayStatus;
-    isUnobtainable?: boolean;
-    notes?: string | null;
-  } = {
-    title: readRequiredTitle(record.title),
-    platform: readPlatform(record.platform),
-  };
-
-  if (record.playStatus !== undefined) {
-    input.playStatus = readPlayStatus(record.playStatus);
-  }
-
-  if (record.isUnobtainable !== undefined) {
-    input.isUnobtainable = readBoolean(record.isUnobtainable, "isUnobtainable");
-  }
-
-  if (record.notes !== undefined) {
-    input.notes = readNotes(record.notes);
-  }
-
-  return input;
 }
 
 export function parseUpdateLibraryGameInput(

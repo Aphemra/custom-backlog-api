@@ -1,6 +1,4 @@
-import { useState, type FormEvent } from "react";
-import { IconButton } from "../../../components/ui/IconButton";
-import { CloseIcon } from "../../../components/ui/icons";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   igdbSearchScopeLabels,
   igdbSearchScopes,
@@ -17,10 +15,10 @@ import {
 } from "../../../domain/libraryGame";
 import { ApiError } from "../../../services/api/apiClient";
 import { igdbApi } from "../../../services/api/igdbApi";
+import { IgdbMetadataOverview } from "./IgdbMetadataOverview";
 
 interface IgdbGameSearchProps {
   readonly onAdded: (game: LibraryGame) => Promise<void>;
-  readonly onClose: () => void;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -44,34 +42,58 @@ function IgdbCover({ game }: { readonly game: IgdbGameSearchResult }) {
       src={game.cover.url}
       alt=""
       loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
     />
   );
 }
 
-export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
+export function IgdbGameSearch({ onAdded }: IgdbGameSearchProps) {
   const [query, setQuery] = useState("");
 
   const [results, setResults] = useState<
     readonly IgdbGameSearchResult[] | null
   >(null);
 
+  const [selectedExternalId, setSelectedExternalId] = useState<string | null>(
+    null,
+  );
+
   const [playStatus, setPlayStatus] = useState<PlayStatus>("not_started");
+
   const [platform, setPlatform] = useState<PlayStationPlatform | null>(null);
+
   const [scope, setScope] = useState<IgdbSearchScope>("games");
 
   const [isSearching, setIsSearching] = useState(false);
+
   const [addingKey, setAddingKey] = useState<string | null>(null);
+
   const [addedKeys, setAddedKeys] = useState<ReadonlySet<string>>(new Set());
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
+  const selectedGame = useMemo(
+    () =>
+      results?.find((game) => game.externalId === selectedExternalId) ?? null,
+    [results, selectedExternalId],
+  );
+
+  function clearResults(): void {
+    setResults(null);
+    setSelectedExternalId(null);
+  }
+
+  async function handleSearch(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
     event.preventDefault();
 
     const normalizedQuery = query.trim();
 
     if (normalizedQuery.length < 2) {
       setErrorMessage("Enter at least two characters to search IGDB.");
+
       return;
     }
 
@@ -79,12 +101,13 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
     setErrorMessage(null);
 
     try {
-      setResults(
-        await igdbApi.search(normalizedQuery, {
-          platform,
-          scope,
-        }),
-      );
+      const loadedResults = await igdbApi.search(normalizedQuery, {
+        platform,
+        scope,
+      });
+
+      setResults(loadedResults);
+      setSelectedExternalId(loadedResults[0]?.externalId ?? null);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -94,16 +117,16 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
 
   async function handleAdd(
     game: IgdbGameSearchResult,
-    platform: PlayStationPlatform,
-  ) {
-    const key = `${game.externalId}:${platform}`;
+    selectedPlatform: PlayStationPlatform,
+  ): Promise<void> {
+    const key = `${game.externalId}:${selectedPlatform}`;
 
     setAddingKey(key);
     setErrorMessage(null);
 
     try {
       const createdGame = await igdbApi.addToLibrary(game.externalId, {
-        platform,
+        platform: selectedPlatform,
         playStatus,
       });
 
@@ -118,32 +141,13 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
   }
 
   return (
-    <section className="igdb-search" aria-labelledby="igdb-search-title">
-      <div className="game-form__heading">
-        <div>
-          <p className="eyebrow">IGDB metadata</p>
-
-          <h2 id="igdb-search-title">Find a PlayStation game</h2>
-
-          <p className="igdb-search__intro">
-            Search PS3, PS4, and PS5 releases. Covers are stored locally when
-            they first appear.
-          </p>
-        </div>
-
-        <IconButton
-          label="Close IGDB search"
-          icon={<CloseIcon />}
-          onClick={onClose}
-        />
-      </div>
-
+    <section className="igdb-search" aria-label="IGDB game search">
       <form className="igdb-search__form" onSubmit={handleSearch}>
         <label className="search-field">
           <span className="visually-hidden">Search IGDB</span>
 
           <input
-            autoFocus
+            data-dialog-initial-focus
             type="search"
             minLength={2}
             maxLength={100}
@@ -174,7 +178,8 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
                   ? null
                   : (event.target.value as PlayStationPlatform),
               );
-              setResults(null);
+
+              clearResults();
             }}
           >
             <option value="all">All PlayStation platforms</option>
@@ -194,7 +199,8 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
             value={scope}
             onChange={(event) => {
               setScope(event.target.value as IgdbSearchScope);
-              setResults(null);
+
+              clearResults();
             }}
           >
             {igdbSearchScopes.map((option) => (
@@ -231,8 +237,8 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
 
       {results === null ? (
         <p className="igdb-search__message">
-          Results are not added automatically. Choose the correct platform on
-          the game you want.
+          Search results will appear on the left. Select one to inspect its full
+          metadata before adding it.
         </p>
       ) : null}
 
@@ -243,57 +249,127 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
       ) : null}
 
       {results !== null && results.length > 0 ? (
-        <div className="igdb-results" aria-live="polite">
-          {results.map((game) => (
-            <article className="igdb-result" key={game.externalId}>
-              <IgdbCover game={game} />
+        <div className="igdb-search__workspace">
+          <section
+            className="igdb-search__results-pane"
+            aria-labelledby="igdb-results-title"
+          >
+            <div className="igdb-search__pane-heading">
+              <h3 id="igdb-results-title">Results</h3>
+              <span>{results.length}</span>
+            </div>
 
-              <div className="igdb-result__content">
-                <div className="igdb-result__heading">
-                  <h3>{game.title}</h3>
+            <div
+              className="igdb-results"
+              role="listbox"
+              aria-label="IGDB search results"
+            >
+              {results.map((game) => {
+                const selected = game.externalId === selectedExternalId;
 
-                  <div className="igdb-result__labels">
-                    {game.isDlc ? (
-                      <span className="igdb-result__dlc-badge">
-                        {game.gameType.name ?? "Add-on"}
+                return (
+                  <button
+                    className={`igdb-result${
+                      selected ? " igdb-result--selected" : ""
+                    }`}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    key={game.externalId}
+                    onClick={() => setSelectedExternalId(game.externalId)}
+                  >
+                    <IgdbCover game={game} />
+
+                    <span className="igdb-result__content">
+                      <span className="igdb-result__heading">
+                        <strong>{game.title}</strong>
+
+                        <span>{game.releaseDate?.slice(0, 4) ?? "TBA"}</span>
                       </span>
-                    ) : null}
 
-                    {game.releaseDate === null ? null : (
-                      <span>{game.releaseDate.slice(0, 4)}</span>
-                    )}
-                  </div>
-                </div>
+                      <span className="igdb-result__labels">
+                        <span>{game.gameType.name ?? "Game"}</span>
 
-                <p>
-                  {game.summary ?? "IGDB does not currently provide a summary."}
-                </p>
+                        {game.isDlc ? (
+                          <span className="igdb-result__dlc-badge">Add-on</span>
+                        ) : null}
+                      </span>
 
-                <div className="igdb-result__actions">
-                  {game.platforms.map((platform) => {
-                    const key = `${game.externalId}:${platform}`;
-                    const wasAdded = addedKeys.has(key);
+                      <span className="igdb-result__summary">
+                        {game.summary ?? "No summary is currently available."}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-                    return (
-                      <button
-                        className="button button--quiet"
-                        type="button"
-                        key={platform}
-                        disabled={addingKey !== null || wasAdded}
-                        onClick={() => void handleAdd(game, platform)}
-                      >
-                        {wasAdded
-                          ? `${platform} added`
-                          : addingKey === key
-                            ? `Adding ${platform}…`
-                            : `Add ${platform}`}
-                      </button>
-                    );
-                  })}
-                </div>
+          <aside
+            className="igdb-search__details-pane"
+            aria-label="Selected game details"
+          >
+            {selectedGame === null ? (
+              <div className="igdb-search__selection-empty">
+                Select a result to inspect its metadata.
               </div>
-            </article>
-          ))}
+            ) : (
+              <div className="game-details" key={selectedGame.externalId}>
+                <IgdbMetadataOverview
+                  title={selectedGame.title}
+                  metadata={selectedGame}
+                  badges={
+                    <>
+                      {selectedGame.platforms.map((gamePlatform) => (
+                        <span className="platform-badge" key={gamePlatform}>
+                          {gamePlatform}
+                        </span>
+                      ))}
+
+                      <span className="status-label">
+                        {selectedGame.gameType.name ?? "Game"}
+                      </span>
+                    </>
+                  }
+                  actions={
+                    <div className="igdb-search__add-panel">
+                      <div>
+                        <strong>Add to Library</strong>
+
+                        <span>Play Status: {playStatusLabels[playStatus]}</span>
+                      </div>
+
+                      <div className="igdb-search__add-actions">
+                        {selectedGame.platforms.map((gamePlatform) => {
+                          const key = `${selectedGame.externalId}:${gamePlatform}`;
+
+                          const wasAdded = addedKeys.has(key);
+
+                          return (
+                            <button
+                              className="button button--primary"
+                              type="button"
+                              key={gamePlatform}
+                              disabled={addingKey !== null || wasAdded}
+                              onClick={() =>
+                                void handleAdd(selectedGame, gamePlatform)
+                              }
+                            >
+                              {wasAdded
+                                ? `${gamePlatform} added`
+                                : addingKey === key
+                                  ? `Adding ${gamePlatform}…`
+                                  : `Add ${gamePlatform}`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  }
+                />
+              </div>
+            )}
+          </aside>
         </div>
       ) : null}
     </section>

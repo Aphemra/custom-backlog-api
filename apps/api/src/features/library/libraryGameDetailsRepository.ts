@@ -12,6 +12,7 @@ import type {
   LibraryGameDetailsImage,
   LibraryGameIgdbDetails,
   LibraryGamePlayStationDetails,
+  LibraryGameTrophySnapshot,
 } from "./libraryGameDetailsTypes.js";
 
 interface IgdbDetailsRow {
@@ -50,6 +51,20 @@ interface IgdbImageRow {
   role: "cover" | "screenshot" | "artwork";
   width: number | null;
   height: number | null;
+}
+
+interface TrophySnapshotRow {
+  captured_at: string;
+  bronze_total: number;
+  silver_total: number;
+  gold_total: number;
+  platinum_total: number;
+  bronze_earned: number;
+  silver_earned: number;
+  gold_earned: number;
+  platinum_earned: number;
+  progress_percent: number;
+  is_100_percent: number;
 }
 
 interface PlayStationDetailsRow {
@@ -98,6 +113,7 @@ export class LibraryGameDetailsRepository {
       game,
       igdb: this.findIgdbDetails(gameId),
       playStation: this.findPlayStationDetails(gameId),
+      trophyHistory: this.findTrophyHistory(gameId),
     };
   }
 
@@ -240,6 +256,51 @@ export class LibraryGameDetailsRepository {
       fetchedAt: row.fetched_at,
       storedAt: row.stored_at,
     };
+  }
+
+  private findTrophyHistory(
+    gameId: string,
+  ): readonly LibraryGameTrophySnapshot[] {
+    const rows = this.database
+      .prepare(
+        `
+          SELECT
+            captured_at,
+            bronze_total,
+            silver_total,
+            gold_total,
+            platinum_total,
+            bronze_earned,
+            silver_earned,
+            gold_earned,
+            platinum_earned,
+            progress_percent,
+            is_100_percent
+          FROM trophy_snapshots
+          WHERE game_id = ?
+          ORDER BY captured_at ASC, id ASC
+        `,
+      )
+      .all(gameId) as unknown as TrophySnapshotRow[];
+
+    return rows.map((row) => ({
+      capturedAt: row.captured_at,
+      earnedTrophies: {
+        bronze: row.bronze_earned,
+        silver: row.silver_earned,
+        gold: row.gold_earned,
+        platinum: row.platinum_earned,
+      },
+      totalTrophies: {
+        bronze: row.bronze_total,
+        silver: row.silver_total,
+        gold: row.gold_total,
+        platinum: row.platinum_total,
+      },
+      progressPercent: row.progress_percent,
+      is100Percent: row.is_100_percent === 1,
+      platinumEarned: row.platinum_earned > 0,
+    }));
   }
 
   private findPlayStationDetails(

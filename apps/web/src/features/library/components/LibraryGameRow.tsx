@@ -10,6 +10,7 @@ interface LibraryGameRowProps {
   readonly position: number | null;
   readonly dragHandle: ReactNode | null;
   readonly busy: boolean;
+  readonly onOpenDetails: () => void;
   readonly onEdit: () => void;
   readonly onHide: () => void;
   readonly onUnhide: () => void;
@@ -38,6 +39,7 @@ export function LibraryGameRow({
   position,
   dragHandle,
   busy,
+  onOpenDetails,
   onEdit,
   onHide,
   onUnhide,
@@ -60,6 +62,13 @@ export function LibraryGameRow({
 
   return (
     <article className={`game-row${isHidden ? " game-row--hidden" : ""}`}>
+      <button
+        className="game-row__details-surface"
+        type="button"
+        aria-label={`Open details for ${game.title}`}
+        onClick={onOpenDetails}
+      />
+
       <div
         className="game-row__order"
         aria-label={position === null ? "Hidden" : `Position ${position}`}
@@ -153,7 +162,11 @@ export function LibraryGameRow({
         )}
       </div>
 
-      <div className="game-row__actions">
+      <div
+        className="game-row__actions"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
         <button
           className="text-button"
           type="button"

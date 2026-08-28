@@ -9,7 +9,7 @@ import {
 import { IconButton } from "./IconButton";
 import { CloseIcon } from "./icons";
 
-type DialogSize = "small" | "medium" | "large";
+type DialogSize = "small" | "medium" | "large" | "xlarge";
 
 interface DialogProps {
   readonly open: boolean;
@@ -50,7 +50,14 @@ function OpenDialog({
       dialog.showModal();
     }
 
-    dialog.querySelector<HTMLElement>("[data-dialog-initial-focus]")?.focus();
+    const requestedInitialFocus = dialog.querySelector<HTMLElement>(
+      ".dialog__body [data-dialog-initial-focus]",
+    );
+
+    const fallbackInitialFocus =
+      dialog.querySelector<HTMLElement>(".dialog__panel");
+
+    (requestedInitialFocus ?? fallbackInitialFocus)?.focus();
 
     return () => {
       document.body.style.overflow = previousBodyOverflow;
@@ -92,7 +99,7 @@ function OpenDialog({
       onCancel={handleCancel}
       onClick={handleBackdropClick}
     >
-      <div className="dialog__panel">
+      <div className="dialog__panel" tabIndex={-1} data-dialog-initial-focus>
         <header className="dialog__header">
           <div>
             <h2 id={titleId}>{title}</h2>

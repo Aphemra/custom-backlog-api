@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
 import type { CollectionDetail } from "../features/collections/collectionTypes.js";
-import type { LibraryGame } from "../features/library/libraryGameTypes.js";
+import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 
 interface CollectionResponse {
   collection: CollectionDetail;
@@ -13,10 +13,6 @@ interface CollectionResponse {
 
 interface CollectionsResponse {
   collections: CollectionDetail[];
-}
-
-interface GameResponse {
-  game: LibraryGame;
 }
 
 async function closeServer(
@@ -36,6 +32,12 @@ async function closeServer(
 
 test("exposes collection management through the local API", async () => {
   const database = openDatabase(":memory:");
+
+  const createdGame = new LibraryGameRepository(database).create({
+    title: "Astro Bot",
+    platform: "PS5",
+  });
+
   const server = createApp(database).listen(0, "127.0.0.1");
 
   try {
@@ -43,19 +45,6 @@ test("exposes collection management through the local API", async () => {
 
     const address = server.address() as AddressInfo;
     const apiUrl = `http://127.0.0.1:${address.port}/api`;
-
-    const gameResponse = await fetch(`${apiUrl}/library/games`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        title: "Astro Bot",
-        platform: "PS5",
-      }),
-    });
-
-    const createdGame = (await gameResponse.json()) as GameResponse;
 
     const createResponse = await fetch(`${apiUrl}/collections`, {
       method: "POST",
@@ -79,7 +68,7 @@ test("exposes collection management through the local API", async () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          orderedGameIds: [createdGame.game.id],
+          orderedGameIds: [createdGame.id],
         }),
       },
     );
@@ -87,7 +76,7 @@ test("exposes collection management through the local API", async () => {
     const filled = (await fillResponse.json()) as CollectionResponse;
 
     assert.equal(filled.collection.gameCount, 1);
-    assert.equal(filled.collection.games[0]?.id, createdGame.game.id);
+    assert.equal(filled.collection.games[0]?.id, createdGame.id);
 
     const updateResponse = await fetch(
       `${apiUrl}/collections/${created.collection.id}`,
@@ -138,7 +127,7 @@ test("exposes collection management through the local API", async () => {
     assert.equal(deleteResponse.status, 204);
 
     assert.equal(
-      (await fetch(`${apiUrl}/library/games/${createdGame.game.id}`)).status,
+      (await fetch(`${apiUrl}/library/games/${createdGame.id}`)).status,
       200,
     );
   } finally {

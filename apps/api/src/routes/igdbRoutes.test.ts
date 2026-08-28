@@ -32,7 +32,7 @@ function readUrl(input: string | URL | Request): string {
   return input instanceof Request ? input.url : input.toString();
 }
 
-test("searches IGDB and lazily stores its cover in the local cache", async () => {
+test("searches IGDB and lazily stores its artwork in the local cache", async () => {
   const database = openDatabase(":memory:");
   const cacheDirectory = await mkdtemp(join(tmpdir(), "backlog-igdb-"));
 
@@ -99,6 +99,13 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
           platforms: [{ id: 48 }, { id: 167 }],
           release_dates: [{ date: 1_725_580_800, platform: 167 }],
           cover: { image_id: "co8abc" },
+          screenshots: [
+            {
+              image_id: "sc8abc",
+              width: 1920,
+              height: 1080,
+            },
+          ],
         },
       ]);
     }
@@ -110,6 +117,16 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
       requestCounts.images += 1;
 
       return new Response(Uint8Array.from([0xff, 0xd8, 0xff, 0x00]), {
+        headers: { "content-type": "image/jpeg" },
+      });
+    }
+
+    if (
+      url === "https://images.igdb.com/igdb/image/upload/t_1080p/sc8abc.jpg"
+    ) {
+      requestCounts.images += 1;
+
+      return new Response(Uint8Array.from([0xff, 0xd8, 0xff, 0x01]), {
         headers: { "content-type": "image/jpeg" },
       });
     }
@@ -173,6 +190,32 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
       images: 1,
     });
 
+    const screenshotImageId = search.games[0]?.screenshots[0]?.imageId;
+
+    assert.notEqual(screenshotImageId, undefined);
+
+    const firstScreenshotResponse = await fetch(
+      `${baseUrl}/api/images/${screenshotImageId}`,
+    );
+
+    assert.equal(firstScreenshotResponse.status, 200);
+    assert.equal(
+      firstScreenshotResponse.headers.get("content-type"),
+      "image/jpeg",
+    );
+
+    const secondScreenshotResponse = await fetch(
+      `${baseUrl}/api/images/${screenshotImageId}`,
+    );
+
+    assert.equal(secondScreenshotResponse.status, 200);
+
+    assert.deepEqual(requestCounts, {
+      authentication: 1,
+      games: 1,
+      images: 2,
+    });
+
     const searchWithDlcResponse = await fetch(
       `${baseUrl}/api/integrations/igdb/games?query=Astro` +
         "&platform=PS5&scope=dlc",
@@ -197,7 +240,7 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
     assert.deepEqual(requestCounts, {
       authentication: 1,
       games: 3,
-      images: 1,
+      images: 2,
     });
   } finally {
     await closeServer(server);

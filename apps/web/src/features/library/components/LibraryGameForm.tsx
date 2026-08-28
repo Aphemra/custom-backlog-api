@@ -5,8 +5,8 @@ import {
   playStationPlatforms,
   playStatuses,
   playStatusLabels,
-  type CreateLibraryGameInput,
   type LibraryGame,
+  type UpdateLibraryGameInput,
   type PlayStationPlatform,
   type PlayStatus,
 } from "../../../domain/libraryGame";
@@ -14,8 +14,8 @@ import { GameResourceEditor } from "./GameResourceEditor";
 import { LibraryTrophyAvailability } from "./LibraryTrophyAvailability";
 
 interface LibraryGameFormProps {
-  readonly initialGame?: LibraryGame;
-  readonly onSubmit: (input: CreateLibraryGameInput) => Promise<void>;
+  readonly initialGame: LibraryGame;
+  readonly onSubmit: (input: UpdateLibraryGameInput) => Promise<void>;
   readonly onCancel: () => void;
 }
 
@@ -24,19 +24,21 @@ export function LibraryGameForm({
   onSubmit,
   onCancel,
 }: LibraryGameFormProps) {
-  const [title, setTitle] = useState(initialGame?.title ?? "");
+  const [title, setTitle] = useState(initialGame.title);
+
   const [platform, setPlatform] = useState<PlayStationPlatform>(
-    initialGame?.platform ?? "PS5",
+    initialGame.platform,
   );
+
   const [playStatus, setPlayStatus] = useState<PlayStatus>(
-    initialGame?.playStatus ?? "not_started",
+    initialGame.playStatus,
   );
 
   const [isUnobtainable, setIsUnobtainable] = useState(
-    initialGame?.isUnobtainable ?? false,
+    initialGame.isUnobtainable,
   );
 
-  const [notes, setNotes] = useState(initialGame?.notes ?? "");
+  const [notes, setNotes] = useState(initialGame.notes ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -60,12 +62,8 @@ export function LibraryGameForm({
     <form className="game-form" onSubmit={handleSubmit}>
       <div className="game-form__heading">
         <div>
-          <p className="eyebrow">
-            {initialGame === undefined ? "New entry" : "Edit entry"}
-          </p>
-          <h2>
-            {initialGame === undefined ? "Add a game" : initialGame.title}
-          </h2>
+          <p className="eyebrow">Edit entry</p>
+          <h2>{initialGame.title}</h2>
         </div>
 
         <IconButton
@@ -131,12 +129,8 @@ export function LibraryGameForm({
         <span>Unobtainable — one or more trophies can no longer be earned</span>
       </label>
 
-      {initialGame === undefined ? null : (
-        <>
-          <LibraryTrophyAvailability gameId={initialGame.id} />
-          <GameResourceEditor gameId={initialGame.id} />
-        </>
-      )}
+      <LibraryTrophyAvailability gameId={initialGame.id} />
+      <GameResourceEditor gameId={initialGame.id} />
 
       <label className="field field--wide">
         <span>Notes</span>
@@ -162,11 +156,7 @@ export function LibraryGameForm({
           type="submit"
           disabled={isSubmitting}
         >
-          {isSubmitting
-            ? "Saving…"
-            : initialGame === undefined
-              ? "Add game"
-              : "Save changes"}
+          {isSubmitting ? "Saving…" : "Save changes"}
         </button>
       </div>
     </form>

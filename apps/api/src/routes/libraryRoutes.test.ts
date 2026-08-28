@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
+import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 import type {
   LibraryGame,
   LibraryGameViewData,
@@ -38,8 +39,13 @@ async function closeServer(
   });
 }
 
-test("exposes library CRUD through the local API", async () => {
+test("exposes library management through the local API", async () => {
   const database = openDatabase(":memory:");
+
+  const createdGame = new LibraryGameRepository(database).create({
+    title: "Astro Bot",
+    platform: "PS5",
+  });
 
   const server = createApp(database).listen(0, "127.0.0.1");
 
@@ -50,25 +56,8 @@ test("exposes library CRUD through the local API", async () => {
 
     const baseUrl = `http://127.0.0.1:${address.port}/api/library`;
 
-    const createResponse = await fetch(`${baseUrl}/games`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        title: "Astro Bot",
-        platform: "PS5",
-      }),
-    });
-
-    assert.equal(createResponse.status, 201);
-
-    const created = (await createResponse.json()) as GameResponse;
-
-    assert.equal(created.game.title, "Astro Bot");
-
     const detailsResponse = await fetch(
-      `${baseUrl}/games/${created.game.id}/details`,
+      `${baseUrl}/games/${createdGame.id}/details`,
     );
 
     assert.equal(detailsResponse.status, 200);
@@ -81,12 +70,12 @@ test("exposes library CRUD through the local API", async () => {
       };
     };
 
-    assert.equal(detailsPayload.details.game.id, created.game.id);
+    assert.equal(detailsPayload.details.game.id, createdGame.id);
     assert.equal(detailsPayload.details.igdb, null);
     assert.equal(detailsPayload.details.playStation, null);
 
     const createResourceResponse = await fetch(
-      `${baseUrl}/games/${created.game.id}/resources`,
+      `${baseUrl}/games/${createdGame.id}/resources`,
       {
         method: "POST",
         headers: {
@@ -102,7 +91,7 @@ test("exposes library CRUD through the local API", async () => {
 
     assert.equal(createResourceResponse.status, 201);
 
-    const updateResponse = await fetch(`${baseUrl}/games/${created.game.id}`, {
+    const updateResponse = await fetch(`${baseUrl}/games/${createdGame.id}`, {
       method: "PATCH",
       headers: {
         "content-type": "application/json",
@@ -121,7 +110,7 @@ test("exposes library CRUD through the local API", async () => {
     assert.equal(updated.game.isUnobtainable, true);
 
     const hideResponse = await fetch(
-      `${baseUrl}/games/${created.game.id}/hide`,
+      `${baseUrl}/games/${createdGame.id}/hide`,
       {
         method: "POST",
       },
@@ -142,7 +131,7 @@ test("exposes library CRUD through the local API", async () => {
     assert.equal(hiddenList.games.length, 1);
 
     const unhideResponse = await fetch(
-      `${baseUrl}/games/${created.game.id}/unhide`,
+      `${baseUrl}/games/${createdGame.id}/unhide`,
       {
         method: "POST",
       },
@@ -160,7 +149,7 @@ test("exposes library CRUD through the local API", async () => {
 
     assert.equal(listed.games.length, 1);
 
-    assert.equal(listed.games[0]?.id, created.game.id);
+    assert.equal(listed.games[0]?.id, createdGame.id);
     assert.equal(listed.games[0]?.resources.length, 1);
     assert.equal(listed.games[0]?.resources[0]?.resourceType, "guide");
     assert.equal(listed.games[0]?.resources[0]?.provider, "powerpyx");
@@ -171,24 +160,18 @@ test("exposes library CRUD through the local API", async () => {
       alerts: [],
     });
 
-    const invalidResponse = await fetch(`${baseUrl}/games`, {
+    const manualCreateResponse = await fetch(`${baseUrl}/games`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        title: "Unsupported",
-        platform: "Vita",
+        title: "Unsupported manual entry",
+        platform: "PS5",
       }),
     });
 
-    assert.equal(invalidResponse.status, 400);
-
-    assert.deepEqual(await invalidResponse.json(), {
-      ok: false,
-      error: "invalid_platform",
-      message: "platform must be PS3, PS4, or PS5.",
-    });
+    assert.equal(manualCreateResponse.status, 404);
   } finally {
     await closeServer(server);
     database.close();

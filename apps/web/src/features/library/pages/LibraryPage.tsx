@@ -13,9 +13,9 @@ import type { CollectionSummary } from "../../../domain/collection";
 import { useToast } from "../../../components/toast/useToast";
 import { useProfileProgression } from "../../../components/profile/useProfileProgression";
 import type {
-  CreateLibraryGameInput,
   LibraryGame,
   LibraryGameListItem,
+  UpdateLibraryGameInput,
 } from "../../../domain/libraryGame";
 import type { PlayStationProgressSynchronizationResponse } from "../../../domain/playStation";
 import type {
@@ -33,6 +33,7 @@ import { PlayStationSyncProgressPanel } from "../../playstation/components/PlayS
 import { usePlayStationSyncProgress } from "../../playstation/hooks/usePlayStationSyncProgress";
 import { PortableDataPage } from "../../portableData/pages/PortableDataPage";
 import { SavedViewForm } from "../../savedViews/components/SavedViewForm";
+import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { IgdbGameSearch } from "../components/IgdbGameSearch";
 import { LibraryFilterPanel } from "../components/LibraryFilterPanel";
 import { LibraryGameForm } from "../components/LibraryGameForm";
@@ -105,8 +106,10 @@ export function LibraryPage() {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
   const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
+  const [detailsGame, setDetailsGame] = useState<LibraryGameListItem | null>(
+    null,
+  );
   const [editingGame, setEditingGame] = useState<LibraryGame | null>(null);
   const [gamePendingDeletion, setGamePendingDeletion] =
     useState<LibraryGame | null>(null);
@@ -497,18 +500,6 @@ export function LibraryPage() {
     }
   }
 
-  async function handleCreate(input: CreateLibraryGameInput): Promise<void> {
-    const succeeded = await performMutation(
-      "create",
-      `${input.title} was added.`,
-      () => libraryApi.create(input),
-    );
-
-    if (succeeded) {
-      setIsAdding(false);
-    }
-  }
-
   async function handleIgdbAdded(game: LibraryGame): Promise<void> {
     await refreshGames();
     setErrorMessage(null);
@@ -519,7 +510,7 @@ export function LibraryPage() {
     });
   }
 
-  async function handleUpdate(input: CreateLibraryGameInput): Promise<void> {
+  async function handleUpdate(input: UpdateLibraryGameInput): Promise<void> {
     if (editingGame === null) {
       return;
     }
@@ -639,29 +630,19 @@ export function LibraryPage() {
     );
   }
 
-  function openAddForm() {
-    setIsSearchingIgdb(false);
-    setEditingGame(null);
-    setIsAdding(true);
-    setErrorMessage(null);
-  }
-
   function openIgdbSearch() {
-    setIsAdding(false);
     setEditingGame(null);
     setIsSearchingIgdb(true);
     setErrorMessage(null);
   }
 
   function openEditForm(game: LibraryGame) {
-    setIsAdding(false);
     setIsSearchingIgdb(false);
     setEditingGame(game);
     setErrorMessage(null);
   }
 
   function closeForm() {
-    setIsAdding(false);
     setEditingGame(null);
   }
 
@@ -676,6 +657,7 @@ export function LibraryPage() {
         position={position}
         dragHandle={dragHandle}
         busy={busyKey !== null || isSynchronizingTrophies}
+        onOpenDetails={() => setDetailsGame(game)}
         onEdit={() => openEditForm(game)}
         onHide={() => void handleHide(game)}
         onUnhide={() => void handleUnhide(game)}
@@ -699,19 +681,10 @@ export function LibraryPage() {
           <button
             className="button button--quiet"
             type="button"
-            onClick={openAddForm}
-            disabled={synchronizationActive}
-          >
-            Add manually
-          </button>
-
-          <button
-            className="button button--quiet"
-            type="button"
             onClick={openIgdbSearch}
             disabled={synchronizationActive}
           >
-            Search IGDB
+            Search
           </button>
 
           <button
@@ -1020,25 +993,31 @@ export function LibraryPage() {
         </div>
       )}
 
-      {isSearchingIgdb ? (
-        <div className="editor-panel">
-          <IgdbGameSearch
-            onAdded={handleIgdbAdded}
-            onClose={() => setIsSearchingIgdb(false)}
-          />
-        </div>
-      ) : null}
-
-      {isAdding || editingGame !== null ? (
+      {editingGame === null ? null : (
         <div className="editor-panel">
           <LibraryGameForm
-            key={editingGame?.id ?? "new-game"}
-            initialGame={editingGame ?? undefined}
-            onSubmit={editingGame === null ? handleCreate : handleUpdate}
+            key={editingGame.id}
+            initialGame={editingGame}
+            onSubmit={handleUpdate}
             onCancel={closeForm}
           />
         </div>
-      ) : null}
+      )}
+
+      <GameDetailsDialog
+        game={detailsGame}
+        onClose={() => setDetailsGame(null)}
+      />
+
+      <Dialog
+        open={isSearchingIgdb}
+        title="Find a PlayStation game"
+        description="Search PS3, PS4, and PS5 releases from IGDB. Select a result to inspect its metadata before adding it."
+        size="xlarge"
+        onClose={() => setIsSearchingIgdb(false)}
+      >
+        <IgdbGameSearch onAdded={handleIgdbAdded} />
+      </Dialog>
 
       <Dialog
         open={backupDialogOpen}

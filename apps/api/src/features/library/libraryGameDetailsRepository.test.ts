@@ -116,13 +116,39 @@ test("composes local library, IGDB, image, and PlayStation details", () => {
         timestamp,
       );
 
+    database
+      .prepare(
+        `
+          INSERT INTO trophy_snapshots (
+            id,
+            game_id,
+            captured_at,
+            bronze_total,
+            silver_total,
+            gold_total,
+            platinum_total,
+            bronze_earned,
+            silver_earned,
+            gold_earned,
+            platinum_earned,
+            progress_percent,
+            is_100_percent,
+            has_platinum
+          ) VALUES (?, ?, ?, 10, 4, 2, 1, 5, 2, 1, 0, 50, 0, 1)
+        `,
+      )
+      .run("snapshot-one", libraryGame.id, timestamp);
+
     const details = new LibraryGameDetailsRepository(database).findById(
       libraryGame.id,
     );
 
     assert.notEqual(details, null);
     assert.equal(details?.game.id, libraryGame.id);
-    assert.equal(details?.game.trophySummary, null);
+    assert.equal(details?.game.trophySummary?.progressPercent, 50);
+    assert.equal(details?.game.trophySummary?.points.earned, 225);
+    assert.equal(details?.game.trophySummary?.points.total, 750);
+    assert.equal(details?.game.trophySummary?.timing, null);
     assert.equal(details?.igdb?.externalId, "250766");
     assert.equal(details?.igdb?.summary, "A platforming adventure.");
     assert.deepEqual(details?.igdb?.platforms, ["PS5"]);
@@ -136,6 +162,26 @@ test("composes local library, IGDB, image, and PlayStation details", () => {
     assert.equal(details?.igdb?.images.artworks.length, 1);
     assert.equal(details?.playStation?.npCommunicationId, "NPWR00001_00");
     assert.equal(details?.playStation?.npServiceName, "trophy2");
+    assert.deepEqual(details?.trophyHistory, [
+      {
+        capturedAt: timestamp,
+        earnedTrophies: {
+          bronze: 5,
+          silver: 2,
+          gold: 1,
+          platinum: 0,
+        },
+        totalTrophies: {
+          bronze: 10,
+          silver: 4,
+          gold: 2,
+          platinum: 1,
+        },
+        progressPercent: 50,
+        is100Percent: false,
+        platinumEarned: false,
+      },
+    ]);
   } finally {
     database.close();
   }

@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
+import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 import type {
   LibraryGameViewData,
   LibraryGameWithArtwork,
@@ -46,6 +47,18 @@ async function closeServer(
 test("exposes saved-view filtering and protects built-in views", async () => {
   const database = openDatabase(":memory:");
 
+  const libraryRepository = new LibraryGameRepository(database);
+
+  libraryRepository.create({
+    title: "Astro Bot",
+    platform: "PS5",
+  });
+
+  libraryRepository.create({
+    title: "Bloodborne",
+    platform: "PS4",
+  });
+
   const server = createApp(database).listen(0, "127.0.0.1");
 
   try {
@@ -54,27 +67,6 @@ test("exposes saved-view filtering and protects built-in views", async () => {
     const address = server.address() as AddressInfo;
 
     const apiUrl = `http://127.0.0.1:${address.port}/api`;
-
-    for (const game of [
-      {
-        title: "Astro Bot",
-        platform: "PS5",
-      },
-      {
-        title: "Bloodborne",
-        platform: "PS4",
-      },
-    ]) {
-      const response = await fetch(`${apiUrl}/library/games`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(game),
-      });
-
-      assert.equal(response.status, 201);
-    }
 
     const listResponse = await fetch(`${apiUrl}/saved-views`);
 

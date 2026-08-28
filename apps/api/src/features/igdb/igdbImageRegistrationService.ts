@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { ImageCacheService } from "../imageCache/imageCacheService.js";
-import { createIgdbCoverUrl } from "./igdbSearchService.js";
+import { createIgdbCoverUrl, createIgdbMediaUrl } from "./igdbSearchService.js";
 import type { IgdbGame, IgdbImageReference } from "./igdbTypes.js";
 
 export type IgdbRegisteredImageRole = "cover" | "screenshot" | "artwork";
@@ -24,12 +24,6 @@ interface ImageLink {
   sortOrder: number;
   width: number | null;
   height: number | null;
-}
-
-export function createIgdbMediaUrl(imageId: string): string {
-  return (
-    "https://images.igdb.com/igdb/image/upload/" + `t_1080p/${imageId}.jpg`
-  );
 }
 
 export class IgdbImageRegistrationService {

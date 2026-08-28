@@ -1,20 +1,30 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useToast } from "../../../components/toast/useToast";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import {
+  deleteEntireBacklogConfirmation,
+  type BacklogDeletionResult,
+} from "../../../domain/portableData";
 import type { AppSettings } from "../../../domain/settings";
 import { ApiError } from "../../../services/api/apiClient";
+import { portableDataApi } from "../../../services/api/portableDataApi";
 import { settingsApi } from "../../../services/api/settingsApi";
 
 type LoadState = "loading" | "ready" | "error";
+
+interface SettingsPageProps {
+  readonly onBacklogDeleted: () => void;
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.message;
   }
 
-  return "Something unexpected went wrong while updating Settings.";
+  return "Something unexpected went wrong while processing the request.";
 }
 
-export function SettingsPage() {
+export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
   const { showToast, setNotificationDurationSeconds: updateToastDuration } =
     useToast();
 
@@ -27,7 +37,8 @@ export function SettingsPage() {
     useState("5");
 
   const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeletingBacklog, setIsDeletingBacklog] = useState(false);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -45,9 +56,8 @@ export function SettingsPage() {
           );
           setLoadState("ready");
         }
-      } catch (error) {
+      } catch {
         if (!abortController.signal.aborted) {
-          setErrorMessage(getErrorMessage(error));
           setLoadState("error");
         }
       }
@@ -117,8 +127,44 @@ export function SettingsPage() {
     }
   }
 
+  async function handleDeleteEntireBacklog(): Promise<void> {
+    setIsDeletingBacklog(true);
+
+    try {
+      const result: BacklogDeletionResult =
+        await portableDataApi.deleteEntireBacklog(
+          deleteEntireBacklogConfirmation,
+        );
+
+      setDeleteDialogOpen(false);
+
+      showToast({
+        tone: "success",
+        title: "Backlog deleted",
+        message:
+          `Deleted ${result.deleted.libraryGames} games, ` +
+          `${result.deleted.collections} collections, and ` +
+          `${result.deleted.savedViews} custom saved views. ` +
+          `Recovery backup: ${result.backup.fileName}`,
+      });
+
+      onBacklogDeleted();
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Backlog was not deleted",
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setIsDeletingBacklog(false);
+    }
+  }
+
   return (
-    <section className="library-page" aria-labelledby="settings-title">
+    <section
+      className="library-page settings-page"
+      aria-labelledby="settings-title"
+    >
       <div className="library-heading">
         <div>
           <p className="eyebrow">Local preferences and safety</p>
@@ -132,12 +178,6 @@ export function SettingsPage() {
           </p>
         </div>
       </div>
-
-      {errorMessage === null ? null : (
-        <div className="notice notice--error" role="alert">
-          {errorMessage}
-        </div>
-      )}
 
       {loadState === "loading" ? (
         <div className="empty-state" role="status">
@@ -187,7 +227,7 @@ export function SettingsPage() {
                 <span>
                   <strong>Enforce sync cooldown</strong>
 
-                  <small>
+                  <small id="sync-cooldown-toggle-description">
                     Disable this only when you deliberately need unrestricted
                     manual synchronization.
                   </small>
@@ -195,8 +235,10 @@ export function SettingsPage() {
 
                 <input
                   type="checkbox"
+                  role="switch"
                   checked={cooldownEnabled}
                   disabled={isSaving}
+                  aria-describedby="sync-cooldown-toggle-description"
                   onChange={(event) => setCooldownEnabled(event.target.checked)}
                 />
               </label>
@@ -212,10 +254,13 @@ export function SettingsPage() {
                   step={1}
                   value={cooldownSeconds}
                   disabled={!cooldownEnabled || isSaving}
+                  aria-describedby="sync-cooldown-duration-description"
                   onChange={(event) => setCooldownSeconds(event.target.value)}
                 />
 
-                <small>Allowed range: 1 second through 24 hours.</small>
+                <small id="sync-cooldown-duration-description">
+                  Allowed range: 1 second through 24 hours.
+                </small>
               </label>
 
               {!cooldownEnabled ? (
@@ -258,18 +303,65 @@ export function SettingsPage() {
                   step={1}
                   value={notificationDurationSeconds}
                   disabled={isSaving}
+                  aria-describedby="notification-duration-description"
                   onChange={(event) =>
                     setNotificationDurationSeconds(event.target.value)
                   }
                 />
 
-                <small>Allowed range: 1 through 60 seconds.</small>
+                <small id="notification-duration-description">
+                  Allowed range: 1 through 60 seconds.
+                </small>
               </label>
 
               <p className="settings-card__footnote">
                 This duration applies immediately to new notifications after
                 Settings are saved.
               </p>
+            </section>
+
+            <section
+              className="settings-card settings-card--danger"
+              aria-labelledby="danger-zone-title"
+            >
+              <div className="settings-card__heading">
+                <div>
+                  <p className="eyebrow">Destructive maintenance</p>
+
+                  <h3 id="danger-zone-title">Danger Zone</h3>
+                </div>
+              </div>
+
+              <p className="settings-card__description">
+                Permanently remove every Library game, Collection, and custom
+                Saved View, including their game-specific trophy data, alerts,
+                useful links, and PlayStation connections.
+              </p>
+
+              <p className="settings-card__footnote">
+                A recovery backup is created before deletion. Settings, built-in
+                Saved Views, cached artwork and metadata, and your PSN profile
+                history are preserved.
+              </p>
+
+              <div className="settings-danger__action">
+                <div>
+                  <strong>Delete Entire Backlog</strong>
+
+                  <small>
+                    This operation cannot be undone from inside the app.
+                  </small>
+                </div>
+
+                <button
+                  className="button button--danger"
+                  type="button"
+                  disabled={isSaving || isDeletingBacklog}
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  Delete Entire Backlog
+                </button>
+              </div>
             </section>
           </div>
 
@@ -290,6 +382,23 @@ export function SettingsPage() {
           </div>
         </form>
       ) : null}
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete Entire Backlog?"
+        description={
+          <p>
+            This permanently removes all backlog games, Collections, and custom
+            Saved Views.{" "}
+            <strong>A recovery backup will be created first.</strong>
+          </p>
+        }
+        confirmLabel="Delete Entire Backlog"
+        requiredText={deleteEntireBacklogConfirmation}
+        busy={isDeletingBacklog}
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={() => void handleDeleteEntireBacklog()}
+      />
     </section>
   );
 }

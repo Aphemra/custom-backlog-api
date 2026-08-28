@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Router } from "express";
+import { deleteEntireBacklog } from "../features/backlog/backlogMaintenanceService.js";
 import {
   createPortableDataExport,
   importPortableData,
@@ -42,6 +43,20 @@ export function createDataRoutes(
         database,
         backupDirectory,
         portableData,
+      );
+
+      response.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  dataRoutes.delete("/backlog", async (request, response, next) => {
+    try {
+      const result = await deleteEntireBacklog(
+        database,
+        backupDirectory,
+        request.body,
       );
 
       response.json(result);

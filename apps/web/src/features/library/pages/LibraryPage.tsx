@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { useToast } from "../../../components/toast/useToast";
+import { useProfileProgression } from "../../../components/profile/useProfileProgression";
 import type {
   CreateLibraryGameInput,
   LibraryGame,
@@ -37,6 +38,7 @@ function getErrorMessage(error: unknown): string {
 
 export function LibraryPage() {
   const { showToast } = useToast();
+  const { refreshProfileProgression } = useProfileProgression();
 
   const [games, setGames] = useState<readonly LibraryGameListItem[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -182,7 +184,8 @@ export function LibraryPage() {
       const result = await playStationApi.synchronizeProgress();
 
       setLastProgressSync(result);
-      await refreshGames();
+
+      await Promise.all([refreshGames(), refreshProfileProgression()]);
     } catch (error) {
       if (
         error instanceof ApiError &&

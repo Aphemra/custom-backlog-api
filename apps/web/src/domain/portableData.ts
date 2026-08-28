@@ -26,3 +26,20 @@ export interface PortableImportResult extends PortableImportPreview {
     readonly createdAt: string;
   };
 }
+
+export const deleteEntireBacklogConfirmation = "Delete Entire Backlog";
+
+export interface BacklogDeletionResult {
+  readonly deletedAt: string;
+
+  readonly deleted: {
+    readonly libraryGames: number;
+    readonly collections: number;
+    readonly savedViews: number;
+  };
+
+  readonly backup: {
+    readonly fileName: string;
+    readonly createdAt: string;
+  };
+}

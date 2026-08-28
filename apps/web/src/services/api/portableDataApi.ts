@@ -1,4 +1,5 @@
 import type {
+  BacklogDeletionResult,
   PortableImportPreview,
   PortableImportResult,
 } from "../../domain/portableData";
@@ -16,6 +17,15 @@ export const portableDataApi = {
     return requestJson<PortableImportResult>("/api/data/imports", {
       method: "POST",
       body: JSON.stringify(portableData),
+    });
+  },
+
+  deleteEntireBacklog(confirmation: string): Promise<BacklogDeletionResult> {
+    return requestJson<BacklogDeletionResult>("/api/data/backlog", {
+      method: "DELETE",
+      body: JSON.stringify({
+        confirmation,
+      }),
     });
   },
 };

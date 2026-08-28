@@ -9,6 +9,7 @@ import { test } from "node:test";
 import express from "express";
 import { openDatabase } from "../database/database.js";
 import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
+import type { BacklogDeletionResult } from "../features/backlog/backlogMaintenanceService.js";
 import type { PortableImportResult } from "../features/portableData/portableDataService.js";
 import type { PortableDataExport } from "../features/portableData/portableDataTypes.js";
 import { createDataRoutes } from "./dataRoutes.js";
@@ -106,6 +107,34 @@ test("exposes portable export, preview, and import through the local API", async
     );
 
     assert.equal(result.incoming.libraryGames, 1);
+
+    const deletionResponse = await fetch(`${baseUrl}/backlog`, {
+      method: "DELETE",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        confirmation: "Delete Entire Backlog",
+      }),
+    });
+
+    assert.equal(deletionResponse.status, 200);
+
+    const deletionResult =
+      (await deletionResponse.json()) as BacklogDeletionResult;
+
+    assert.deepEqual(deletionResult.deleted, {
+      libraryGames: 1,
+      collections: 0,
+      savedViews: 0,
+    });
+
+    assert.equal(
+      existsSync(join(backupDirectory, deletionResult.backup.fileName)),
+      true,
+    );
+
+    assert.equal(games.list().length, 0);
   } finally {
     await closeServer(server);
     database.close();

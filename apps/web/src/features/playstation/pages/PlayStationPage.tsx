@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useProfileProgression } from "../../../components/profile/useProfileProgression";
 import {
   playStatuses,
   playStatusLabels,
@@ -478,6 +479,8 @@ function TrophyTitleRow({
 }
 
 export function PlayStationPage() {
+  const { refreshProfileProgression } = useProfileProgression();
+
   const [status, setStatus] = useState<PlayStationConnectionStatus | null>(
     null,
   );
@@ -685,6 +688,8 @@ export function PlayStationPage() {
       setLastSynchronization(result.synchronization);
       setLastDetailSynchronization(result.detailSynchronization);
 
+      await refreshProfileProgression();
+
       if (result.synchronization.status === "succeeded") {
         setNotice(
           `Synchronized ${result.synchronization.processedTitleCount} linked games and created ${result.synchronization.snapshotsCreated} trophy snapshots.`,
@@ -805,7 +810,7 @@ export function PlayStationPage() {
         <div>
           <p className="eyebrow">Reader-account integration</p>
 
-          <h2 id="playstation-title">PlayStation</h2>
+          <h2 id="playstation-title">PSN Trophy Import</h2>
 
           <p className="library-heading__description">
             Preview your trophy history, compare it with the local library, and

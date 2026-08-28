@@ -7,6 +7,7 @@ import type {
 } from "../../../domain/trophyAlert";
 import { ApiError } from "../../../services/api/apiClient";
 import { trophyAlertApi } from "../../../services/api/trophyAlertApi";
+import { TrophyGradeIcon } from "../../../components/ui/icons";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -133,11 +134,7 @@ function TrophySetChangeDetails({ alert }: { readonly alert: TrophyAlert }) {
                         {trophy.name ?? `Hidden trophy #${trophy.trophyId}`}
                       </strong>
 
-                      <span
-                        className={`trophy-grade trophy-grade--${trophy.trophyType}`}
-                      >
-                        {trophy.trophyType}
-                      </span>
+                      <TrophyGradeIcon grade={trophy.trophyType} />
 
                       {trophy.detail === null ? null : <p>{trophy.detail}</p>}
                     </div>

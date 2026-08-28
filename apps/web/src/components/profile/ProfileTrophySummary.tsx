@@ -1,3 +1,4 @@
+import { TrophyGradeIcon } from "../ui/icons";
 import { useProfileProgression } from "./useProfileProgression";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -60,23 +61,23 @@ export function ProfileTrophySummary() {
       <div className="profile-summary__main">
         <div className="profile-summary__trophies" aria-label="Trophy totals">
           <span className="profile-trophy profile-trophy--platinum">
+            <TrophyGradeIcon grade="platinum" />
             <strong>{formatNumber(progression.earnedTrophies.platinum)}</strong>
-            <small>Platinum</small>
           </span>
 
           <span className="profile-trophy profile-trophy--gold">
+            <TrophyGradeIcon grade="gold" />
             <strong>{formatNumber(progression.earnedTrophies.gold)}</strong>
-            <small>Gold</small>
           </span>
 
           <span className="profile-trophy profile-trophy--silver">
+            <TrophyGradeIcon grade="silver" />
             <strong>{formatNumber(progression.earnedTrophies.silver)}</strong>
-            <small>Silver</small>
           </span>
 
           <span className="profile-trophy profile-trophy--bronze">
+            <TrophyGradeIcon grade="bronze" />
             <strong>{formatNumber(progression.earnedTrophies.bronze)}</strong>
-            <small>Bronze</small>
           </span>
         </div>
 

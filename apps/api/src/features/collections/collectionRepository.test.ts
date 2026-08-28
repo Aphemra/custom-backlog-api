@@ -151,6 +151,72 @@ test("creates, edits, orders, fills, and deletes collections", () => {
   }
 });
 
+test("replaces game memberships while preserving Collection order", () => {
+  const database = openDatabase(":memory:");
+  const games = new LibraryGameRepository(database);
+  const collections = new CollectionRepository(database);
+
+  try {
+    const existingGame = games.create({
+      title: "Astro Bot",
+      platform: "PS5",
+    });
+
+    const editedGame = games.create({
+      title: "Returnal",
+      platform: "PS5",
+    });
+
+    const firstCollection = collections.create({
+      name: "First",
+    });
+
+    const secondCollection = collections.create({
+      name: "Second",
+    });
+
+    assert.equal(
+      collections.replaceGames(firstCollection.id, [existingGame.id]),
+      true,
+    );
+
+    assert.equal(
+      collections.replaceGameMemberships(editedGame.id, [
+        firstCollection.id,
+        secondCollection.id,
+      ]),
+      true,
+    );
+
+    assert.deepEqual(
+      collections.findById(firstCollection.id)?.games.map((game) => game.id),
+      [existingGame.id, editedGame.id],
+    );
+
+    assert.deepEqual(
+      collections.findById(secondCollection.id)?.games.map((game) => game.id),
+      [editedGame.id],
+    );
+
+    assert.equal(
+      collections.replaceGameMemberships(editedGame.id, [secondCollection.id]),
+      true,
+    );
+
+    assert.deepEqual(
+      collections.findById(firstCollection.id)?.games.map((game) => game.id),
+      [existingGame.id],
+    );
+
+    assert.deepEqual(
+      collections.findById(secondCollection.id)?.games.map((game) => game.id),
+      [editedGame.id],
+    );
+  } finally {
+    database.close();
+  }
+});
+
 test("rejects stale collection and membership lists without changing data", () => {
   const database = openDatabase(":memory:");
   const games = new LibraryGameRepository(database);

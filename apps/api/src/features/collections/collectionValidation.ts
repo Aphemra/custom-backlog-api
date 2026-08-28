@@ -195,3 +195,17 @@ export function parseCollectionGameOrder(value: unknown): readonly string[] {
     "orderedGameIds",
   );
 }
+
+export function parseGameCollectionMemberships(
+  value: unknown,
+): readonly string[] {
+  const record = requireRecord(value);
+
+  rejectUnknownKeys(record, new Set(["collectionIds"]));
+
+  return readIdArray(
+    record.collectionIds,
+    "invalid_game_collection_memberships",
+    "collectionIds",
+  );
+}

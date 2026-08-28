@@ -9,6 +9,9 @@ import {
 import { SortableList } from "../../../components/sortable/SortableList";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
+import { Dropdown } from "../../../components/ui/Dropdown";
+import { IconButton } from "../../../components/ui/IconButton";
+import { PlusIcon, SyncIcon, TuneIcon } from "../../../components/ui/icons";
 import type { CollectionSummary } from "../../../domain/collection";
 import { useToast } from "../../../components/toast/useToast";
 import { useProfileProgression } from "../../../components/profile/useProfileProgression";
@@ -31,14 +34,12 @@ import { playStationApi } from "../../../services/api/playStationApi";
 import { savedViewApi } from "../../../services/api/savedViewApi";
 import { PlayStationSyncProgressPanel } from "../../playstation/components/PlayStationSyncProgressPanel";
 import { usePlayStationSyncProgress } from "../../playstation/hooks/usePlayStationSyncProgress";
-import { PortableDataPage } from "../../portableData/pages/PortableDataPage";
 import { SavedViewForm } from "../../savedViews/components/SavedViewForm";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { IgdbGameSearch } from "../components/IgdbGameSearch";
 import { LibraryFilterPanel } from "../components/LibraryFilterPanel";
 import { LibraryGameForm } from "../components/LibraryGameForm";
 import { LibraryGameRow } from "../components/LibraryGameRow";
-import { LibraryViewActionsMenu } from "../components/LibraryViewActionsMenu";
 import { SavedViewManager } from "../components/SavedViewManager";
 import { applyLibraryView } from "../libraryViewEvaluator";
 
@@ -94,15 +95,14 @@ export function LibraryPage() {
   const [filterOverrides, setFilterOverrides] =
     useState<SavedViewFilters | null>(null);
   const [sortOverride, setSortOverride] = useState<SavedViewSort | null>(null);
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [viewManagerExpanded, setViewManagerExpanded] = useState(false);
-  const [isCreatingView, setIsCreatingView] = useState(false);
+  const [viewToolsOpen, setViewToolsOpen] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+  const [backlogExpanded, setBacklogExpanded] = useState(true);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
   const [editingView, setEditingView] = useState<SavedView | null>(null);
   const [viewPendingDeletion, setViewPendingDeletion] =
     useState<SavedView | null>(null);
   const [viewBusy, setViewBusy] = useState(false);
-  const [backupDialogOpen, setBackupDialogOpen] = useState(false);
-  const [portableDataBusy, setPortableDataBusy] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -110,7 +110,9 @@ export function LibraryPage() {
   const [detailsGame, setDetailsGame] = useState<LibraryGameListItem | null>(
     null,
   );
-  const [editingGame, setEditingGame] = useState<LibraryGame | null>(null);
+  const [editingGame, setEditingGame] = useState<LibraryGameListItem | null>(
+    null,
+  );
   const [gamePendingDeletion, setGamePendingDeletion] =
     useState<LibraryGame | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -213,25 +215,7 @@ export function LibraryPage() {
     setSearchQuery("");
   }
 
-  async function handlePortableDataImported(): Promise<void> {
-    const [loadedCollections] = await Promise.all([
-      collectionApi.list(),
-      refreshGames(),
-      refreshViews(),
-      refreshProfileProgression(),
-    ]);
-
-    setCollections(loadedCollections);
-    setFiltersExpanded(false);
-    setViewManagerExpanded(false);
-
-    showToast({
-      tone: "success",
-      message: "The imported backlog is loaded and ready.",
-    });
-  }
-
-  async function handleCreateView(input: SavedViewInput): Promise<void> {
+  async function handleCreateView(input: SavedViewInput): Promise<boolean> {
     setViewBusy(true);
     setErrorMessage(null);
 
@@ -239,12 +223,13 @@ export function LibraryPage() {
       const created = await savedViewApi.create(input);
 
       await refreshViews(created.id);
-      setIsCreatingView(false);
 
       showToast({
         tone: "success",
         message: `${created.name} was created and selected.`,
       });
+
+      return true;
     } catch (error) {
       const message = getErrorMessage(error);
 
@@ -254,8 +239,26 @@ export function LibraryPage() {
         tone: "error",
         message,
       });
+
+      return false;
     } finally {
       setViewBusy(false);
+    }
+  }
+
+  async function handleCreateViewFromCurrentSettings(): Promise<void> {
+    if (effectiveView === null || newViewName.trim().length === 0) {
+      return;
+    }
+
+    const created = await handleCreateView({
+      name: newViewName.trim(),
+      filters: effectiveView.filters,
+      sort: effectiveView.sort,
+    });
+
+    if (created) {
+      setNewViewName("");
     }
   }
 
@@ -386,11 +389,6 @@ export function LibraryPage() {
     [games],
   );
 
-  const hiddenGames = useMemo(
-    () => games.filter((game) => game.hiddenAt !== null),
-    [games],
-  );
-
   const manualOrderViewSelected =
     effectiveView !== null && isCompleteManualOrderView(effectiveView);
 
@@ -510,7 +508,10 @@ export function LibraryPage() {
     });
   }
 
-  async function handleUpdate(input: UpdateLibraryGameInput): Promise<void> {
+  async function handleUpdate(
+    input: UpdateLibraryGameInput,
+    collectionIds: readonly string[],
+  ): Promise<void> {
     if (editingGame === null) {
       return;
     }
@@ -518,7 +519,16 @@ export function LibraryPage() {
     const succeeded = await performMutation(
       editingGame.id,
       `${input.title} was updated.`,
-      () => libraryApi.update(editingGame.id, input),
+      async () => {
+        await libraryApi.update(editingGame.id, input);
+
+        await collectionApi.replaceGameMemberships(
+          editingGame.id,
+          collectionIds,
+        );
+
+        setCollections(await collectionApi.list());
+      },
     );
 
     if (succeeded) {
@@ -636,7 +646,7 @@ export function LibraryPage() {
     setErrorMessage(null);
   }
 
-  function openEditForm(game: LibraryGame) {
+  function openEditForm(game: LibraryGameListItem) {
     setIsSearchingIgdb(false);
     setEditingGame(game);
     setErrorMessage(null);
@@ -668,51 +678,115 @@ export function LibraryPage() {
 
   return (
     <section className="library-page" aria-labelledby="library-title">
-      <div className="library-heading">
-        <div>
-          <p className="eyebrow">Canonical library</p>
-          <h2 id="library-title">Your trophy backlog</h2>
-          <p className="library-heading__description">
-            One game entry, any number of future collections and saved views.
-          </p>
+      <h2 id="library-title" className="visually-hidden">
+        Library
+      </h2>
+
+      <div className="library-toolbar">
+        <div className="library-controls">
+          <Dropdown
+            className="library-view-picker"
+            label={selectedView?.name ?? "Choose view"}
+            accessibleLabel="Library view"
+            mode="listbox"
+            disabled={loadState !== "ready" || views.length === 0}
+            items={views.map((view) => ({
+              id: view.id,
+              label: `${view.name}${view.isBuiltin ? "" : " — Custom"}`,
+              selected: view.id === selectedViewId,
+              disabled: !view.isAvailable,
+              onSelect: () => selectLibraryView(view.id),
+            }))}
+          />
+
+          <label className="search-field">
+            <span className="visually-hidden">
+              Search within the selected Library view
+            </span>
+
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search within this view…"
+            />
+          </label>
+
+          <div className="library-toolbar__icon-actions">
+            <IconButton
+              className={`library-toolbar__action-button library-toolbar__view-tools-button${
+                viewAdjusted
+                  ? " library-toolbar__view-tools-button--adjusted"
+                  : ""
+              }`}
+              label="Library view tools"
+              icon={<TuneIcon />}
+              tooltipPlacement="bottom"
+              tooltipAlignment="end"
+              onClick={() => setViewToolsOpen(true)}
+              disabled={loadState !== "ready" || effectiveView === null}
+            />
+            <IconButton
+              className="library-toolbar__action-button"
+              label="Add game"
+              icon={<PlusIcon />}
+              tooltipPlacement="bottom"
+              tooltipAlignment="end"
+              onClick={openIgdbSearch}
+              disabled={synchronizationActive}
+            />
+
+            <IconButton
+              className={`library-toolbar__action-button library-toolbar__sync-button${
+                synchronizationActive
+                  ? " library-toolbar__sync-button--active"
+                  : ""
+              }`}
+              label={
+                synchronizationActive ? "Syncing trophies" : "Sync trophies"
+              }
+              icon={<SyncIcon />}
+              tooltipPlacement="bottom"
+              tooltipAlignment="end"
+              onClick={() => void handleSyncTrophyProgress()}
+              disabled={
+                loadState === "loading" ||
+                busyKey !== null ||
+                synchronizationActive
+              }
+              aria-busy={synchronizationActive}
+            />
+          </div>
         </div>
 
-        <div className="library-heading__actions">
-          <button
-            className="button button--quiet"
-            type="button"
-            onClick={openIgdbSearch}
-            disabled={synchronizationActive}
-          >
-            Search
-          </button>
+        <div className="library-toolbar__footer">
+          <div className="library-toolbar__context">
+            {selectedView === null ? null : (
+              <span>
+                Showing {viewGames.length} of {games.length} games
+                {viewAdjusted ? " · Filters applied" : ""}
+              </span>
+            )}
 
-          <button
-            className="button button--primary"
-            type="button"
-            onClick={() => void handleSyncTrophyProgress()}
-            disabled={
-              loadState === "loading" ||
-              busyKey !== null ||
-              synchronizationActive
-            }
-            aria-busy={synchronizationActive}
-          >
-            {synchronizationActive
-              ? "Syncing Trophy Progress…"
-              : "Sync Trophy Progress"}
-          </button>
+            {orderingDisabled ? (
+              <span>
+                {manualOrderViewSelected
+                  ? "Clear search to enable manual reordering"
+                  : 'Manual reordering requires the "All games" view'}
+              </span>
+            ) : null}
+
+            {latestStoredTrophyUpdate === null ? null : (
+              <span className="library-toolbar__last-sync">
+                Last synced:
+                <strong>{` ${formatDateTime(latestStoredTrophyUpdate)}`}</strong>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       <PlayStationSyncProgressPanel progress={syncProgress} />
-
-      {lastProgressSync === null && latestStoredTrophyUpdate !== null ? (
-        <p className="library-sync-history">
-          Last stored trophy update{" "}
-          <strong>{formatDateTime(latestStoredTrophyUpdate)}</strong>
-        </p>
-      ) : null}
 
       {lastProgressSync === null ? null : (
         <section
@@ -831,178 +905,107 @@ export function LibraryPage() {
         </section>
       )}
 
-      <div className="stats-strip" aria-label="Library summary">
-        <div>
-          <strong>{orderedVisibleGames.length}</strong>
-          <span>Visible games</span>
-        </div>
-
-        <div>
-          <strong>
-            {
-              orderedVisibleGames.filter(
-                (game) => game.playStatus === "not_started",
-              ).length
-            }
-          </strong>
-          <span>Not started</span>
-        </div>
-
-        <div>
-          <strong>
-            {
-              orderedVisibleGames.filter(
-                (game) => game.playStatus === "playing",
-              ).length
-            }
-          </strong>
-          <span>Playing</span>
-        </div>
-
-        <div>
-          <strong>{hiddenGames.length}</strong>
-          <span>Hidden</span>
-        </div>
-      </div>
-
-      <div className="library-controls">
-        <label className="library-view-picker">
-          <span>Library view</span>
-
-          <select
-            value={selectedViewId ?? ""}
-            disabled={loadState !== "ready" || views.length === 0}
-            onChange={(event) => selectLibraryView(event.target.value)}
-          >
-            {views.map((view) => (
-              <option
-                key={view.id}
-                value={view.id}
-                disabled={!view.isAvailable}
-              >
-                {view.name}
-                {view.isBuiltin ? "" : " — Custom"}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="search-field">
-          <span className="visually-hidden">
-            Search within the selected Library view
-          </span>
-
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search within this view…"
-          />
-        </label>
-
-        <LibraryViewActionsMenu
-          viewAvailable={effectiveView !== null}
-          viewsAvailable={views.length > 0}
-          filtersExpanded={filtersExpanded}
-          viewManagerExpanded={viewManagerExpanded}
-          viewAdjusted={viewAdjusted}
-          mutationsBusy={
-            viewBusy || busyKey !== null || isSynchronizingTrophies
-          }
-          showCompletedAction={
-            backlogSectionsEnabled && completedBacklogGames.length > 0
-          }
-          completedOrderNeedsNormalization={completedOrderNeedsNormalization}
-          onToggleFilters={() => setFiltersExpanded((expanded) => !expanded)}
-          onResetFilters={() => {
-            setFilterOverrides(null);
-            setSortOverride(null);
-          }}
-          onCreateView={() => setIsCreatingView(true)}
-          onToggleViewManager={() =>
-            setViewManagerExpanded((expanded) => !expanded)
-          }
-          onSendCompletedToBottom={() => {
-            void sendCompletedGamesToBottom();
-          }}
-        />
-
-        <button
-          className="button button--quiet library-controls__backup"
-          type="button"
-          disabled={synchronizationActive || busyKey !== null || viewBusy}
-          onClick={() => setBackupDialogOpen(true)}
-        >
-          Backup / Restore
-        </button>
-      </div>
-
-      {filtersExpanded && effectiveView !== null ? (
-        <LibraryFilterPanel
-          filters={effectiveView.filters}
-          sort={effectiveView.sort}
-          collections={collections}
-          adjusted={viewAdjusted}
-          onFiltersChange={setFilterOverrides}
-          onSortChange={setSortOverride}
-          onReset={() => {
-            setFilterOverrides(null);
-            setSortOverride(null);
-          }}
-        />
-      ) : null}
-
-      {viewManagerExpanded ? (
-        <SavedViewManager
-          views={views}
-          selectedViewId={selectedViewId}
-          busy={viewBusy}
-          onSelect={selectLibraryView}
-          onEdit={setEditingView}
-          onDelete={setViewPendingDeletion}
-          onReorder={(orderedViews) => {
-            void handleReorderViews(orderedViews);
-          }}
-        />
-      ) : null}
-
-      {selectedView === null ? null : (
-        <div className="library-view-summary">
-          <span>
-            Showing <strong>{selectedView.name}</strong>
-            {viewAdjusted ? " with temporary refinements" : ""}
-          </span>
-
-          <span>
-            {viewGames.length} {viewGames.length === 1 ? "game" : "games"}
-          </span>
-        </div>
-      )}
-
-      {orderingDisabled ? (
-        <p className="helper-message">
-          {manualOrderViewSelected
-            ? "Clear the search to change the full Library order."
-            : "Manual reordering is available only in the complete, unfiltered All games view."}
-        </p>
-      ) : null}
-
       {errorMessage === null ? null : (
         <div className="notice notice--error" role="alert">
           {errorMessage}
         </div>
       )}
 
-      {editingGame === null ? null : (
-        <div className="editor-panel">
+      <Dialog
+        open={viewToolsOpen}
+        title="Library View Tools"
+        description="Filter and order the current Library view, save reusable views, and manage existing view definitions."
+        size="xlarge"
+        dismissible={!viewBusy}
+        onClose={() => setViewToolsOpen(false)}
+      >
+        {effectiveView === null ? (
+          <div className="empty-state">
+            <h3>No Library view is available.</h3>
+          </div>
+        ) : (
+          <div className="library-view-tools-dialog">
+            <LibraryFilterPanel
+              filters={effectiveView.filters}
+              sort={effectiveView.sort}
+              collections={collections}
+              adjusted={viewAdjusted}
+              busy={viewBusy}
+              newViewName={newViewName}
+              showCompletedAction={
+                backlogSectionsEnabled && completedBacklogGames.length > 0
+              }
+              completedOrderNeedsNormalization={
+                completedOrderNeedsNormalization
+              }
+              onFiltersChange={setFilterOverrides}
+              onSortChange={setSortOverride}
+              onReset={() => {
+                setFilterOverrides(null);
+                setSortOverride(null);
+              }}
+              onNewViewNameChange={setNewViewName}
+              onCreateView={() => {
+                void handleCreateViewFromCurrentSettings();
+              }}
+              onMoveCompletedToBottom={() => {
+                void sendCompletedGamesToBottom();
+              }}
+            />
+
+            <details className="library-view-manager-disclosure">
+              <summary>
+                <span className="library-view-manager-disclosure__title">
+                  <strong>Manage saved views</strong>
+
+                  <small>
+                    Select, reorder, edit, or delete view definitions.
+                  </small>
+                </span>
+
+                <span className="library-view-manager-disclosure__count">
+                  {views.length} {views.length === 1 ? "view" : "views"}
+                </span>
+              </summary>
+
+              <div className="library-view-manager-disclosure__body">
+                <SavedViewManager
+                  views={views}
+                  selectedViewId={selectedViewId}
+                  busy={viewBusy}
+                  embedded
+                  onSelect={selectLibraryView}
+                  onEdit={setEditingView}
+                  onDelete={setViewPendingDeletion}
+                  onReorder={(orderedViews) => {
+                    void handleReorderViews(orderedViews);
+                  }}
+                />
+              </div>
+            </details>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={editingGame !== null}
+        title={`Edit ${editingGame?.title ?? "game"}`}
+        description="Update its Library status, platform, trophy availability, useful links, and personal notes."
+        size="large"
+        dismissible={editingGame === null || busyKey !== editingGame.id}
+        onClose={closeForm}
+      >
+        {editingGame === null ? null : (
           <LibraryGameForm
             key={editingGame.id}
             initialGame={editingGame}
+            collections={collections}
+            initialCollectionIds={editingGame.viewData.collectionIds}
             onSubmit={handleUpdate}
             onCancel={closeForm}
           />
-        </div>
-      )}
+        )}
+      </Dialog>
 
       <GameDetailsDialog
         game={detailsGame}
@@ -1017,38 +1020,6 @@ export function LibraryPage() {
         onClose={() => setIsSearchingIgdb(false)}
       >
         <IgdbGameSearch onAdded={handleIgdbAdded} />
-      </Dialog>
-
-      <Dialog
-        open={backupDialogOpen}
-        title="Backup / Restore"
-        description="Download a portable copy of your local backlog or safely replace it from an earlier export."
-        size="large"
-        dismissible={!portableDataBusy}
-        onClose={() => setBackupDialogOpen(false)}
-      >
-        <PortableDataPage
-          onImported={handlePortableDataImported}
-          onImportingChange={setPortableDataBusy}
-        />
-      </Dialog>
-
-      <Dialog
-        open={isCreatingView}
-        title="Create Saved View"
-        description="The current filters and sorting are used as the starting definition. Live search remains temporary."
-        size="large"
-        dismissible={!viewBusy}
-        onClose={() => setIsCreatingView(false)}
-      >
-        <SavedViewForm
-          initialFilters={effectiveView?.filters}
-          initialSort={effectiveView?.sort}
-          showHeading={false}
-          collections={collections}
-          onSubmit={handleCreateView}
-          onCancel={() => setIsCreatingView(false)}
-        />
       </Dialog>
 
       <Dialog
@@ -1135,7 +1106,7 @@ export function LibraryPage() {
           </h3>
           <p>
             {games.length === 0
-              ? "Search IGDB for automatic metadata, or create a manual entry."
+              ? "Search IGDB to add your first PlayStation game."
               : "Try another Library view or clear the current search."}
           </p>
           {games.length === 0 ? (
@@ -1144,7 +1115,7 @@ export function LibraryPage() {
               type="button"
               onClick={openIgdbSearch}
             >
-              Search for your first game
+              Add your first game
             </button>
           ) : null}
         </div>
@@ -1153,66 +1124,78 @@ export function LibraryPage() {
       {loadState === "ready" && viewGames.length > 0 ? (
         backlogSectionsEnabled ? (
           <div className="backlog-sections">
-            <section
-              className="backlog-section"
-              aria-labelledby="active-backlog-title"
+            <details
+              className="backlog-disclosure"
+              open={backlogExpanded}
+              onToggle={(event) => setBacklogExpanded(event.currentTarget.open)}
             >
-              <div className="backlog-section__heading">
-                <div>
-                  <h3 id="active-backlog-title">Backlog</h3>
+              <summary>
+                <span className="backlog-disclosure__title">
+                  <strong>Backlog</strong>
 
-                  <p>Drag games into the order you plan to pursue them.</p>
-                </div>
+                  <small>
+                    Drag games into the order you plan to pursue them.
+                  </small>
+                </span>
 
-                <span>
+                <span className="backlog-disclosure__count">
                   {activeBacklogGames.length}{" "}
                   {activeBacklogGames.length === 1 ? "game" : "games"}
                 </span>
-              </div>
+              </summary>
 
-              {activeBacklogGames.length === 0 ? (
-                <div className="backlog-section__empty">
-                  Every visible game is currently marked Completed.
-                </div>
-              ) : (
-                <div className="game-list">
-                  <SortableList
-                    items={activeBacklogGames}
-                    disabled={busyKey !== null || isSynchronizingTrophies}
-                    ariaLabel="Active backlog order"
-                    getItemLabel={(game) => game.title}
-                    onReorder={(orderedGames) => {
-                      void reorderBacklogGames(orderedGames);
-                    }}
-                    renderItem={(game, controls) =>
-                      renderLibraryGameRow(
-                        game,
-                        controls.dragHandle,
-                        controls.position,
-                      )
-                    }
-                  />
-                </div>
-              )}
-            </section>
+              <div className="backlog-disclosure__body">
+                {activeBacklogGames.length === 0 ? (
+                  <div className="backlog-disclosure__empty">
+                    Every visible game is currently marked Completed.
+                  </div>
+                ) : (
+                  <div className="game-list backlog-disclosure__games">
+                    <SortableList
+                      items={activeBacklogGames}
+                      disabled={busyKey !== null || isSynchronizingTrophies}
+                      ariaLabel="Active backlog order"
+                      getItemLabel={(game) => game.title}
+                      onReorder={(orderedGames) => {
+                        void reorderBacklogGames(orderedGames);
+                      }}
+                      renderItem={(game, controls) =>
+                        renderLibraryGameRow(
+                          game,
+                          controls.dragHandle,
+                          controls.position,
+                        )
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            </details>
 
             {completedBacklogGames.length === 0 ? null : (
-              <details className="completed-backlog">
+              <details
+                className="backlog-disclosure"
+                open={completedExpanded}
+                onToggle={(event) =>
+                  setCompletedExpanded(event.currentTarget.open)
+                }
+              >
                 <summary>
-                  <span>
+                  <span className="backlog-disclosure__title">
                     <strong>Completed</strong>
 
                     <small>
-                      Finished games are kept outside the active backlog order.
+                      Completed games are kept outside the active backlog order.
                     </small>
                   </span>
 
-                  <span className="completed-backlog__count">
-                    {completedBacklogGames.length}
+                  <span className="backlog-disclosure__count">
+                    {completedBacklogGames.length}{" "}
+                    {completedBacklogGames.length === 1 ? "game" : "games"}
                   </span>
                 </summary>
 
-                <div className="game-list completed-backlog__games">
+                <div className="game-list backlog-disclosure__games">
                   {completedBacklogGames.map((game, index) => (
                     <div key={game.id}>
                       {renderLibraryGameRow(

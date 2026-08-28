@@ -40,3 +40,109 @@ export function DeleteIcon() {
     </svg>
   );
 }
+
+export function ShowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </svg>
+  );
+}
+
+export function HideIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 12s3.5-6 9-6c2.1 0 4 0.7 5.5 1.8" />
+      <path d="M21 12s-3.5 6-9 6c-2.1 0-4-0.7-5.5-1.8" />
+      <path d="m3 3 18 18" />
+    </svg>
+  );
+}
+
+export function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+export function TrophyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" />
+      <path d="M8 6H5v1a4 4 0 0 0 4 4" />
+      <path d="M16 6h3v1a4 4 0 0 1-4 4" />
+      <path d="M12 12v4" />
+      <path d="M9 20h6" />
+      <path d="M10 16h4v4h-4z" />
+    </svg>
+  );
+}
+
+export type TrophyGrade = "bronze" | "silver" | "gold" | "platinum" | "secret";
+
+const trophyGradeLabels: Readonly<Record<TrophyGrade, string>> = {
+  bronze: "Bronze trophy",
+  silver: "Silver trophy",
+  gold: "Gold trophy",
+  platinum: "Platinum trophy",
+  secret: "Secret trophy",
+};
+
+interface TrophyGradeIconProps {
+  readonly grade: TrophyGrade;
+  readonly label?: string;
+}
+
+export function TrophyGradeIcon({ grade, label }: TrophyGradeIconProps) {
+  const accessibleLabel = label ?? trophyGradeLabels[grade];
+
+  return (
+    <span
+      className={`trophy-grade-icon trophy-grade-icon--${grade}`}
+      role="img"
+      aria-label={accessibleLabel}
+      title={accessibleLabel}
+    >
+      <TrophyIcon />
+    </span>
+  );
+}
+
+export function SyncIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 7v5h-5" />
+      <path d="M4 17v-5h5" />
+      <path d="M18.5 9a7 7 0 0 0-12-2L4 9" />
+      <path d="M5.5 15a7 7 0 0 0 12 2l2.5-2" />
+    </svg>
+  );
+}
+
+export function BackupRestoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 4v14" />
+      <path d="m4 14 4 4 4-4" />
+      <path d="M16 20V6" />
+      <path d="m12 10 4-4 4 4" />
+    </svg>
+  );
+}
+
+export function TuneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h10" />
+      <path d="M18 7h2" />
+      <circle cx="16" cy="7" r="2" />
+      <path d="M4 17h2" />
+      <path d="M10 17h10" />
+      <circle cx="8" cy="17" r="2" />
+    </svg>
+  );
+}

@@ -4,6 +4,7 @@ import { HttpError } from "../../errors/httpError.js";
 import {
   parseCollectionGameOrder,
   parseCreateCollectionInput,
+  parseGameCollectionMemberships,
   parseUpdateCollectionInput,
 } from "./collectionValidation.js";
 
@@ -27,6 +28,13 @@ test("normalizes valid collection input", () => {
       description: null,
     },
   );
+
+  assert.deepEqual(
+    parseGameCollectionMemberships({
+      collectionIds: ["  collection-one  ", "collection-two"],
+    }),
+    ["collection-one", "collection-two"],
+  );
 });
 
 test("rejects invalid and duplicate collection data", () => {
@@ -40,6 +48,15 @@ test("rejects invalid and duplicate collection data", () => {
     () =>
       parseCollectionGameOrder({
         orderedGameIds: ["one", "one"],
+      }),
+    (error: unknown) =>
+      error instanceof HttpError && error.code === "duplicate_ids",
+  );
+
+  assert.throws(
+    () =>
+      parseGameCollectionMemberships({
+        collectionIds: ["collection-one", "collection-one"],
       }),
     (error: unknown) =>
       error instanceof HttpError && error.code === "duplicate_ids",

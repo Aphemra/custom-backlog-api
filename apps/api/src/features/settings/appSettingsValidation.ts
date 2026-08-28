@@ -1,7 +1,8 @@
 import { HttpError } from "../../errors/httpError.js";
-import type {
-  AppSettings,
-  UpdateAppSettingsInput,
+import {
+  DEFAULT_APP_SETTINGS,
+  type AppSettings,
+  type UpdateAppSettingsInput,
 } from "./appSettingsTypes.js";
 
 export const MINIMUM_SYNC_COOLDOWN_SECONDS = 1;
@@ -72,10 +73,38 @@ function readInteger(
   return value;
 }
 
+function readHexColor(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^#[0-9a-fA-F]{6}$/.test(value)) {
+    throw new HttpError(
+      400,
+      "invalid_setting",
+      `${field} must be a six-digit hexadecimal color.`,
+    );
+  }
+
+  return value.toLowerCase();
+}
+
+function readStoredHexColor(
+  value: unknown,
+  field: string,
+  fallback: string,
+): string {
+  return value === undefined ? fallback : readHexColor(value, field);
+}
+
 const settingKeys = new Set([
   "trophySyncCooldownEnabled",
   "trophySyncCooldownSeconds",
   "notificationDurationSeconds",
+  "accentColor",
+  "notStartedColor",
+  "playingColor",
+  "onHoldColor",
+  "waitingColor",
+  "completedColor",
+  "unreleasedColor",
+  "unobtainableColor",
 ]);
 
 export function parseStoredAppSettings(value: unknown): AppSettings {
@@ -100,6 +129,46 @@ export function parseStoredAppSettings(value: unknown): AppSettings {
       MINIMUM_NOTIFICATION_DURATION_SECONDS,
       MAXIMUM_NOTIFICATION_DURATION_SECONDS,
     ),
+    accentColor: readStoredHexColor(
+      record.accentColor,
+      "accentColor",
+      DEFAULT_APP_SETTINGS.accentColor,
+    ),
+    notStartedColor: readStoredHexColor(
+      record.notStartedColor,
+      "notStartedColor",
+      DEFAULT_APP_SETTINGS.notStartedColor,
+    ),
+    playingColor: readStoredHexColor(
+      record.playingColor,
+      "playingColor",
+      DEFAULT_APP_SETTINGS.playingColor,
+    ),
+    onHoldColor: readStoredHexColor(
+      record.onHoldColor,
+      "onHoldColor",
+      DEFAULT_APP_SETTINGS.onHoldColor,
+    ),
+    waitingColor: readStoredHexColor(
+      record.waitingColor,
+      "waitingColor",
+      DEFAULT_APP_SETTINGS.waitingColor,
+    ),
+    completedColor: readStoredHexColor(
+      record.completedColor,
+      "completedColor",
+      DEFAULT_APP_SETTINGS.completedColor,
+    ),
+    unreleasedColor: readStoredHexColor(
+      record.unreleasedColor,
+      "unreleasedColor",
+      DEFAULT_APP_SETTINGS.unreleasedColor,
+    ),
+    unobtainableColor: readStoredHexColor(
+      record.unobtainableColor,
+      "unobtainableColor",
+      DEFAULT_APP_SETTINGS.unobtainableColor,
+    ),
   };
 }
 
@@ -122,6 +191,14 @@ export function parseUpdateAppSettingsInput(
     trophySyncCooldownEnabled?: boolean;
     trophySyncCooldownSeconds?: number;
     notificationDurationSeconds?: number;
+    accentColor?: string;
+    notStartedColor?: string;
+    playingColor?: string;
+    onHoldColor?: string;
+    waitingColor?: string;
+    completedColor?: string;
+    unreleasedColor?: string;
+    unobtainableColor?: string;
   } = {};
 
   if (record.trophySyncCooldownEnabled !== undefined) {
@@ -147,6 +224,23 @@ export function parseUpdateAppSettingsInput(
       MINIMUM_NOTIFICATION_DURATION_SECONDS,
       MAXIMUM_NOTIFICATION_DURATION_SECONDS,
     );
+  }
+
+  const colorFields = [
+    "accentColor",
+    "notStartedColor",
+    "playingColor",
+    "onHoldColor",
+    "waitingColor",
+    "completedColor",
+    "unreleasedColor",
+    "unobtainableColor",
+  ] as const;
+
+  for (const field of colorFields) {
+    if (record[field] !== undefined) {
+      input[field] = readHexColor(record[field], field);
+    }
   }
 
   return input;

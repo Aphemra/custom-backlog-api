@@ -12,25 +12,25 @@ test("loads defaults and persists partial settings updates", () => {
 
     assert.deepEqual(repository.get(), DEFAULT_APP_SETTINGS);
 
+    const expectedSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      trophySyncCooldownEnabled: false,
+      notificationDurationSeconds: 8,
+      accentColor: "#ec4899",
+    };
+
     assert.deepEqual(
       repository.update({
         trophySyncCooldownEnabled: false,
         notificationDurationSeconds: 8,
+        accentColor: "#ec4899",
       }),
-      {
-        trophySyncCooldownEnabled: false,
-        trophySyncCooldownSeconds: 300,
-        notificationDurationSeconds: 8,
-      },
+      expectedSettings,
     );
 
     const reloadedRepository = new AppSettingsRepository(database);
 
-    assert.deepEqual(reloadedRepository.get(), {
-      trophySyncCooldownEnabled: false,
-      trophySyncCooldownSeconds: 300,
-      notificationDurationSeconds: 8,
-    });
+    assert.deepEqual(reloadedRepository.get(), expectedSettings);
   } finally {
     database.close();
   }

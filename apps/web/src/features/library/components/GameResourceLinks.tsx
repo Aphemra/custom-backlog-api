@@ -1,3 +1,4 @@
+import { TrophyIcon } from "../../../components/ui/icons";
 import type {
   GameResource,
   GameResourceProvider,
@@ -6,19 +7,6 @@ import type {
 interface GameResourceLinksProps {
   readonly gameTitle: string;
   readonly resources: readonly GameResource[];
-}
-
-function TrophyIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" />
-      <path d="M8 6H5v1a4 4 0 0 0 4 4" />
-      <path d="M16 6h3v1a4 4 0 0 1-4 4" />
-      <path d="M12 12v4" />
-      <path d="M9 20h6" />
-      <path d="M10 16h4v4h-4z" />
-    </svg>
-  );
 }
 
 function SearchIcon() {

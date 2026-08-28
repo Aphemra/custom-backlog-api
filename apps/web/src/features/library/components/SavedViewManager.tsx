@@ -10,6 +10,8 @@ interface SavedViewManagerProps {
 
   readonly busy: boolean;
 
+  readonly embedded?: boolean;
+
   readonly onSelect: (viewId: string) => void;
 
   readonly onEdit: (view: SavedView) => void;
@@ -23,6 +25,7 @@ export function SavedViewManager({
   views,
   selectedViewId,
   busy,
+  embedded = false,
   onSelect,
   onEdit,
   onDelete,
@@ -31,25 +34,30 @@ export function SavedViewManager({
   return (
     <section
       id="saved-view-manager"
-      className="saved-view-manager"
-      aria-labelledby="saved-view-manager-title"
+      className={`saved-view-manager${
+        embedded ? " saved-view-manager--embedded" : ""
+      }`}
+      aria-label={embedded ? "Saved views" : undefined}
+      aria-labelledby={embedded ? undefined : "saved-view-manager-title"}
     >
-      <div className="saved-view-manager__heading">
-        <div>
-          <p className="eyebrow">View order</p>
+      {embedded ? null : (
+        <div className="saved-view-manager__heading">
+          <div>
+            <p className="eyebrow">View order</p>
 
-          <h3 id="saved-view-manager-title">Manage Saved Views</h3>
+            <h3 id="saved-view-manager-title">Manage Saved Views</h3>
 
-          <p>
-            Drag views into the order you want them to appear in the Library
-            selector.
-          </p>
+            <p>
+              Drag views into the order you want them to appear in the Library
+              selector.
+            </p>
+          </div>
+
+          <span>
+            {views.length} {views.length === 1 ? "view" : "views"}
+          </span>
         </div>
-
-        <span>
-          {views.length} {views.length === 1 ? "view" : "views"}
-        </span>
-      </div>
+      )}
 
       <SortableList
         items={views}

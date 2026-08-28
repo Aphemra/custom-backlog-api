@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { settingsApi } from "../../services/api/settingsApi";
+import { applyAppearanceSettings } from "../../features/settings/appearanceSettings";
 import {
   ToastContext,
   type ToastInput,
@@ -91,6 +92,8 @@ export function ToastProvider({ children }: ToastProviderProps) {
           setStoredNotificationDurationSeconds(
             normalizeDuration(settings.notificationDurationSeconds),
           );
+
+          applyAppearanceSettings(settings);
         }
       })
       .catch(() => {

@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type MouseEvent,
   type ReactNode,
   type SyntheticEvent,
@@ -34,6 +35,8 @@ function OpenDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const [closing, setClosing] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -60,6 +63,10 @@ function OpenDialog({
     (requestedInitialFocus ?? fallbackInitialFocus)?.focus();
 
     return () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+
       document.body.style.overflow = previousBodyOverflow;
 
       if (dialog.open) {
@@ -75,24 +82,41 @@ function OpenDialog({
     };
   }, []);
 
+  function requestClose() {
+    if (closing) {
+      return;
+    }
+
+    setClosing(true);
+
+    const closeDelay = window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+      ? 0
+      : 160;
+
+    closeTimerRef.current = window.setTimeout(() => {
+      onClose();
+    }, closeDelay);
+  }
+
   function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
     event.preventDefault();
 
     if (dismissible) {
-      onClose();
+      requestClose();
     }
   }
 
   function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
     if (dismissible && event.target === event.currentTarget) {
-      onClose();
+      requestClose();
     }
   }
 
   return (
     <dialog
       ref={dialogRef}
-      className={`dialog dialog--${size}`}
+      className={`dialog dialog--${size}${closing ? " dialog--closing" : ""}`}
       aria-labelledby={titleId}
       aria-describedby={description === undefined ? undefined : descriptionId}
       aria-modal="true"
@@ -115,7 +139,7 @@ function OpenDialog({
               icon={<CloseIcon />}
               tooltipPlacement="bottom"
               tooltipAlignment="end"
-              onClick={onClose}
+              onClick={requestClose}
             />
           ) : null}
         </header>

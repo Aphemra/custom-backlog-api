@@ -60,6 +60,10 @@ interface IdRow {
   id: string;
 }
 
+interface CollectionMembershipRow {
+  collection_id: string;
+}
+
 const COLLECTION_SELECT = `
   SELECT
     c.id,
@@ -369,6 +373,122 @@ export class CollectionRepository {
         `,
         )
         .run(timestamp, collectionId);
+
+      this.database.exec("COMMIT");
+
+      return true;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+
+      throw error;
+    }
+  }
+
+  replaceGameMemberships(
+    gameId: string,
+    collectionIds: readonly string[],
+  ): boolean {
+    const gameExists =
+      this.database
+        .prepare("SELECT id FROM library_games WHERE id = ?")
+        .get(gameId) !== undefined;
+
+    if (!gameExists) {
+      return false;
+    }
+
+    const collectionRows = this.database
+      .prepare("SELECT id FROM collections")
+      .all() as unknown as IdRow[];
+
+    const existingCollectionIds = new Set(collectionRows.map((row) => row.id));
+
+    if (
+      new Set(collectionIds).size !== collectionIds.length ||
+      collectionIds.some(
+        (collectionId) => !existingCollectionIds.has(collectionId),
+      )
+    ) {
+      return false;
+    }
+
+    const currentRows = this.database
+      .prepare(
+        `
+        SELECT collection_id
+        FROM collection_games
+        WHERE game_id = ?
+      `,
+      )
+      .all(gameId) as unknown as CollectionMembershipRow[];
+
+    const currentCollectionIds = new Set(
+      currentRows.map((row) => row.collection_id),
+    );
+
+    const desiredCollectionIds = new Set(collectionIds);
+    const changedCollectionIds = new Set<string>();
+
+    const deleteMembership = this.database.prepare(`
+      DELETE FROM collection_games
+      WHERE collection_id = ? AND game_id = ?
+    `);
+
+    const nextSortOrder = this.database.prepare(`
+      SELECT MAX(sort_order) AS sort_order
+      FROM collection_games
+      WHERE collection_id = ?
+    `);
+
+    const insertMembership = this.database.prepare(`
+      INSERT INTO collection_games (
+        collection_id,
+        game_id,
+        sort_order,
+        added_at
+      ) VALUES (?, ?, ?, ?)
+    `);
+
+    const updateCollection = this.database.prepare(`
+      UPDATE collections
+      SET updated_at = ?
+      WHERE id = ?
+    `);
+
+    this.database.exec("BEGIN IMMEDIATE");
+
+    try {
+      const timestamp = new Date().toISOString();
+
+      for (const collectionId of currentCollectionIds) {
+        if (!desiredCollectionIds.has(collectionId)) {
+          deleteMembership.run(collectionId, gameId);
+          changedCollectionIds.add(collectionId);
+        }
+      }
+
+      for (const collectionId of collectionIds) {
+        if (currentCollectionIds.has(collectionId)) {
+          continue;
+        }
+
+        const currentMaximum = nextSortOrder.get(collectionId) as unknown as
+          | SortOrderRow
+          | undefined;
+
+        insertMembership.run(
+          collectionId,
+          gameId,
+          (currentMaximum?.sort_order ?? 0) + 1_000,
+          timestamp,
+        );
+
+        changedCollectionIds.add(collectionId);
+      }
+
+      for (const collectionId of changedCollectionIds) {
+        updateCollection.run(timestamp, collectionId);
+      }
 
       this.database.exec("COMMIT");
 

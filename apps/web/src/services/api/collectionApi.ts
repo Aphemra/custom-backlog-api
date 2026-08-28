@@ -13,6 +13,10 @@ interface CollectionsResponse {
   readonly collections: readonly CollectionSummary[];
 }
 
+interface CollectionMembershipsResponse {
+  readonly collectionIds: readonly string[];
+}
+
 export const collectionApi = {
   async list(signal?: AbortSignal): Promise<readonly CollectionSummary[]> {
     const response = await requestJson<CollectionsResponse>(
@@ -82,6 +86,21 @@ export const collectionApi = {
     );
 
     return response.collection;
+  },
+
+  async replaceGameMemberships(
+    gameId: string,
+    collectionIds: readonly string[],
+  ): Promise<readonly string[]> {
+    const response = await requestJson<CollectionMembershipsResponse>(
+      `/api/collections/memberships/${encodeURIComponent(gameId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ collectionIds }),
+      },
+    );
+
+    return response.collectionIds;
   },
 
   async deletePermanently(collectionId: string): Promise<void> {

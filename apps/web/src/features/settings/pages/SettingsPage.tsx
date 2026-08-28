@@ -5,12 +5,37 @@ import {
   deleteEntireBacklogConfirmation,
   type BacklogDeletionResult,
 } from "../../../domain/portableData";
-import type { AppSettings } from "../../../domain/settings";
+import {
+  DEFAULT_APPEARANCE_SETTINGS,
+  type AppearanceSettings,
+  type AppSettings,
+} from "../../../domain/settings";
 import { ApiError } from "../../../services/api/apiClient";
 import { portableDataApi } from "../../../services/api/portableDataApi";
 import { settingsApi } from "../../../services/api/settingsApi";
+import {
+  appearanceSettingsEqual,
+  applyAppearanceSettings,
+  pickAppearanceSettings,
+} from "../appearanceSettings";
 
 type LoadState = "loading" | "ready" | "error";
+
+interface AppearanceColorField {
+  readonly key: keyof AppearanceSettings;
+  readonly label: string;
+}
+
+const appearanceColorFields: readonly AppearanceColorField[] = [
+  { key: "accentColor", label: "Interface accent" },
+  { key: "notStartedColor", label: "Not started" },
+  { key: "playingColor", label: "Playing" },
+  { key: "onHoldColor", label: "On hold" },
+  { key: "waitingColor", label: "Waiting" },
+  { key: "completedColor", label: "Completed" },
+  { key: "unreleasedColor", label: "Unreleased" },
+  { key: "unobtainableColor", label: "Unobtainable" },
+];
 
 interface SettingsPageProps {
   readonly onBacklogDeleted: () => void;
@@ -36,6 +61,10 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
   const [notificationDurationSeconds, setNotificationDurationSeconds] =
     useState("5");
 
+  const [appearance, setAppearance] = useState<AppearanceSettings>(
+    DEFAULT_APPEARANCE_SETTINGS,
+  );
+
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeletingBacklog, setIsDeletingBacklog] = useState(false);
@@ -54,6 +83,8 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
           setNotificationDurationSeconds(
             String(loadedSettings.notificationDurationSeconds),
           );
+          setAppearance(pickAppearanceSettings(loadedSettings));
+          applyAppearanceSettings(loadedSettings);
           setLoadState("ready");
         }
       } catch {
@@ -84,7 +115,26 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
     (cooldownEnabled !== settings.trophySyncCooldownEnabled ||
       parsedCooldownSeconds !== settings.trophySyncCooldownSeconds ||
       parsedNotificationDurationSeconds !==
-        settings.notificationDurationSeconds);
+        settings.notificationDurationSeconds ||
+      !appearanceSettingsEqual(appearance, settings));
+
+  function updateAppearanceColor(
+    key: keyof AppearanceSettings,
+    color: string,
+  ): void {
+    const updatedAppearance = {
+      ...appearance,
+      [key]: color,
+    };
+
+    setAppearance(updatedAppearance);
+    applyAppearanceSettings(updatedAppearance);
+  }
+
+  function restoreDefaultAppearance(): void {
+    setAppearance(DEFAULT_APPEARANCE_SETTINGS);
+    applyAppearanceSettings(DEFAULT_APPEARANCE_SETTINGS);
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -102,6 +152,7 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
         trophySyncCooldownEnabled: cooldownEnabled,
         trophySyncCooldownSeconds: parsedCooldownSeconds,
         notificationDurationSeconds: parsedNotificationDurationSeconds,
+        ...appearance,
       });
 
       setSettings(updatedSettings);
@@ -111,6 +162,10 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
         String(updatedSettings.notificationDurationSeconds),
       );
 
+      const updatedAppearance = pickAppearanceSettings(updatedSettings);
+
+      setAppearance(updatedAppearance);
+      applyAppearanceSettings(updatedAppearance);
       updateToastDuration(updatedSettings.notificationDurationSeconds);
 
       showToast({
@@ -172,9 +227,8 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
           <h2 id="settings-title">Settings</h2>
 
           <p className="library-heading__description">
-            Configure PlayStation synchronization safety and interface
-            notification timing. These settings are stored only in your local
-            database.
+            Configure synchronization safety, notification timing, and interface
+            colors. These settings are stored only in your local database.
           </p>
         </div>
       </div>
@@ -318,6 +372,62 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
                 This duration applies immediately to new notifications after
                 Settings are saved.
               </p>
+            </section>
+
+            <section
+              className="settings-card"
+              aria-labelledby="appearance-settings-title"
+            >
+              <div className="settings-card__heading">
+                <div>
+                  <p className="eyebrow">Interface appearance</p>
+
+                  <h3 id="appearance-settings-title">
+                    Accent and status colors
+                  </h3>
+                </div>
+              </div>
+
+              <p className="settings-card__description">
+                Customize the primary interface accent and each play-status
+                color while preserving the application’s dark foundation.
+                Changes preview immediately and become permanent when saved.
+              </p>
+
+              <div className="settings-color-grid">
+                {appearanceColorFields.map((field) => (
+                  <label className="settings-color-field" key={field.key}>
+                    <span>{field.label}</span>
+
+                    <input
+                      type="color"
+                      value={appearance[field.key]}
+                      disabled={isSaving}
+                      aria-label={`${field.label} color`}
+                      onChange={(event) =>
+                        updateAppearanceColor(field.key, event.target.value)
+                      }
+                    />
+
+                    <code>{appearance[field.key].toUpperCase()}</code>
+                  </label>
+                ))}
+              </div>
+
+              <button
+                className="button button--quiet settings-color-reset"
+                type="button"
+                disabled={
+                  isSaving ||
+                  appearanceSettingsEqual(
+                    appearance,
+                    DEFAULT_APPEARANCE_SETTINGS,
+                  )
+                }
+                onClick={restoreDefaultAppearance}
+              >
+                Restore default colors
+              </button>
             </section>
 
             <section

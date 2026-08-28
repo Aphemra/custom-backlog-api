@@ -1,8 +1,22 @@
 import { useState, type ReactNode } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import {
+  DeleteIcon,
+  EditIcon,
+  HideIcon,
+  ShowIcon,
+  TrophyGradeIcon,
+} from "../../../components/ui/icons";
+import { Tooltip } from "../../../components/ui/Tooltip";
 import {
   playStatusLabels,
   type LibraryGameListItem,
+  type LibraryTrophySummary,
 } from "../../../domain/libraryGame";
+import {
+  formatCompactElapsed,
+  formatElapsed,
+} from "../libraryTrophyFormatting";
 import { GameResourceLinks } from "./GameResourceLinks";
 
 interface LibraryGameRowProps {
@@ -26,12 +40,102 @@ function totalTrophies(counts: {
   return counts.bronze + counts.silver + counts.gold + counts.platinum;
 }
 
-function formatSyncDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
+function trophyStateClassName(summary: LibraryTrophySummary | null): string {
+  if (summary === null) {
+    return "game-row--trophies-untracked";
+  }
+
+  if (summary.is100Percent) {
+    return "game-row--trophies-complete";
+  }
+
+  if (summary.platinumEarned) {
+    return "game-row--trophies-platinum";
+  }
+
+  if (totalTrophies(summary.earnedTrophies) > 0) {
+    return "game-row--trophies-progress";
+  }
+
+  return "game-row--trophies-none";
+}
+
+function completionStateLabel(
+  summary: LibraryTrophySummary | null,
+): string | null {
+  if (summary === null) {
+    return null;
+  }
+
+  if (summary.is100Percent && summary.platinumEarned) {
+    return "Platinum earned · 100% complete";
+  }
+
+  if (summary.is100Percent) {
+    return "100% complete";
+  }
+
+  if (summary.platinumEarned) {
+    return "Platinum earned · Not 100% complete";
+  }
+
+  return null;
+}
+
+function completionTimingLabel(
+  summary: LibraryTrophySummary | null,
+): string | null {
+  if (summary?.timing === null || summary === null) {
+    return null;
+  }
+
+  if (
+    summary.is100Percent &&
+    summary.timing.completion.elapsedSinceFirstTrophyMilliseconds !== null
+  ) {
+    return `Completed in ${formatElapsed(
+      summary.timing.completion.elapsedSinceFirstTrophyMilliseconds,
+    )}`;
+  }
+
+  if (
+    summary.platinumEarned &&
+    summary.timing.platinum.elapsedSinceFirstTrophyMilliseconds !== null
+  ) {
+    return `Platinum in ${formatElapsed(
+      summary.timing.platinum.elapsedSinceFirstTrophyMilliseconds,
+    )}`;
+  }
+
+  return null;
+}
+
+function compactCompletionTimingLabel(
+  summary: LibraryTrophySummary | null,
+): string | null {
+  if (summary?.timing === null || summary === null) {
+    return null;
+  }
+
+  if (
+    summary.is100Percent &&
+    summary.timing.completion.elapsedSinceFirstTrophyMilliseconds !== null
+  ) {
+    return formatCompactElapsed(
+      summary.timing.completion.elapsedSinceFirstTrophyMilliseconds,
+    );
+  }
+
+  if (
+    summary.platinumEarned &&
+    summary.timing.platinum.elapsedSinceFirstTrophyMilliseconds !== null
+  ) {
+    return formatCompactElapsed(
+      summary.timing.platinum.elapsedSinceFirstTrophyMilliseconds,
+    );
+  }
+
+  return null;
 }
 
 export function LibraryGameRow({
@@ -60,8 +164,20 @@ export function LibraryGameRow({
   const availableTrophyCount =
     trophySummary === null ? 0 : totalTrophies(trophySummary.totalTrophies);
 
+  const completionState = completionStateLabel(trophySummary);
+  const completionTiming = completionTimingLabel(trophySummary);
+  const compactCompletionTiming = compactCompletionTimingLabel(trophySummary);
+
+  const completionTooltip = [completionState, completionTiming]
+    .filter((value): value is string => value !== null)
+    .join("\n");
+
   return (
-    <article className={`game-row${isHidden ? " game-row--hidden" : ""}`}>
+    <article
+      className={`game-row ${trophyStateClassName(trophySummary)}${
+        isHidden ? " game-row--hidden" : ""
+      }`}
+    >
       <button
         className="game-row__details-surface"
         type="button"
@@ -106,59 +222,164 @@ export function LibraryGameRow({
         )}
       </div>
 
-      <div className="game-row__content">
+      <div className="game-row__identity">
         <div className="game-row__title-line">
-          <h3>{game.title}</h3>
+          <div className="game-row__title-viewport">
+            <h3>{game.title}</h3>
+          </div>
+
           <span className="platform-badge">{game.platform}</span>
+
           {isHidden ? <span className="hidden-badge">Hidden</span> : null}
         </div>
 
-        <div className="game-row__meta">
+        <div className="game-row__status-line">
           <span className={`status-label status-label--${game.playStatus}`}>
             {playStatusLabels[game.playStatus]}
           </span>
+
           {game.isUnobtainable ? (
             <span className="status-label status-label--unobtainable">
               Unobtainable
             </span>
           ) : null}
-          {trophySummary === null ? (
-            <span className="trophy-placeholder">No trophy snapshot</span>
-          ) : (
-            <>
-              <span className="trophy-progress">
-                <strong>{trophySummary.progressPercent}%</strong>
-                <span>
-                  {earnedTrophyCount} / {availableTrophyCount} trophies
-                </span>
-              </span>
-
-              {trophySummary.platinumEarned ? (
-                <span className="trophy-badge trophy-badge--platinum">
-                  Platinum
-                </span>
-              ) : null}
-
-              {trophySummary.is100Percent && !trophySummary.platinumEarned ? (
-                <span className="trophy-badge trophy-badge--complete">
-                  100%
-                </span>
-              ) : null}
-
-              <span
-                className="trophy-sync-time"
-                title={new Date(trophySummary.lastSyncedAt).toLocaleString()}
-              >
-                Synced {formatSyncDate(trophySummary.lastSyncedAt)}
-              </span>
-            </>
-          )}
         </div>
 
         <GameResourceLinks gameTitle={game.title} resources={game.resources} />
+      </div>
 
-        {game.notes === null ? null : (
-          <p className="game-row__notes">{game.notes}</p>
+      <div className="game-row__progress-panel">
+        {trophySummary === null ? (
+          <span className="trophy-placeholder">No trophy snapshot</span>
+        ) : (
+          <>
+            <div className="game-row__progress-copy">
+              <strong>{trophySummary.progressPercent}%</strong>
+              <span>
+                {earnedTrophyCount} / {availableTrophyCount} trophies
+              </span>
+            </div>
+
+            <div
+              className="game-row__progress-track"
+              role="progressbar"
+              aria-label={`${game.title} trophy completion`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={trophySummary.progressPercent}
+            >
+              <span style={{ width: `${trophySummary.progressPercent}%` }} />
+            </div>
+
+            <div
+              className="game-row__trophy-counts"
+              aria-label="Earned and available trophies by grade"
+            >
+              <span
+                className="game-row__trophy-count game-row__trophy-count--bronze"
+                aria-label={`Bronze trophies: ${trophySummary.earnedTrophies.bronze} of ${trophySummary.totalTrophies.bronze}`}
+                title="Bronze trophies"
+              >
+                <TrophyGradeIcon grade="bronze" />
+
+                <strong>
+                  {trophySummary.earnedTrophies.bronze}/
+                  {trophySummary.totalTrophies.bronze}
+                </strong>
+              </span>
+
+              <span
+                className="game-row__trophy-count game-row__trophy-count--silver"
+                aria-label={`Silver trophies: ${trophySummary.earnedTrophies.silver} of ${trophySummary.totalTrophies.silver}`}
+                title="Silver trophies"
+              >
+                <TrophyGradeIcon grade="silver" />
+
+                <strong>
+                  {trophySummary.earnedTrophies.silver}/
+                  {trophySummary.totalTrophies.silver}
+                </strong>
+              </span>
+
+              <span
+                className="game-row__trophy-count game-row__trophy-count--gold"
+                aria-label={`Gold trophies: ${trophySummary.earnedTrophies.gold} of ${trophySummary.totalTrophies.gold}`}
+                title="Gold trophies"
+              >
+                <TrophyGradeIcon grade="gold" />
+
+                <strong>
+                  {trophySummary.earnedTrophies.gold}/
+                  {trophySummary.totalTrophies.gold}
+                </strong>
+              </span>
+
+              <span
+                className={`game-row__trophy-count game-row__trophy-count--platinum${
+                  trophySummary.totalTrophies.platinum === 0
+                    ? " game-row__trophy-count--unavailable"
+                    : ""
+                }`}
+                aria-label={
+                  trophySummary.totalTrophies.platinum === 0
+                    ? "This game has no platinum trophy"
+                    : `Platinum trophies: ${trophySummary.earnedTrophies.platinum} of ${trophySummary.totalTrophies.platinum}`
+                }
+                title={
+                  trophySummary.totalTrophies.platinum === 0
+                    ? "No platinum trophy"
+                    : "Platinum trophies"
+                }
+              >
+                <TrophyGradeIcon grade="platinum" />
+
+                <strong>
+                  {trophySummary.totalTrophies.platinum === 0
+                    ? "—"
+                    : `${trophySummary.earnedTrophies.platinum}/${trophySummary.totalTrophies.platinum}`}
+                </strong>
+              </span>
+            </div>
+
+            <div className="game-row__metadata-rail">
+              <div className="game-row__points">
+                <strong>{trophySummary.points.earned.toLocaleString()}</strong>
+                <span>
+                  {" "}
+                  / {trophySummary.points.total.toLocaleString()} points
+                </span>
+              </div>
+
+              {completionState === null ? null : (
+                <Tooltip
+                  content={completionTooltip}
+                  placement="top"
+                  alignment="end"
+                >
+                  <span
+                    className="game-row__completion-text"
+                    tabIndex={0}
+                    aria-label={completionTooltip}
+                  >
+                    <span
+                      className="game-row__completion-icon"
+                      aria-hidden="true"
+                    >
+                      {trophySummary.is100Percent ? "✓ " : "◆ "}
+                    </span>
+
+                    <span>
+                      {trophySummary.is100Percent ? "100%" : "Platinum"}
+                    </span>
+
+                    {compactCompletionTiming === null ? null : (
+                      <span> in {compactCompletionTiming}</span>
+                    )}
+                  </span>
+                </Tooltip>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -167,43 +388,48 @@ export function LibraryGameRow({
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
-        <button
-          className="text-button"
-          type="button"
+        <IconButton
+          label={`Edit ${game.title}`}
+          tooltip="Edit"
+          tooltipPlacement="top"
+          tooltipAlignment="center"
+          icon={<EditIcon />}
           disabled={busy}
           onClick={onEdit}
-        >
-          Edit
-        </button>
+        />
 
         {isHidden ? (
-          <button
-            className="text-button"
-            type="button"
+          <IconButton
+            label={`Show ${game.title}`}
+            tooltip="Show"
+            tooltipPlacement="top"
+            tooltipAlignment="center"
+            icon={<ShowIcon />}
             disabled={busy}
             onClick={onUnhide}
-          >
-            Unhide
-          </button>
+          />
         ) : (
-          <button
-            className="text-button"
-            type="button"
+          <IconButton
+            label={`Hide ${game.title}`}
+            tooltip="Hide"
+            tooltipPlacement="top"
+            tooltipAlignment="center"
+            icon={<HideIcon />}
             disabled={busy}
             onClick={onHide}
-          >
-            Hide
-          </button>
+          />
         )}
 
-        <button
-          className="text-button text-button--danger"
-          type="button"
+        <IconButton
+          label={`Delete ${game.title}`}
+          tooltip="Delete"
+          tooltipPlacement="top"
+          tooltipAlignment="center"
+          icon={<DeleteIcon />}
+          tone="danger"
           disabled={busy}
           onClick={onDelete}
-        >
-          Delete
-        </button>
+        />
       </div>
     </article>
   );

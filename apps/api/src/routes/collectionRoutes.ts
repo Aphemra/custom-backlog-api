@@ -7,6 +7,7 @@ import {
   parseCollectionGameOrder,
   parseCollectionOrder,
   parseCreateCollectionInput,
+  parseGameCollectionMemberships,
   parseUpdateCollectionInput,
 } from "../features/collections/collectionValidation.js";
 
@@ -22,6 +23,16 @@ function readCollectionId(request: Request): string {
   }
 
   return collectionId.trim();
+}
+
+function readGameId(request: Request): string {
+  const gameId = request.params.gameId;
+
+  if (typeof gameId !== "string" || gameId.trim().length === 0) {
+    throw new HttpError(400, "invalid_game_id", "A game ID is required.");
+  }
+
+  return gameId.trim();
 }
 
 function requireCollection<T>(collection: T | null): T {
@@ -71,6 +82,21 @@ export function createCollectionRoutes(database: DatabaseSync): Router {
       .location(`/api/collections/${collection.id}`)
       .status(201)
       .json({ collection });
+  });
+
+  collectionRoutes.put("/memberships/:gameId", (request, response) => {
+    const gameId = readGameId(request);
+    const collectionIds = parseGameCollectionMemberships(request.body);
+
+    if (!repository.replaceGameMemberships(gameId, collectionIds)) {
+      throw new HttpError(
+        409,
+        "collection_membership_mismatch",
+        "The game and every collectionIds entry must identify existing records.",
+      );
+    }
+
+    response.json({ collectionIds });
   });
 
   collectionRoutes.get("/:collectionId", (request, response) => {

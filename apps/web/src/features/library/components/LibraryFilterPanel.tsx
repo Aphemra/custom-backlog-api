@@ -69,11 +69,25 @@ interface LibraryFilterPanelProps {
 
   readonly adjusted: boolean;
 
+  readonly busy: boolean;
+
+  readonly newViewName: string;
+
+  readonly showCompletedAction: boolean;
+
+  readonly completedOrderNeedsNormalization: boolean;
+
   readonly onFiltersChange: (filters: SavedViewFilters) => void;
 
   readonly onSortChange: (sort: SavedViewSort) => void;
 
   readonly onReset: () => void;
+
+  readonly onNewViewNameChange: (name: string) => void;
+
+  readonly onCreateView: () => void;
+
+  readonly onMoveCompletedToBottom: () => void;
 }
 
 export function LibraryFilterPanel({
@@ -81,9 +95,16 @@ export function LibraryFilterPanel({
   sort,
   collections,
   adjusted,
+  busy,
+  newViewName,
+  showCompletedAction,
+  completedOrderNeedsNormalization,
   onFiltersChange,
   onSortChange,
   onReset,
+  onNewViewNameChange,
+  onCreateView,
+  onMoveCompletedToBottom,
 }: LibraryFilterPanelProps) {
   function togglePlatform(platform: PlayStationPlatform) {
     const platforms = toggleValue(filters.platforms ?? [], platform);
@@ -123,23 +144,23 @@ export function LibraryFilterPanel({
     >
       <div className="library-filter-panel__heading">
         <div>
-          <p className="eyebrow">Temporary refinements</p>
+          <p className="eyebrow">Filters and order</p>
 
-          <h3 id="library-filter-panel-title">Refine this Library view</h3>
+          <h3 id="library-filter-panel-title">Configure this Library view</h3>
 
           <p>
-            These choices affect the current display without changing the saved
-            definition.
+            Changes apply immediately but remain temporary until saved as a new
+            view.
           </p>
         </div>
 
         <button
           className="button button--quiet"
           type="button"
-          disabled={!adjusted}
+          disabled={!adjusted || busy}
           onClick={onReset}
         >
-          Reset refinements
+          Reset filters
         </button>
       </div>
 
@@ -365,6 +386,42 @@ export function LibraryFilterPanel({
             </select>
           </label>
         </div>
+      </div>
+
+      <div className="library-filter-panel__actions">
+        <label className="field library-filter-panel__save-field">
+          <span>Save current filters as a new view</span>
+
+          <input
+            type="text"
+            maxLength={100}
+            value={newViewName}
+            onChange={(event) => onNewViewNameChange(event.target.value)}
+            placeholder="View name"
+          />
+        </label>
+
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={busy || newViewName.trim().length === 0}
+          onClick={onCreateView}
+        >
+          {busy ? "Saving…" : "Save as new view"}
+        </button>
+
+        {showCompletedAction ? (
+          <button
+            className="button button--quiet"
+            type="button"
+            disabled={!completedOrderNeedsNormalization || busy}
+            onClick={onMoveCompletedToBottom}
+          >
+            {completedOrderNeedsNormalization
+              ? "Move completed to bottom"
+              : "Completed games already at bottom"}
+          </button>
+        ) : null}
       </div>
     </section>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Dialog } from "../../../components/ui/Dialog";
+import { TrophyGradeIcon } from "../../../components/ui/icons";
 import {
   playStatusLabels,
   type LibraryGameListItem,
@@ -111,30 +112,44 @@ function TrophyOverview({ details }: { readonly details: LibraryGameDetails }) {
         aria-label="Trophy counts by type"
       >
         <span className="game-details__trophy-count game-details__trophy-count--bronze">
-          Bronze {summary.earnedTrophies.bronze} /{" "}
-          {summary.totalTrophies.bronze}
+          <TrophyGradeIcon grade="bronze" />
+
+          <strong>
+            {summary.earnedTrophies.bronze} / {summary.totalTrophies.bronze}
+          </strong>
         </span>
 
         <span className="game-details__trophy-count game-details__trophy-count--silver">
-          Silver {summary.earnedTrophies.silver} /{" "}
-          {summary.totalTrophies.silver}
+          <TrophyGradeIcon grade="silver" />
+
+          <strong>
+            {summary.earnedTrophies.silver} / {summary.totalTrophies.silver}
+          </strong>
         </span>
 
         <span className="game-details__trophy-count game-details__trophy-count--gold">
-          Gold {summary.earnedTrophies.gold} / {summary.totalTrophies.gold}
+          <TrophyGradeIcon grade="gold" />
+
+          <strong>
+            {summary.earnedTrophies.gold} / {summary.totalTrophies.gold}
+          </strong>
         </span>
 
         {summary.totalTrophies.platinum > 0 ? (
           <span className="game-details__trophy-count game-details__trophy-count--platinum">
-            Platinum {summary.earnedTrophies.platinum} /{" "}
-            {summary.totalTrophies.platinum}
+            <TrophyGradeIcon grade="platinum" />
+
+            <strong>
+              {summary.earnedTrophies.platinum} /{" "}
+              {summary.totalTrophies.platinum}
+            </strong>
           </span>
         ) : null}
       </div>
 
       {summary.platinumEarned && !summary.is100Percent ? (
         <p className="game-details__completion-note">
-          Platinum earned · Not 100%
+          Platinum earned but not 100%
         </p>
       ) : null}
 

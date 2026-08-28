@@ -3,6 +3,9 @@ import type {
   LibraryTrophyCounts,
 } from "../../../domain/libraryGame";
 import type { LibraryGameTrophySnapshot } from "../../../domain/libraryGameDetails";
+import { formatElapsed } from "../libraryTrophyFormatting";
+import type { ReactNode } from "react";
+import { TrophyGradeIcon } from "../../../components/ui/icons";
 
 interface GameCompletionHistoryProps {
   readonly summary: LibraryTrophySummary | null;
@@ -18,59 +21,6 @@ function formatDate(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-function formatElapsed(milliseconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
-  const seconds = totalSeconds % 60;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const minutes = totalMinutes % 60;
-  const totalHours = Math.floor(totalMinutes / 60);
-  const hours = totalHours % 24;
-  const totalDays = Math.floor(totalHours / 24);
-
-  if (totalMinutes < 1) {
-    return `${totalSeconds} ${totalSeconds === 1 ? "second" : "seconds"}`;
-  }
-
-  if (totalHours < 1) {
-    return `${totalMinutes} ${
-      totalMinutes === 1 ? "minute" : "minutes"
-    }, ${seconds} ${seconds === 1 ? "second" : "seconds"}`;
-  }
-
-  if (totalDays < 1) {
-    return `${totalHours} ${totalHours === 1 ? "hour" : "hours"}, ${
-      minutes
-    } ${minutes === 1 ? "minute" : "minutes"}`;
-  }
-
-  if (totalDays < 31) {
-    return `${totalDays} ${totalDays === 1 ? "day" : "days"}, ${hours} ${
-      hours === 1 ? "hour" : "hours"
-    }`;
-  }
-
-  const years = Math.floor(totalDays / 365);
-  const daysAfterYears = totalDays % 365;
-  const months = Math.floor(daysAfterYears / 30);
-  const days = daysAfterYears % 30;
-
-  const parts: string[] = [];
-
-  if (years > 0) {
-    parts.push(`${years} ${years === 1 ? "year" : "years"}`);
-  }
-
-  if (months > 0) {
-    parts.push(`${months} ${months === 1 ? "month" : "months"}`);
-  }
-
-  if (days > 0 || parts.length === 0) {
-    parts.push(`${days} ${days === 1 ? "day" : "days"}`);
-  }
-
-  return parts.join(", ");
 }
 
 function unavailableMessage(
@@ -106,7 +56,7 @@ function Milestone({
   unavailableReason,
   durationPrefix,
 }: {
-  readonly title: string;
+  readonly title: ReactNode;
   readonly earnedAt: string | null;
   readonly elapsedMilliseconds: number | null;
   readonly unavailableReason:
@@ -195,7 +145,12 @@ export function GameCompletionHistory({
 
           {summary.hasPlatinum ? (
             <Milestone
-              title="Platinum"
+              title={
+                <span className="game-milestone__trophy-title">
+                  <TrophyGradeIcon grade="platinum" />
+                  Platinum
+                </span>
+              }
               earnedAt={summary.timing.platinum.earnedAt}
               elapsedMilliseconds={
                 summary.timing.platinum.elapsedSinceFirstTrophyMilliseconds
@@ -240,7 +195,12 @@ export function GameCompletionHistory({
                 </div>
 
                 <div className="game-progress-history__badges">
-                  {snapshot.platinumEarned ? <span>Platinum</span> : null}
+                  {snapshot.platinumEarned ? (
+                    <span>
+                      <TrophyGradeIcon grade="platinum" />
+                      Platinum
+                    </span>
+                  ) : null}
 
                   {snapshot.is100Percent ? <span>100%</span> : null}
                 </div>

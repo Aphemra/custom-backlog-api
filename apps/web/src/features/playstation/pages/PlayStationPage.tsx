@@ -22,6 +22,7 @@ import type {
 import { ApiError } from "../../../services/api/apiClient";
 import { playStationApi } from "../../../services/api/playStationApi";
 import { libraryApi } from "../../../services/api/libraryApi";
+import { TrophyGradeIcon } from "../../../components/ui/icons";
 
 type PreviewFilter = "all" | "missing_igdb" | PlayStationReconciliationStatus;
 
@@ -285,9 +286,12 @@ function TrophyTitleRow({
             <strong>{earned}</strong> / {total} trophies
           </span>
 
-          <span>
-            {title.earnedTrophies.platinum} / {title.definedTrophies.platinum}{" "}
-            platinum
+          <span className="psn-title-row__platinum">
+            <TrophyGradeIcon grade="platinum" />
+
+            <strong>{title.earnedTrophies.platinum}</strong>
+            {" / "}
+            {title.definedTrophies.platinum}
           </span>
 
           <span>

@@ -5,6 +5,7 @@ import type {
 } from "../../../domain/playStation";
 import { ApiError } from "../../../services/api/apiClient";
 import { playStationApi } from "../../../services/api/playStationApi";
+import { TrophyGradeIcon } from "../../../components/ui/icons";
 
 interface LibraryTrophyAvailabilityProps {
   readonly gameId: string;
@@ -148,11 +149,7 @@ export function LibraryTrophyAvailability({
                         {trophy.name ?? `Hidden trophy #${trophy.trophyId}`}
                       </strong>
 
-                      <span
-                        className={`trophy-grade trophy-grade--${trophy.trophyType}`}
-                      >
-                        {trophy.trophyType}
-                      </span>
+                      <TrophyGradeIcon grade={trophy.trophyType} />
 
                       {trophy.earned ? <span>Earned</span> : null}
                     </div>

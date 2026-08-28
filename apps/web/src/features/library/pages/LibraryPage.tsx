@@ -1,5 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { SortableList } from "../../../components/sortable/SortableList";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { Dialog } from "../../../components/ui/Dialog";
+import type { CollectionSummary } from "../../../domain/collection";
 import { useToast } from "../../../components/toast/useToast";
 import { useProfileProgression } from "../../../components/profile/useProfileProgression";
 import type {
@@ -8,14 +18,28 @@ import type {
   LibraryGameListItem,
 } from "../../../domain/libraryGame";
 import type { PlayStationProgressSynchronizationResponse } from "../../../domain/playStation";
+import type {
+  SavedView,
+  SavedViewFilters,
+  SavedViewInput,
+  SavedViewSort,
+} from "../../../domain/savedView";
 import { ApiError } from "../../../services/api/apiClient";
+import { collectionApi } from "../../../services/api/collectionApi";
 import { libraryApi } from "../../../services/api/libraryApi";
 import { playStationApi } from "../../../services/api/playStationApi";
+import { savedViewApi } from "../../../services/api/savedViewApi";
 import { PlayStationSyncProgressPanel } from "../../playstation/components/PlayStationSyncProgressPanel";
 import { usePlayStationSyncProgress } from "../../playstation/hooks/usePlayStationSyncProgress";
+import { PortableDataPage } from "../../portableData/pages/PortableDataPage";
+import { SavedViewForm } from "../../savedViews/components/SavedViewForm";
 import { IgdbGameSearch } from "../components/IgdbGameSearch";
+import { LibraryFilterPanel } from "../components/LibraryFilterPanel";
 import { LibraryGameForm } from "../components/LibraryGameForm";
 import { LibraryGameRow } from "../components/LibraryGameRow";
+import { LibraryViewActionsMenu } from "../components/LibraryViewActionsMenu";
+import { SavedViewManager } from "../components/SavedViewManager";
+import { applyLibraryView } from "../libraryViewEvaluator";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -36,15 +60,51 @@ function getErrorMessage(error: unknown): string {
   return "Something unexpected went wrong while updating the library.";
 }
 
+function isCompleteManualOrderView(view: SavedView): boolean {
+  const filters = view.filters;
+
+  return (
+    view.builtinKey === "all_games" &&
+    view.sort.field === "priorityRank" &&
+    view.sort.direction === "asc" &&
+    (filters.hiddenMode ?? "visible") === "visible" &&
+    (filters.search === undefined || filters.search.trim().length === 0) &&
+    filters.platforms === undefined &&
+    filters.playStatuses === undefined &&
+    filters.collectionIds === undefined &&
+    filters.platinumEarned === undefined &&
+    filters.is100Percent === undefined &&
+    filters.needsSync === undefined &&
+    filters.alertKinds === undefined &&
+    filters.alertStatus === undefined
+  );
+}
+
 export function LibraryPage() {
   const { showToast } = useToast();
   const { refreshProfileProgression } = useProfileProgression();
 
   const [games, setGames] = useState<readonly LibraryGameListItem[]>([]);
+  const [views, setViews] = useState<readonly SavedView[]>([]);
+  const [collections, setCollections] = useState<readonly CollectionSummary[]>(
+    [],
+  );
+  const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
+  const [filterOverrides, setFilterOverrides] =
+    useState<SavedViewFilters | null>(null);
+  const [sortOverride, setSortOverride] = useState<SavedViewSort | null>(null);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [viewManagerExpanded, setViewManagerExpanded] = useState(false);
+  const [isCreatingView, setIsCreatingView] = useState(false);
+  const [editingView, setEditingView] = useState<SavedView | null>(null);
+  const [viewPendingDeletion, setViewPendingDeletion] =
+    useState<SavedView | null>(null);
+  const [viewBusy, setViewBusy] = useState(false);
+  const [backupDialogOpen, setBackupDialogOpen] = useState(false);
+  const [portableDataBusy, setPortableDataBusy] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showHidden, setShowHidden] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
   const [editingGame, setEditingGame] = useState<LibraryGame | null>(null);
@@ -60,15 +120,32 @@ export function LibraryPage() {
   const synchronizationActive =
     isSynchronizingTrophies || syncProgress?.status === "running";
 
+  const handledSyncFinishedAtRef = useRef<string | null>(null);
+
   useEffect(() => {
     const abortController = new AbortController();
 
     async function loadLibrary() {
       try {
-        const loadedGames = await libraryApi.list(abortController.signal);
+        const [loadedGames, loadedViews, loadedCollections] = await Promise.all(
+          [
+            libraryApi.list(abortController.signal),
+            savedViewApi.list(abortController.signal),
+            collectionApi.list(abortController.signal),
+          ],
+        );
 
         if (!abortController.signal.aborted) {
+          const defaultView =
+            loadedViews.find((view) => view.builtinKey === "all_games") ??
+            loadedViews.find((view) => view.isAvailable) ??
+            loadedViews[0] ??
+            null;
+
           setGames(loadedGames);
+          setViews(loadedViews);
+          setCollections(loadedCollections);
+          setSelectedViewId(defaultView?.id ?? null);
           setLoadState("ready");
         }
       } catch (error) {
@@ -84,18 +161,222 @@ export function LibraryPage() {
     return () => abortController.abort();
   }, []);
 
+  const selectedView = useMemo(
+    () => views.find((view) => view.id === selectedViewId) ?? null,
+    [selectedViewId, views],
+  );
+
+  const effectiveView = useMemo(
+    () =>
+      selectedView === null
+        ? null
+        : {
+            ...selectedView,
+            filters: filterOverrides ?? selectedView.filters,
+            sort: sortOverride ?? selectedView.sort,
+          },
+    [filterOverrides, selectedView, sortOverride],
+  );
+
+  const viewGames = useMemo(
+    () =>
+      effectiveView === null || !effectiveView.isAvailable
+        ? []
+        : applyLibraryView(games, effectiveView, searchQuery),
+    [effectiveView, games, searchQuery],
+  );
+
+  const viewAdjusted = filterOverrides !== null || sortOverride !== null;
+
+  const refreshGames = useCallback(async (): Promise<void> => {
+    setGames(await libraryApi.list());
+  }, []);
+
+  async function refreshViews(preferredViewId?: string): Promise<void> {
+    const loadedViews = await savedViewApi.list();
+
+    const nextView =
+      loadedViews.find((view) => view.id === preferredViewId) ??
+      loadedViews.find((view) => view.id === selectedViewId) ??
+      loadedViews.find((view) => view.builtinKey === "all_games") ??
+      loadedViews.find((view) => view.isAvailable) ??
+      loadedViews[0] ??
+      null;
+
+    setViews(loadedViews);
+    setSelectedViewId(nextView?.id ?? null);
+    setFilterOverrides(null);
+    setSortOverride(null);
+    setSearchQuery("");
+  }
+
+  async function handlePortableDataImported(): Promise<void> {
+    const [loadedCollections] = await Promise.all([
+      collectionApi.list(),
+      refreshGames(),
+      refreshViews(),
+      refreshProfileProgression(),
+    ]);
+
+    setCollections(loadedCollections);
+    setFiltersExpanded(false);
+    setViewManagerExpanded(false);
+
+    showToast({
+      tone: "success",
+      message: "The imported backlog is loaded and ready.",
+    });
+  }
+
+  async function handleCreateView(input: SavedViewInput): Promise<void> {
+    setViewBusy(true);
+    setErrorMessage(null);
+
+    try {
+      const created = await savedViewApi.create(input);
+
+      await refreshViews(created.id);
+      setIsCreatingView(false);
+
+      showToast({
+        tone: "success",
+        message: `${created.name} was created and selected.`,
+      });
+    } catch (error) {
+      const message = getErrorMessage(error);
+
+      setErrorMessage(message);
+
+      showToast({
+        tone: "error",
+        message,
+      });
+    } finally {
+      setViewBusy(false);
+    }
+  }
+
+  async function handleUpdateView(input: SavedViewInput): Promise<void> {
+    if (editingView === null) {
+      return;
+    }
+
+    setViewBusy(true);
+    setErrorMessage(null);
+
+    try {
+      const updated = await savedViewApi.update(editingView.id, input);
+
+      await refreshViews(updated.id);
+      setEditingView(null);
+
+      showToast({
+        tone: "success",
+        message: `${updated.name} was updated.`,
+      });
+    } catch (error) {
+      const message = getErrorMessage(error);
+
+      setErrorMessage(message);
+
+      showToast({
+        tone: "error",
+        message,
+      });
+    } finally {
+      setViewBusy(false);
+    }
+  }
+
+  async function handleDeleteView(view: SavedView): Promise<void> {
+    setViewBusy(true);
+    setErrorMessage(null);
+
+    try {
+      await savedViewApi.delete(view.id);
+      await refreshViews();
+
+      setEditingView(null);
+      setViewPendingDeletion(null);
+
+      showToast({
+        tone: "success",
+        message: `${view.name} was deleted. No games were changed.`,
+      });
+    } catch (error) {
+      const message = getErrorMessage(error);
+
+      setErrorMessage(message);
+
+      showToast({
+        tone: "error",
+        message,
+      });
+    } finally {
+      setViewBusy(false);
+    }
+  }
+
+  async function handleReorderViews(
+    orderedViews: readonly SavedView[],
+  ): Promise<void> {
+    const previousViews = views;
+
+    setViews(orderedViews);
+    setViewBusy(true);
+    setErrorMessage(null);
+
+    try {
+      const savedViews = await savedViewApi.reorder(
+        orderedViews.map((view) => view.id),
+      );
+
+      setViews(savedViews);
+
+      showToast({
+        tone: "success",
+        message: "Saved View order was updated.",
+      });
+    } catch (error) {
+      const message = getErrorMessage(error);
+
+      setViews(previousViews);
+      setErrorMessage(message);
+
+      showToast({
+        tone: "error",
+        message,
+      });
+    } finally {
+      setViewBusy(false);
+    }
+  }
+
+  function selectLibraryView(viewId: string) {
+    setSelectedViewId(viewId);
+    setFilterOverrides(null);
+    setSortOverride(null);
+    setSearchQuery("");
+  }
+
   useEffect(() => {
+    const finishedAt = syncProgress?.finishedAt;
+
     if (
       syncProgress?.status !== "succeeded" ||
-      syncProgress.finishedAt === null
+      finishedAt === null ||
+      finishedAt === undefined ||
+      handledSyncFinishedAtRef.current === finishedAt
     ) {
       return;
     }
 
+    handledSyncFinishedAtRef.current = finishedAt;
+
     void refreshGames().catch((error: unknown) => {
       setErrorMessage(getErrorMessage(error));
     });
-  }, [syncProgress?.finishedAt, syncProgress?.status]);
+  }, [refreshGames, syncProgress?.finishedAt, syncProgress?.status]);
 
   const orderedVisibleGames = useMemo(
     () => games.filter((game) => game.hiddenAt === null),
@@ -107,27 +388,43 @@ export function LibraryPage() {
     [games],
   );
 
-  const visibleGames = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLocaleLowerCase("en-US");
+  const manualOrderViewSelected =
+    effectiveView !== null && isCompleteManualOrderView(effectiveView);
 
-    return games.filter((game) => {
-      if (!showHidden && game.hiddenAt !== null) {
-        return false;
-      }
+  const orderingDisabled =
+    !manualOrderViewSelected || searchQuery.trim().length > 0;
 
-      if (normalizedQuery.length === 0) {
+  const backlogSectionsEnabled = !orderingDisabled;
+
+  const activeBacklogGames = useMemo(
+    () =>
+      backlogSectionsEnabled
+        ? viewGames.filter((game) => game.playStatus !== "completed")
+        : [],
+    [backlogSectionsEnabled, viewGames],
+  );
+
+  const completedBacklogGames = useMemo(
+    () =>
+      backlogSectionsEnabled
+        ? viewGames.filter((game) => game.playStatus === "completed")
+        : [],
+    [backlogSectionsEnabled, viewGames],
+  );
+
+  const completedOrderNeedsNormalization = useMemo(() => {
+    let completedGameEncountered = false;
+
+    for (const game of orderedVisibleGames) {
+      if (game.playStatus === "completed") {
+        completedGameEncountered = true;
+      } else if (completedGameEncountered) {
         return true;
       }
+    }
 
-      return (
-        game.title.toLocaleLowerCase("en-US").includes(normalizedQuery) ||
-        game.notes?.toLocaleLowerCase("en-US").includes(normalizedQuery) ===
-          true
-      );
-    });
-  }, [games, searchQuery, showHidden]);
-
-  const orderingDisabled = searchQuery.trim().length > 0;
+    return false;
+  }, [orderedVisibleGames]);
 
   const latestStoredTrophyUpdate = useMemo(() => {
     let latest: string | null = null;
@@ -145,10 +442,6 @@ export function LibraryPage() {
 
     return latest;
   }, [games]);
-
-  async function refreshGames(): Promise<void> {
-    setGames(await libraryApi.list());
-  }
 
   async function performMutation(
     key: string,
@@ -278,31 +571,71 @@ export function LibraryPage() {
     }
   }
 
-  async function moveGame(gameId: string, direction: -1 | 1): Promise<void> {
-    const currentIndex = orderedVisibleGames.findIndex(
-      (game) => game.id === gameId,
+  async function saveGameOrder(
+    orderedGames: readonly LibraryGameListItem[],
+    successMessage: string,
+  ): Promise<void> {
+    const previousGames = games;
+
+    const previousHiddenGames = games.filter((game) => game.hiddenAt !== null);
+
+    const optimisticVisibleGames = orderedGames.map((game, index) => ({
+      ...game,
+      priorityRank: (index + 1) * 1_000,
+    }));
+
+    setGames([...optimisticVisibleGames, ...previousHiddenGames]);
+    setBusyKey("order");
+    setErrorMessage(null);
+
+    try {
+      const savedVisibleGames = await libraryApi.reorder(
+        orderedGames.map((game) => game.id),
+      );
+
+      setGames([...savedVisibleGames, ...previousHiddenGames]);
+
+      showToast({
+        tone: "success",
+        message: successMessage,
+      });
+    } catch (error) {
+      setGames(previousGames);
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function reorderBacklogGames(
+    orderedBacklogGames: readonly LibraryGameListItem[],
+  ): Promise<void> {
+    if (!backlogSectionsEnabled) {
+      return;
+    }
+
+    await saveGameOrder(
+      [...orderedBacklogGames, ...completedBacklogGames],
+      "Backlog order was updated.",
     );
-    const targetIndex = currentIndex + direction;
+  }
 
-    if (
-      currentIndex < 0 ||
-      targetIndex < 0 ||
-      targetIndex >= orderedVisibleGames.length
-    ) {
+  async function sendCompletedGamesToBottom(): Promise<void> {
+    if (!completedOrderNeedsNormalization) {
       return;
     }
 
-    const reorderedGames = [...orderedVisibleGames];
-    const [movedGame] = reorderedGames.splice(currentIndex, 1);
+    const activeGames = orderedVisibleGames.filter(
+      (game) => game.playStatus !== "completed",
+    );
 
-    if (movedGame === undefined) {
-      return;
-    }
+    const completedGames = orderedVisibleGames.filter(
+      (game) => game.playStatus === "completed",
+    );
 
-    reorderedGames.splice(targetIndex, 0, movedGame);
-
-    await performMutation("order", "Library order was updated.", () =>
-      libraryApi.reorder(reorderedGames.map((game) => game.id)),
+    await saveGameOrder(
+      [...activeGames, ...completedGames],
+      "Completed games were moved to the bottom of the backlog.",
     );
   }
 
@@ -330,6 +663,25 @@ export function LibraryPage() {
   function closeForm() {
     setIsAdding(false);
     setEditingGame(null);
+  }
+
+  function renderLibraryGameRow(
+    game: LibraryGameListItem,
+    dragHandle: ReactNode | null,
+    position: number | null,
+  ) {
+    return (
+      <LibraryGameRow
+        game={game}
+        position={position}
+        dragHandle={dragHandle}
+        busy={busyKey !== null || isSynchronizingTrophies}
+        onEdit={() => openEditForm(game)}
+        onHide={() => void handleHide(game)}
+        onUnhide={() => void handleUnhide(game)}
+        onDelete={() => setGamePendingDeletion(game)}
+      />
+    );
   }
 
   return (
@@ -541,29 +893,124 @@ export function LibraryPage() {
       </div>
 
       <div className="library-controls">
+        <label className="library-view-picker">
+          <span>Library view</span>
+
+          <select
+            value={selectedViewId ?? ""}
+            disabled={loadState !== "ready" || views.length === 0}
+            onChange={(event) => selectLibraryView(event.target.value)}
+          >
+            {views.map((view) => (
+              <option
+                key={view.id}
+                value={view.id}
+                disabled={!view.isAvailable}
+              >
+                {view.name}
+                {view.isBuiltin ? "" : " — Custom"}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label className="search-field">
-          <span className="visually-hidden">Search library</span>
+          <span className="visually-hidden">
+            Search within the selected Library view
+          </span>
+
           <input
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search titles or notes…"
+            placeholder="Search within this view…"
           />
         </label>
 
-        <label className="checkbox-control">
-          <input
-            type="checkbox"
-            checked={showHidden}
-            onChange={(event) => setShowHidden(event.target.checked)}
-          />
-          <span>Show hidden games</span>
-        </label>
+        <LibraryViewActionsMenu
+          viewAvailable={effectiveView !== null}
+          viewsAvailable={views.length > 0}
+          filtersExpanded={filtersExpanded}
+          viewManagerExpanded={viewManagerExpanded}
+          viewAdjusted={viewAdjusted}
+          mutationsBusy={
+            viewBusy || busyKey !== null || isSynchronizingTrophies
+          }
+          showCompletedAction={
+            backlogSectionsEnabled && completedBacklogGames.length > 0
+          }
+          completedOrderNeedsNormalization={completedOrderNeedsNormalization}
+          onToggleFilters={() => setFiltersExpanded((expanded) => !expanded)}
+          onResetFilters={() => {
+            setFilterOverrides(null);
+            setSortOverride(null);
+          }}
+          onCreateView={() => setIsCreatingView(true)}
+          onToggleViewManager={() =>
+            setViewManagerExpanded((expanded) => !expanded)
+          }
+          onSendCompletedToBottom={() => {
+            void sendCompletedGamesToBottom();
+          }}
+        />
+
+        <button
+          className="button button--quiet library-controls__backup"
+          type="button"
+          disabled={synchronizationActive || busyKey !== null || viewBusy}
+          onClick={() => setBackupDialogOpen(true)}
+        >
+          Backup / Restore
+        </button>
       </div>
+
+      {filtersExpanded && effectiveView !== null ? (
+        <LibraryFilterPanel
+          filters={effectiveView.filters}
+          sort={effectiveView.sort}
+          collections={collections}
+          adjusted={viewAdjusted}
+          onFiltersChange={setFilterOverrides}
+          onSortChange={setSortOverride}
+          onReset={() => {
+            setFilterOverrides(null);
+            setSortOverride(null);
+          }}
+        />
+      ) : null}
+
+      {viewManagerExpanded ? (
+        <SavedViewManager
+          views={views}
+          selectedViewId={selectedViewId}
+          busy={viewBusy}
+          onSelect={selectLibraryView}
+          onEdit={setEditingView}
+          onDelete={setViewPendingDeletion}
+          onReorder={(orderedViews) => {
+            void handleReorderViews(orderedViews);
+          }}
+        />
+      ) : null}
+
+      {selectedView === null ? null : (
+        <div className="library-view-summary">
+          <span>
+            Showing <strong>{selectedView.name}</strong>
+            {viewAdjusted ? " with temporary refinements" : ""}
+          </span>
+
+          <span>
+            {viewGames.length} {viewGames.length === 1 ? "game" : "games"}
+          </span>
+        </div>
+      )}
 
       {orderingDisabled ? (
         <p className="helper-message">
-          Clear the search to change the full library order.
+          {manualOrderViewSelected
+            ? "Clear the search to change the full Library order."
+            : "Manual reordering is available only in the complete, unfiltered All games view."}
         </p>
       ) : null}
 
@@ -592,6 +1039,79 @@ export function LibraryPage() {
           />
         </div>
       ) : null}
+
+      <Dialog
+        open={backupDialogOpen}
+        title="Backup / Restore"
+        description="Download a portable copy of your local backlog or safely replace it from an earlier export."
+        size="large"
+        dismissible={!portableDataBusy}
+        onClose={() => setBackupDialogOpen(false)}
+      >
+        <PortableDataPage
+          onImported={handlePortableDataImported}
+          onImportingChange={setPortableDataBusy}
+        />
+      </Dialog>
+
+      <Dialog
+        open={isCreatingView}
+        title="Create Saved View"
+        description="The current filters and sorting are used as the starting definition. Live search remains temporary."
+        size="large"
+        dismissible={!viewBusy}
+        onClose={() => setIsCreatingView(false)}
+      >
+        <SavedViewForm
+          initialFilters={effectiveView?.filters}
+          initialSort={effectiveView?.sort}
+          showHeading={false}
+          collections={collections}
+          onSubmit={handleCreateView}
+          onCancel={() => setIsCreatingView(false)}
+        />
+      </Dialog>
+
+      <Dialog
+        open={editingView !== null}
+        title={`Edit ${editingView?.name ?? "Saved View"}`}
+        description="Update the reusable filters and sorting for this view."
+        size="large"
+        dismissible={!viewBusy}
+        onClose={() => setEditingView(null)}
+      >
+        {editingView === null ? null : (
+          <SavedViewForm
+            key={editingView.id}
+            initialView={editingView}
+            showHeading={false}
+            collections={collections}
+            onSubmit={handleUpdateView}
+            onCancel={() => setEditingView(null)}
+          />
+        )}
+      </Dialog>
+
+      <ConfirmDialog
+        open={viewPendingDeletion !== null}
+        title="Delete Saved View?"
+        description={
+          <p>
+            Delete{" "}
+            <strong>{viewPendingDeletion?.name ?? "this Saved View"}</strong>?
+            The view definition will be removed, but no games, Collections, or
+            trophy data will be changed.
+          </p>
+        }
+        confirmLabel="Delete Saved View"
+        busy={viewBusy}
+        onCancel={() => setViewPendingDeletion(null)}
+        onConfirm={() => {
+          if (viewPendingDeletion !== null) {
+            void handleDeleteView(viewPendingDeletion);
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={gamePendingDeletion !== null}
@@ -627,7 +1147,7 @@ export function LibraryPage() {
         </div>
       ) : null}
 
-      {loadState === "ready" && visibleGames.length === 0 ? (
+      {loadState === "ready" && viewGames.length === 0 ? (
         <div className="empty-state">
           <h3>
             {games.length === 0
@@ -637,7 +1157,7 @@ export function LibraryPage() {
           <p>
             {games.length === 0
               ? "Search IGDB for automatic metadata, or create a manual entry."
-              : "Try clearing the search or showing archived entries."}
+              : "Try another Library view or clear the current search."}
           </p>
           {games.length === 0 ? (
             <button
@@ -651,35 +1171,105 @@ export function LibraryPage() {
         </div>
       ) : null}
 
-      {loadState === "ready" && visibleGames.length > 0 ? (
-        <div className="game-list" aria-label="Library games">
-          {visibleGames.map((game) => {
-            const activeIndex = orderedVisibleGames.findIndex(
-              (candidate) => candidate.id === game.id,
-            );
-            const isHidden = game.hiddenAt !== null;
+      {loadState === "ready" && viewGames.length > 0 ? (
+        backlogSectionsEnabled ? (
+          <div className="backlog-sections">
+            <section
+              className="backlog-section"
+              aria-labelledby="active-backlog-title"
+            >
+              <div className="backlog-section__heading">
+                <div>
+                  <h3 id="active-backlog-title">Backlog</h3>
 
-            return (
-              <LibraryGameRow
-                key={game.id}
-                game={game}
-                position={isHidden ? null : activeIndex + 1}
-                canMoveUp={!isHidden && activeIndex > 0}
-                canMoveDown={
-                  !isHidden && activeIndex < orderedVisibleGames.length - 1
-                }
-                orderingDisabled={orderingDisabled}
-                busy={busyKey !== null || isSynchronizingTrophies}
-                onMoveUp={() => void moveGame(game.id, -1)}
-                onMoveDown={() => void moveGame(game.id, 1)}
-                onEdit={() => openEditForm(game)}
-                onHide={() => void handleHide(game)}
-                onUnhide={() => void handleUnhide(game)}
-                onDelete={() => setGamePendingDeletion(game)}
-              />
-            );
-          })}
-        </div>
+                  <p>Drag games into the order you plan to pursue them.</p>
+                </div>
+
+                <span>
+                  {activeBacklogGames.length}{" "}
+                  {activeBacklogGames.length === 1 ? "game" : "games"}
+                </span>
+              </div>
+
+              {activeBacklogGames.length === 0 ? (
+                <div className="backlog-section__empty">
+                  Every visible game is currently marked Completed.
+                </div>
+              ) : (
+                <div className="game-list">
+                  <SortableList
+                    items={activeBacklogGames}
+                    disabled={busyKey !== null || isSynchronizingTrophies}
+                    ariaLabel="Active backlog order"
+                    getItemLabel={(game) => game.title}
+                    onReorder={(orderedGames) => {
+                      void reorderBacklogGames(orderedGames);
+                    }}
+                    renderItem={(game, controls) =>
+                      renderLibraryGameRow(
+                        game,
+                        controls.dragHandle,
+                        controls.position,
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </section>
+
+            {completedBacklogGames.length === 0 ? null : (
+              <details className="completed-backlog">
+                <summary>
+                  <span>
+                    <strong>Completed</strong>
+
+                    <small>
+                      Finished games are kept outside the active backlog order.
+                    </small>
+                  </span>
+
+                  <span className="completed-backlog__count">
+                    {completedBacklogGames.length}
+                  </span>
+                </summary>
+
+                <div className="game-list completed-backlog__games">
+                  {completedBacklogGames.map((game, index) => (
+                    <div key={game.id}>
+                      {renderLibraryGameRow(
+                        game,
+                        null,
+                        activeBacklogGames.length + index + 1,
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        ) : (
+          <div className="game-list">
+            <SortableList
+              items={viewGames}
+              disabled
+              ariaLabel={`${selectedView?.name ?? "Library"} games`}
+              getItemLabel={(game) => game.title}
+              onReorder={() => undefined}
+              renderItem={(game, controls) => {
+                const activeIndex = orderedVisibleGames.findIndex(
+                  (candidate) => candidate.id === game.id,
+                );
+                const isHidden = game.hiddenAt !== null;
+
+                return renderLibraryGameRow(
+                  game,
+                  isHidden ? null : controls.dragHandle,
+                  isHidden ? null : activeIndex + 1,
+                );
+              }}
+            />
+          </div>
+        )
       ) : null}
     </section>
   );

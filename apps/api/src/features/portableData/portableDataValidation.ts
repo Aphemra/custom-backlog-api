@@ -33,7 +33,7 @@ const LEGACY_BUILTIN_VIEW_KEYS = new Set([
   "needs_sync",
 ]);
 
-const CURRENT_BUILTIN_VIEW_KEYS = new Set([
+const PREVIOUS_BUILTIN_VIEW_KEYS = new Set([
   "all_games",
   "not_started",
   "playing",
@@ -41,6 +41,11 @@ const CURRENT_BUILTIN_VIEW_KEYS = new Set([
   "one_hundred_percent",
   "completion_lost",
   "needs_sync",
+]);
+
+const CURRENT_BUILTIN_VIEW_KEYS = new Set([
+  ...PREVIOUS_BUILTIN_VIEW_KEYS,
+  "hidden_games",
 ]);
 
 const SUPPORTED_BUILTIN_VIEW_KEYS = new Set([
@@ -444,6 +449,7 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
 
   if (
     !containsExactly(LEGACY_BUILTIN_VIEW_KEYS) &&
+    !containsExactly(PREVIOUS_BUILTIN_VIEW_KEYS) &&
     !containsExactly(CURRENT_BUILTIN_VIEW_KEYS)
   ) {
     invalid("data.savedViews must contain each built-in view exactly once.");

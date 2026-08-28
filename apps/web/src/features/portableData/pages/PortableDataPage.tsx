@@ -73,7 +73,15 @@ function CountComparison({ current, incoming }: CountComparisonProps) {
   );
 }
 
-export function PortableDataPage() {
+interface PortableDataPageProps {
+  readonly onImported?: () => void | Promise<void>;
+  readonly onImportingChange?: (isImporting: boolean) => void;
+}
+
+export function PortableDataPage({
+  onImported,
+  onImportingChange,
+}: PortableDataPageProps) {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const [portableData, setPortableData] = useState<unknown>(null);
@@ -137,6 +145,7 @@ export function PortableDataPage() {
     }
 
     setIsImporting(true);
+    onImportingChange?.(true);
     setErrorMessage(null);
 
     try {
@@ -149,10 +158,13 @@ export function PortableDataPage() {
       setAcknowledged(false);
 
       setFileInputKey((currentKey) => currentKey + 1);
+
+      await onImported?.();
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsImporting(false);
+      onImportingChange?.(false);
     }
   }
 
@@ -166,20 +178,7 @@ export function PortableDataPage() {
   }
 
   return (
-    <section className="library-page" aria-labelledby="portable-data-title">
-      <div className="library-heading">
-        <div>
-          <p className="eyebrow">Local data safety</p>
-
-          <h2 id="portable-data-title">Import / Export</h2>
-
-          <p className="library-heading__description">
-            Download a portable copy of your backlog or restore one after
-            reviewing exactly what will be replaced.
-          </p>
-        </div>
-      </div>
-
+    <div className="portable-data">
       {errorMessage === null ? null : (
         <div className="notice notice--error" role="alert">
           {errorMessage}
@@ -339,6 +338,6 @@ export function PortableDataPage() {
           </div>
         </section>
       )}
-    </section>
+    </div>
   );
 }

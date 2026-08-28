@@ -3,6 +3,7 @@ import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
 import { LibraryGameDetailsRepository } from "../features/library/libraryGameDetailsRepository.js";
 import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
+import { LibraryGameViewDataRepository } from "../features/library/libraryGameViewDataRepository.js";
 import {
   parseCreateLibraryGameInput,
   parseLibraryGameOrder,
@@ -85,15 +86,22 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
   const repository = new LibraryGameRepository(database);
   const detailsRepository = new LibraryGameDetailsRepository(database);
   const resourceRepository = new GameResourceRepository(database);
+  const viewDataRepository = new LibraryGameViewDataRepository(database);
 
   libraryRoutes.get("/games", (request, response) => {
     const includeHidden = readIncludeHidden(request.query.includeHidden);
     const games = repository.list(includeHidden);
+    const viewDataByGameId = viewDataRepository.findAll();
 
     response.json({
       games: games.map((game) => ({
         ...game,
         resources: resourceRepository.listByGame(game.id),
+        viewData: viewDataByGameId.get(game.id) ?? {
+          collectionIds: [],
+          hasPlayStationLink: false,
+          alerts: [],
+        },
       })),
     });
   });
@@ -110,11 +118,17 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
     }
 
     const games = repository.list();
+    const viewDataByGameId = viewDataRepository.findAll();
 
     response.json({
       games: games.map((game) => ({
         ...game,
         resources: resourceRepository.listByGame(game.id),
+        viewData: viewDataByGameId.get(game.id) ?? {
+          collectionIds: [],
+          hasPlayStationLink: false,
+          alerts: [],
+        },
       })),
     });
   });

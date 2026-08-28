@@ -142,6 +142,18 @@ export interface LibraryGameWithArtwork extends LibraryGameWithTrophySummary {
   readonly artwork: LibraryGameArtwork | null;
 }
 
+export interface LibraryGameViewAlert {
+  readonly kind: "new_trophies" | "completion_lost";
+  readonly status: "unread" | "read" | "resolved" | "dismissed";
+  readonly createdAt: string;
+}
+
+export interface LibraryGameViewData {
+  readonly collectionIds: readonly string[];
+  readonly hasPlayStationLink: boolean;
+  readonly alerts: readonly LibraryGameViewAlert[];
+}
+
 export interface CreateLibraryGameInput {
   readonly title: string;
   readonly platform: PlayStationPlatform;

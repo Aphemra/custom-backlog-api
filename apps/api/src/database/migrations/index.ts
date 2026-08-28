@@ -11,6 +11,7 @@ import { playStationTrophyAvailabilityMigration } from "./009PlayStationTrophyAv
 import { igdbGameDetailsMigration } from "./010IgdbGameDetails.js";
 import { igdbMetadataImagesMigration } from "./011IgdbMetadataImages.js";
 import { gameResourcesMigration } from "./012GameResources.js";
+import { hiddenGamesSavedViewMigration } from "./013HiddenGamesSavedView.js";
 
 export const migrations: readonly Migration[] = [
   initialSchemaMigration,
@@ -25,4 +26,5 @@ export const migrations: readonly Migration[] = [
   igdbGameDetailsMigration,
   igdbMetadataImagesMigration,
   gameResourcesMigration,
+  hiddenGamesSavedViewMigration,
 ];

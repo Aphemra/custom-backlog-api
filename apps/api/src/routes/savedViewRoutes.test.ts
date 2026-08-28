@@ -4,7 +4,11 @@ import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
-import type { LibraryGame } from "../features/library/libraryGameTypes.js";
+import type {
+  LibraryGameViewData,
+  LibraryGameWithArtwork,
+} from "../features/library/libraryGameTypes.js";
+import type { GameResource } from "../features/resources/gameResourceTypes.js";
 import type { SavedView } from "../features/savedViews/savedViewTypes.js";
 
 interface ViewsResponse {
@@ -15,8 +19,13 @@ interface ViewResponse {
   view: SavedView;
 }
 
+interface SavedViewGame extends LibraryGameWithArtwork {
+  readonly resources: readonly GameResource[];
+  readonly viewData: LibraryGameViewData;
+}
+
 interface ViewGamesResponse extends ViewResponse {
-  games: LibraryGame[];
+  games: SavedViewGame[];
 }
 
 async function closeServer(
@@ -71,9 +80,16 @@ test("exposes saved-view filtering and protects built-in views", async () => {
 
     const listed = (await listResponse.json()) as ViewsResponse;
 
-    assert.equal(listed.views.length, 7);
+    assert.equal(listed.views.length, 8);
 
-    assert.equal(listed.views.filter((view) => view.isAvailable).length, 7);
+    assert.equal(listed.views.filter((view) => view.isAvailable).length, 8);
+
+    assert.deepEqual(
+      listed.views.find((view) => view.builtinKey === "hidden_games")?.filters,
+      {
+        hiddenMode: "hidden",
+      },
+    );
 
     const createResponse = await fetch(`${apiUrl}/saved-views`, {
       method: "POST",
@@ -106,6 +122,14 @@ test("exposes saved-view filtering and protects built-in views", async () => {
       filtered.games.map((game) => game.title),
       ["Astro Bot"],
     );
+
+    assert.equal(filtered.games[0]?.artwork, null);
+    assert.deepEqual(filtered.games[0]?.resources, []);
+    assert.deepEqual(filtered.games[0]?.viewData, {
+      collectionIds: [],
+      hasPlayStationLink: false,
+      alerts: [],
+    });
 
     const builtin = listed.views.find(
       (view) => view.builtinKey === "all_games",

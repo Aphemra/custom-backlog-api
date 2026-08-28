@@ -1,8 +1,4 @@
-import type {
-  LibraryGameWithTrophySummary,
-  PlayStationPlatform,
-  PlayStatus,
-} from "./libraryGame";
+import type { PlayStationPlatform, PlayStatus } from "./libraryGame";
 
 export type HiddenMode = "visible" | "hidden" | "all";
 
@@ -66,11 +62,6 @@ export interface SavedViewInput {
   readonly name: string;
   readonly filters: SavedViewFilters;
   readonly sort: SavedViewSort;
-}
-
-export interface SavedViewGames {
-  readonly view: SavedView;
-  readonly games: readonly LibraryGameWithTrophySummary[];
 }
 
 export const hiddenModeLabels: Readonly<Record<HiddenMode, string>> = {

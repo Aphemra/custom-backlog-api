@@ -4,7 +4,10 @@ import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
-import type { LibraryGame } from "../features/library/libraryGameTypes.js";
+import type {
+  LibraryGame,
+  LibraryGameViewData,
+} from "../features/library/libraryGameTypes.js";
 import type { GameResource } from "../features/resources/gameResourceTypes.js";
 
 interface GameResponse {
@@ -13,6 +16,7 @@ interface GameResponse {
 
 interface LibraryGameWithResources extends LibraryGame {
   resources: GameResource[];
+  viewData: LibraryGameViewData;
 }
 
 interface GamesResponse {
@@ -161,6 +165,11 @@ test("exposes library CRUD through the local API", async () => {
     assert.equal(listed.games[0]?.resources[0]?.resourceType, "guide");
     assert.equal(listed.games[0]?.resources[0]?.provider, "powerpyx");
     assert.equal(listed.games[0]?.resources[0]?.label, "Trophy guide");
+    assert.deepEqual(listed.games[0]?.viewData, {
+      collectionIds: [],
+      hasPlayStationLink: false,
+      alerts: [],
+    });
 
     const invalidResponse = await fetch(`${baseUrl}/games`, {
       method: "POST",

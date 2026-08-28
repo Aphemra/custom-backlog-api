@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   playStatusLabels,
   type LibraryGameListItem,
@@ -8,12 +8,8 @@ import { GameResourceLinks } from "./GameResourceLinks";
 interface LibraryGameRowProps {
   readonly game: LibraryGameListItem;
   readonly position: number | null;
-  readonly canMoveUp: boolean;
-  readonly canMoveDown: boolean;
-  readonly orderingDisabled: boolean;
+  readonly dragHandle: ReactNode | null;
   readonly busy: boolean;
-  readonly onMoveUp: () => void;
-  readonly onMoveDown: () => void;
   readonly onEdit: () => void;
   readonly onHide: () => void;
   readonly onUnhide: () => void;
@@ -40,12 +36,8 @@ function formatSyncDate(value: string): string {
 export function LibraryGameRow({
   game,
   position,
-  canMoveUp,
-  canMoveDown,
-  orderingDisabled,
+  dragHandle,
   busy,
-  onMoveUp,
-  onMoveDown,
   onEdit,
   onHide,
   onUnhide,
@@ -72,29 +64,15 @@ export function LibraryGameRow({
         className="game-row__order"
         aria-label={position === null ? "Hidden" : `Position ${position}`}
       >
-        {isHidden ? (
-          <span className="order-number">—</span>
+        {isHidden || dragHandle === null ? (
+          <span className="order-number">
+            {position === null ? "—" : position}
+          </span>
         ) : (
           <>
-            <button
-              className="order-button"
-              type="button"
-              disabled={busy || orderingDisabled || !canMoveUp}
-              onClick={onMoveUp}
-              aria-label={`Move ${game.title} up`}
-            >
-              ↑
-            </button>
+            {dragHandle}
+
             <span className="order-number">{position}</span>
-            <button
-              className="order-button"
-              type="button"
-              disabled={busy || orderingDisabled || !canMoveDown}
-              onClick={onMoveDown}
-              aria-label={`Move ${game.title} down`}
-            >
-              ↓
-            </button>
           </>
         )}
       </div>

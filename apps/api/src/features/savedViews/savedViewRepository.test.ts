@@ -171,9 +171,9 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
 
     const builtins = views.list();
 
-    assert.equal(builtins.length, 7);
+    assert.equal(builtins.length, 8);
 
-    assert.equal(builtins.filter((view) => view.isAvailable).length, 7);
+    assert.equal(builtins.filter((view) => view.isAvailable).length, 8);
 
     assert.equal(
       builtins.find((view) => view.builtinKey === "not_started")?.name,
@@ -183,6 +183,13 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
     assert.equal(
       builtins.find((view) => view.builtinKey === "playing")?.name,
       "Playing",
+    );
+
+    assert.deepEqual(
+      builtins.find((view) => view.builtinKey === "hidden_games")?.filters,
+      {
+        hiddenMode: "hidden",
+      },
     );
 
     const requireBuiltin = (builtinKey: string) => {
@@ -196,10 +203,8 @@ test("creates, filters, orders, updates, and deletes saved views", () => {
     };
 
     assert.deepEqual(
-      views
-        .listGames(requireBuiltin("platinum_earned"))
-        .map((game) => game.title),
-      ["Returnal"],
+      views.listGames(requireBuiltin("hidden_games")).map((game) => game.title),
+      ["Bloodborne"],
     );
 
     assert.deepEqual(

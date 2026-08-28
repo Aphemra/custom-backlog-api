@@ -54,6 +54,12 @@ function fromBooleanFilterValue(
 interface SavedViewFormProps {
   readonly initialView?: SavedView;
 
+  readonly initialFilters?: SavedView["filters"];
+
+  readonly initialSort?: SavedView["sort"];
+
+  readonly showHeading?: boolean;
+
   readonly collections: readonly CollectionSummary[];
 
   readonly onSubmit: (input: SavedViewInput) => Promise<void>;
@@ -69,48 +75,71 @@ function toggleValue<T>(values: readonly T[], value: T): readonly T[] {
 
 export function SavedViewForm({
   initialView,
+  initialFilters,
+  initialSort,
+  showHeading = true,
   collections,
   onSubmit,
   onCancel,
 }: SavedViewFormProps) {
+  const startingFilters = initialView?.filters ?? initialFilters ?? {};
+
+  const startingSort = initialView?.sort ??
+    initialSort ?? {
+      field: "priorityRank" as const,
+      direction: "asc" as const,
+    };
+
   const [name, setName] = useState(initialView?.name ?? "");
 
-  const [search, setSearch] = useState(initialView?.filters.search ?? "");
+  const [search, setSearch] = useState(startingFilters.search ?? "");
 
   const [platforms, setPlatforms] = useState<readonly PlayStationPlatform[]>(
-    initialView?.filters.platforms ?? [],
+    startingFilters.platforms ?? [],
   );
 
   const [statuses, setStatuses] = useState<readonly PlayStatus[]>(
-    initialView?.filters.playStatuses ?? [],
+    startingFilters.playStatuses ?? [],
   );
 
   const [hiddenMode, setHiddenMode] = useState<HiddenMode>(
-    initialView?.filters.hiddenMode ?? "visible",
+    startingFilters.hiddenMode ?? "visible",
   );
 
   const [collectionIds, setCollectionIds] = useState<readonly string[]>(
-    initialView?.filters.collectionIds ?? [],
+    startingFilters.collectionIds ?? [],
   );
 
   const [platinumEarned, setPlatinumEarned] = useState<BooleanFilterValue>(
-    toBooleanFilterValue(initialView?.filters.platinumEarned),
+    toBooleanFilterValue(startingFilters.platinumEarned),
   );
 
   const [is100Percent, setIs100Percent] = useState<BooleanFilterValue>(
-    toBooleanFilterValue(initialView?.filters.is100Percent),
+    toBooleanFilterValue(startingFilters.is100Percent),
   );
 
   const [needsSync, setNeedsSync] = useState<BooleanFilterValue>(
-    toBooleanFilterValue(initialView?.filters.needsSync),
+    toBooleanFilterValue(startingFilters.needsSync),
   );
 
+  const [alertKind, setAlertKind] = useState<
+    "" | "new_trophies" | "completion_lost"
+  >(
+    startingFilters.alertKinds?.length === 1
+      ? startingFilters.alertKinds[0]
+      : "",
+  );
+
+  const [alertStatus, setAlertStatus] = useState<
+    "" | "unread" | "read" | "resolved" | "dismissed"
+  >(startingFilters.alertStatus ?? "");
+
   const [sortField, setSortField] = useState<SavedViewSortField>(
-    initialView?.sort.field ?? "priorityRank",
+    startingSort.field,
   );
 
   const [sortDirection, setSortDirection] = useState<SortDirection>(
-    initialView?.sort.direction ?? "asc",
+    startingSort.direction,
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,7 +153,7 @@ export function SavedViewForm({
         name: name.trim(),
 
         filters: {
-          ...initialView?.filters,
+          ...startingFilters,
 
           search: search.trim().length === 0 ? undefined : search.trim(),
 
@@ -141,6 +170,10 @@ export function SavedViewForm({
           is100Percent: fromBooleanFilterValue(is100Percent),
 
           needsSync: fromBooleanFilterValue(needsSync),
+
+          alertKinds: alertKind === "" ? undefined : [alertKind],
+
+          alertStatus: alertStatus === "" ? undefined : alertStatus,
         },
 
         sort: {
@@ -154,29 +187,36 @@ export function SavedViewForm({
   }
 
   return (
-    <form className="saved-view-form" onSubmit={handleSubmit}>
-      <div className="game-form__heading">
-        <div>
-          <p className="eyebrow">
-            {initialView === undefined ? "New saved view" : "Edit saved view"}
-          </p>
+    <form
+      className={`saved-view-form${
+        showHeading ? "" : " saved-view-form--embedded"
+      }`}
+      onSubmit={handleSubmit}
+    >
+      {showHeading ? (
+        <div className="game-form__heading">
+          <div>
+            <p className="eyebrow">
+              {initialView === undefined ? "New saved view" : "Edit saved view"}
+            </p>
 
-          <h2>{initialView?.name ?? "Create a reusable backlog view"}</h2>
+            <h2>{initialView?.name ?? "Create a reusable backlog view"}</h2>
+          </div>
+
+          <IconButton
+            label="Close Saved View editor"
+            icon={<CloseIcon />}
+            onClick={onCancel}
+          />
         </div>
-
-        <IconButton
-          label="Close Saved View editor"
-          icon={<CloseIcon />}
-          onClick={onCancel}
-        />
-      </div>
+      ) : null}
 
       <div className="saved-view-form__grid">
         <label className="field field--wide">
           <span>Name</span>
-
           <input
             autoFocus
+            data-dialog-initial-focus
             required
             maxLength={100}
             value={name}
@@ -293,6 +333,47 @@ export function SavedViewForm({
             <option value="">Any</option>
             <option value="true">Needs first sync</option>
             <option value="false">Does not need first sync</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Trophy alert type</span>
+
+          <select
+            value={alertKind}
+            onChange={(event) =>
+              setAlertKind(
+                event.target.value as "" | "new_trophies" | "completion_lost",
+              )
+            }
+          >
+            <option value="">Any alert type</option>
+            <option value="new_trophies">New trophies</option>
+            <option value="completion_lost">Completion lost</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Trophy alert status</span>
+
+          <select
+            value={alertStatus}
+            onChange={(event) =>
+              setAlertStatus(
+                event.target.value as
+                  | ""
+                  | "unread"
+                  | "read"
+                  | "resolved"
+                  | "dismissed",
+              )
+            }
+          >
+            <option value="">Any alert status</option>
+            <option value="unread">Unread</option>
+            <option value="read">Read</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
           </select>
         </label>
 

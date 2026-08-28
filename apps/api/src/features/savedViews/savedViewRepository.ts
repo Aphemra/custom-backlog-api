@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type {
-  LibraryGameWithTrophySummary,
+  LibraryGameWithArtwork,
   PlayStationPlatform,
   PlayStatus,
 } from "../library/libraryGameTypes.js";
@@ -66,6 +66,8 @@ interface LibraryGameRow {
   progress_percent: number | null;
   is_100_percent: number | null;
   has_platinum: number | null;
+  artwork_image_id: string | null;
+  artwork_role: "cover" | "icon" | "background" | null;
   alert_created_at: string | null;
 }
 
@@ -120,7 +122,7 @@ function mapSavedView(row: SavedViewRow): SavedView {
 function mapLibraryGame(
   row: LibraryGameRow,
   intelligence: PlayStationGameTrophyIntelligence | null,
-): LibraryGameWithTrophySummary {
+): LibraryGameWithArtwork {
   const earnedTrophies = {
     bronze: row.bronze_earned ?? 0,
     silver: row.silver_earned ?? 0,
@@ -156,6 +158,15 @@ function mapLibraryGame(
           lastSyncedAt: row.captured_at,
         };
 
+  const artwork =
+    row.artwork_image_id === null || row.artwork_role === null
+      ? null
+      : {
+          imageId: row.artwork_image_id,
+          url: `/api/images/${row.artwork_image_id}`,
+          role: row.artwork_role,
+        };
+
   return {
     id: row.id,
     title: row.title,
@@ -169,6 +180,7 @@ function mapLibraryGame(
     updatedAt: row.updated_at,
     hiddenAt: row.archived_at,
     trophySummary,
+    artwork,
   };
 }
 
@@ -340,7 +352,7 @@ export class SavedViewRepository {
   listGames(
     view: SavedView,
     liveSearch?: string,
-  ): readonly LibraryGameWithTrophySummary[] {
+  ): readonly LibraryGameWithArtwork[] {
     const filters = view.filters;
     const conditions: string[] = [];
     const parameters: Array<string | number> = [];
@@ -511,12 +523,53 @@ export class SavedViewRepository {
           ts.progress_percent,
           ts.is_100_percent,
           ts.has_platinum,
+          COALESCE(lgi.image_id, ps_image.id) AS artwork_image_id,
+          CASE
+            WHEN lgi.image_id IS NOT NULL THEN lgi.role
+            WHEN ps_image.id IS NOT NULL THEN 'icon'
+            ELSE NULL
+          END AS artwork_role,
           (
             SELECT MAX(latest_alert.created_at)
             FROM trophy_alerts latest_alert
             WHERE latest_alert.game_id = lg.id
           ) AS alert_created_at
         FROM library_games lg
+        LEFT JOIN library_game_images lgi
+          ON lgi.rowid = (
+            SELECT preferred_image.rowid
+            FROM library_game_images preferred_image
+            WHERE preferred_image.game_id = lg.id
+            ORDER BY
+              CASE preferred_image.role
+                WHEN 'cover' THEN 0
+                WHEN 'icon' THEN 1
+                ELSE 2
+              END,
+              preferred_image.sort_order ASC,
+              preferred_image.image_id ASC
+            LIMIT 1
+          )
+        LEFT JOIN playstation_game_links psl
+          ON psl.game_id = lg.id
+        LEFT JOIN cached_images ps_image
+          ON ps_image.id = (
+            SELECT latest_ps_image.id
+            FROM cached_images latest_ps_image
+            WHERE
+              latest_ps_image.provider = 'playstation'
+              AND latest_ps_image.source_key LIKE (
+                'trophy-title:'
+                || psl.np_service_name
+                || ':'
+                || psl.np_communication_id
+                || ':%'
+              )
+            ORDER BY
+              latest_ps_image.updated_at DESC,
+              latest_ps_image.id ASC
+            LIMIT 1
+          )
         LEFT JOIN trophy_snapshots ts
           ON ts.id = (
             SELECT latest_snapshot.id
@@ -527,8 +580,6 @@ export class SavedViewRepository {
               latest_snapshot.id DESC
             LIMIT 1
           )
-        LEFT JOIN playstation_game_links psl
-          ON psl.game_id = lg.id
         ${where}
         ORDER BY
           ${sortColumn} ${direction},

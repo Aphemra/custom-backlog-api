@@ -1,6 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
+import { LibraryGameViewDataRepository } from "../features/library/libraryGameViewDataRepository.js";
+import { GameResourceRepository } from "../features/resources/gameResourceRepository.js";
 import { SavedViewRepository } from "../features/savedViews/savedViewRepository.js";
 import {
   parseCreateSavedViewInput,
@@ -42,6 +44,8 @@ export function createSavedViewRoutes(database: DatabaseSync): Router {
   const routes = Router();
 
   const repository = new SavedViewRepository(database);
+  const resourceRepository = new GameResourceRepository(database);
+  const viewDataRepository = new LibraryGameViewDataRepository(database);
 
   routes.get("/", (_request, response) => {
     response.json({
@@ -94,9 +98,20 @@ export function createSavedViewRoutes(database: DatabaseSync): Router {
       );
     }
 
+    const games = repository.listGames(view, readSearch(request.query.search));
+    const viewDataByGameId = viewDataRepository.findAll();
+
     response.json({
       view,
-      games: repository.listGames(view, readSearch(request.query.search)),
+      games: games.map((game) => ({
+        ...game,
+        resources: resourceRepository.listByGame(game.id),
+        viewData: viewDataByGameId.get(game.id) ?? {
+          collectionIds: [],
+          hasPlayStationLink: false,
+          alerts: [],
+        },
+      })),
     });
   });
 

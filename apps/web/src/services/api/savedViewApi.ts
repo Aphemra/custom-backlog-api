@@ -1,8 +1,4 @@
-import type {
-  SavedView,
-  SavedViewGames,
-  SavedViewInput,
-} from "../../domain/savedView";
+import type { SavedView, SavedViewInput } from "../../domain/savedView";
 import { requestJson, requestVoid } from "./apiClient";
 
 interface ViewsResponse {
@@ -20,27 +16,6 @@ export const savedViewApi = {
     });
 
     return response.views;
-  },
-
-  async listGames(
-    viewId: string,
-    search: string,
-    signal?: AbortSignal,
-  ): Promise<SavedViewGames> {
-    const query = new URLSearchParams();
-
-    if (search.trim().length > 0) {
-      query.set("search", search.trim());
-    }
-
-    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
-
-    return requestJson<SavedViewGames>(
-      `/api/saved-views/${encodeURIComponent(viewId)}/games${suffix}`,
-      {
-        signal,
-      },
-    );
   },
 
   async create(input: SavedViewInput): Promise<SavedView> {

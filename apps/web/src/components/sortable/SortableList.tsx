@@ -80,7 +80,7 @@ function SortableEntry<Item extends SortableListItem>({
 
   const style: CSSProperties = {
     transform: DndCss.Transform.toString(transform),
-    transition,
+    transition: isDragging ? undefined : transition,
   };
 
   const controls: SortableItemControls = {
@@ -131,11 +131,7 @@ export function SortableList<Item extends SortableListItem>({
   renderItem,
 }: SortableListProps<Item>) {
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 6,
-      },
-    }),
+    useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),

@@ -11,7 +11,10 @@ import { normalizeIgdbSearchTerm } from "../features/igdb/igdbSearchTerm.js";
 import type {
   AddIgdbGameInput,
   IgdbCredentials,
+  IgdbSearchOptions,
+  IgdbSearchScope,
 } from "../features/igdb/igdbTypes.js";
+import { igdbSearchScopes } from "../features/igdb/igdbTypes.js";
 import {
   playStationPlatforms,
   playStatuses,
@@ -41,36 +44,49 @@ function readSearchTerm(value: unknown): string {
   return searchTerm;
 }
 
-function readIncludeDlc(value: unknown): boolean {
-  if (value === undefined || value === "false") {
-    return false;
+function readSearchPlatform(value: unknown): PlayStationPlatform | null {
+  if (value === undefined || value === "all") {
+    return null;
   }
 
-  if (value === "true") {
-    return true;
+  if (
+    typeof value === "string" &&
+    playStationPlatforms.includes(value as PlayStationPlatform)
+  ) {
+    return value as PlayStationPlatform;
   }
 
   throw new HttpError(
     400,
-    "invalid_include_dlc",
-    "includeDlc must be true or false.",
+    "invalid_igdb_platform",
+    "platform must be all, PS3, PS4, or PS5.",
   );
 }
 
-function readIncludeEditions(value: unknown): boolean {
-  if (value === undefined || value === "false") {
-    return false;
+function readSearchScope(value: unknown): IgdbSearchScope {
+  if (value === undefined) {
+    return "games";
   }
 
-  if (value === "true") {
-    return true;
+  if (
+    typeof value === "string" &&
+    igdbSearchScopes.includes(value as IgdbSearchScope)
+  ) {
+    return value as IgdbSearchScope;
   }
 
   throw new HttpError(
     400,
-    "invalid_include_editions",
-    "includeEditions must be true or false.",
+    "invalid_igdb_search_scope",
+    "scope is not a supported IGDB search scope.",
   );
+}
+
+function readSearchOptions(query: Record<string, unknown>): IgdbSearchOptions {
+  return {
+    platform: readSearchPlatform(query.platform),
+    scope: readSearchScope(query.scope),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -182,8 +198,7 @@ export function createIgdbRoutes(
     try {
       const games = await searchService.search(
         readSearchTerm(request.query.query),
-        readIncludeDlc(request.query.includeDlc),
-        readIncludeEditions(request.query.includeEditions),
+        readSearchOptions(request.query),
       );
 
       response.json({ games });

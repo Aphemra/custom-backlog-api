@@ -1,6 +1,12 @@
 import { useState, type FormEvent } from "react";
-import type { IgdbGameSearchResult } from "../../../domain/igdb";
 import {
+  igdbSearchScopeLabels,
+  igdbSearchScopes,
+  type IgdbGameSearchResult,
+  type IgdbSearchScope,
+} from "../../../domain/igdb";
+import {
+  playStationPlatforms,
   playStatuses,
   playStatusLabels,
   type LibraryGame,
@@ -49,9 +55,10 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
   >(null);
 
   const [playStatus, setPlayStatus] = useState<PlayStatus>("not_started");
+  const [platform, setPlatform] = useState<PlayStationPlatform | null>(null);
+  const [scope, setScope] = useState<IgdbSearchScope>("games");
 
   const [isSearching, setIsSearching] = useState(false);
-  const [includeDlc, setIncludeDlc] = useState(false);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [addedKeys, setAddedKeys] = useState<ReadonlySet<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -70,7 +77,12 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
     setErrorMessage(null);
 
     try {
-      setResults(await igdbApi.search(normalizedQuery, includeDlc, false));
+      setResults(
+        await igdbApi.search(normalizedQuery, {
+          platform,
+          scope,
+        }),
+      );
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -151,33 +163,66 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
         </button>
       </form>
 
-      <label className="igdb-search__status field">
-        <span>Add selected games as</span>
+      <div className="igdb-search__filters">
+        <label className="field">
+          <span>Platform</span>
 
-        <select
-          value={playStatus}
-          onChange={(event) => setPlayStatus(event.target.value as PlayStatus)}
-        >
-          {playStatuses.map((status) => (
-            <option key={status} value={status}>
-              {playStatusLabels[status]}
-            </option>
-          ))}
-        </select>
-      </label>
+          <select
+            value={platform ?? "all"}
+            onChange={(event) => {
+              setPlatform(
+                event.target.value === "all"
+                  ? null
+                  : (event.target.value as PlayStationPlatform),
+              );
+              setResults(null);
+            }}
+          >
+            <option value="all">All PlayStation platforms</option>
 
-      <label className="checkbox-control igdb-search__dlc-toggle">
-        <input
-          type="checkbox"
-          checked={includeDlc}
-          onChange={(event) => {
-            setIncludeDlc(event.target.checked);
-            setResults(null);
-          }}
-        />
+            {playStationPlatforms.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <span>Include DLC and add-ons after games</span>
-      </label>
+        <label className="field">
+          <span>Result type</span>
+
+          <select
+            value={scope}
+            onChange={(event) => {
+              setScope(event.target.value as IgdbSearchScope);
+              setResults(null);
+            }}
+          >
+            {igdbSearchScopes.map((option) => (
+              <option key={option} value={option}>
+                {igdbSearchScopeLabels[option]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Add selected games as</span>
+
+          <select
+            value={playStatus}
+            onChange={(event) =>
+              setPlayStatus(event.target.value as PlayStatus)
+            }
+          >
+            {playStatuses.map((status) => (
+              <option key={status} value={status}>
+                {playStatusLabels[status]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {errorMessage === null ? null : (
         <div className="notice notice--error" role="alert">
@@ -210,7 +255,9 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
 
                   <div className="igdb-result__labels">
                     {game.isDlc ? (
-                      <span className="igdb-result__dlc-badge">DLC</span>
+                      <span className="igdb-result__dlc-badge">
+                        {game.gameType.name ?? "Add-on"}
+                      </span>
                     ) : null}
 
                     {game.releaseDate === null ? null : (

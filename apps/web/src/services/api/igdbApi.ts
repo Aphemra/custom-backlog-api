@@ -2,6 +2,7 @@ import type {
   AddIgdbGameInput,
   IgdbEnrichmentResult,
   IgdbGameSearchResult,
+  IgdbSearchOptions,
 } from "../../domain/igdb";
 import type { LibraryGame } from "../../domain/libraryGame";
 import { requestJson } from "./apiClient";
@@ -17,14 +18,13 @@ interface GameResponse {
 export const igdbApi = {
   async search(
     query: string,
-    includeDlc: boolean,
-    includeEditions: boolean,
+    options: IgdbSearchOptions,
     signal?: AbortSignal,
   ): Promise<readonly IgdbGameSearchResult[]> {
     const response = await requestJson<SearchResponse>(
       `/api/integrations/igdb/games?query=${encodeURIComponent(query)}` +
-        `&includeDlc=${includeDlc}` +
-        `&includeEditions=${includeEditions}`,
+        `&platform=${encodeURIComponent(options.platform ?? "all")}` +
+        `&scope=${encodeURIComponent(options.scope)}`,
       { signal },
     );
 

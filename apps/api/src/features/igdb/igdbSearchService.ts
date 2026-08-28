@@ -1,6 +1,6 @@
 import { ImageCacheService } from "../imageCache/imageCacheService.js";
 import { IgdbClient } from "./igdbClient.js";
-import type { IgdbGameSearchResult } from "./igdbTypes.js";
+import type { IgdbGameSearchResult, IgdbSearchOptions } from "./igdbTypes.js";
 
 export class IgdbSearchService {
   constructor(
@@ -10,24 +10,16 @@ export class IgdbSearchService {
 
   async search(
     searchTerm: string,
-    includeDlc = false,
-    includeEditions = false,
+    options: IgdbSearchOptions,
   ): Promise<readonly IgdbGameSearchResult[]> {
-    const games = await this.client.searchGames(
-      searchTerm,
-      includeDlc,
-      includeEditions,
-    );
+    const games = await this.client.searchGames(searchTerm, options);
 
     return games.map((game) => {
+      const { coverImageId, payload: _payload, ...searchResult } = game;
+
       if (game.coverImageId === null) {
         return {
-          externalId: game.externalId,
-          title: game.title,
-          summary: game.summary,
-          platforms: game.platforms,
-          releaseDate: game.releaseDate,
-          isDlc: game.isDlc,
+          ...searchResult,
           cover: null,
         };
       }
@@ -39,12 +31,7 @@ export class IgdbSearchService {
       });
 
       return {
-        externalId: game.externalId,
-        title: game.title,
-        summary: game.summary,
-        platforms: game.platforms,
-        releaseDate: game.releaseDate,
-        isDlc: game.isDlc,
+        ...searchResult,
         cover: {
           imageId: image.id,
           url: `/api/images/${image.id}`,

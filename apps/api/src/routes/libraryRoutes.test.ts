@@ -58,6 +58,24 @@ test("exposes library CRUD through the local API", async () => {
 
     assert.equal(created.game.title, "Astro Bot");
 
+    const detailsResponse = await fetch(
+      `${baseUrl}/games/${created.game.id}/details`,
+    );
+
+    assert.equal(detailsResponse.status, 200);
+
+    const detailsPayload = (await detailsResponse.json()) as {
+      details: {
+        game: LibraryGame;
+        igdb: unknown;
+        playStation: unknown;
+      };
+    };
+
+    assert.equal(detailsPayload.details.game.id, created.game.id);
+    assert.equal(detailsPayload.details.igdb, null);
+    assert.equal(detailsPayload.details.playStation, null);
+
     const updateResponse = await fetch(`${baseUrl}/games/${created.game.id}`, {
       method: "PATCH",
       headers: {

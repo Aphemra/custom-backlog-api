@@ -88,6 +88,18 @@ test("atomically adds a dateless IGDB result as unreleased", async () => {
       ]);
     }
 
+    if (url === "https://api.igdb.com/v4/game_time_to_beats") {
+      return Response.json([
+        {
+          game_id: 250766,
+          hastily: 28_800,
+          normally: 43_200,
+          completely: 64_800,
+          count: 125,
+        },
+      ]);
+    }
+
     throw new Error(`Unexpected external request: ${url}`);
   };
 
@@ -211,6 +223,10 @@ test("atomically enriches an existing library game without duplicating it", asyn
           },
         },
       ]);
+    }
+
+    if (url === "https://api.igdb.com/v4/game_time_to_beats") {
+      return Response.json([]);
     }
 
     throw new Error(`Unexpected external request: ${url}`);

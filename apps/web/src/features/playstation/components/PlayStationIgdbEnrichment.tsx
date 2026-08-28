@@ -88,7 +88,12 @@ export function PlayStationIgdbEnrichment({
     setErrorMessage(null);
 
     try {
-      setResults(await igdbApi.search(normalizedQuery, false, includeEditions));
+      setResults(
+        await igdbApi.search(normalizedQuery, {
+          platform: candidate.platform,
+          scope: includeEditions ? "editions" : "games",
+        }),
+      );
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {

@@ -1,4 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { IgdbTimeToBeat } from "../igdb/igdbTypes.js";
+import { addPortableIgdbDetails } from "./portableIgdbDetails.js";
 import type {
   PortableCachedImage,
   PortableDataExportV3,
@@ -45,6 +47,11 @@ interface ExternalMetadataRow {
   release_date: string | null;
   payload_json: string;
   fetched_at: string;
+  has_igdb_details: number;
+  time_hastily_seconds: number | null;
+  time_normally_seconds: number | null;
+  time_completely_seconds: number | null;
+  time_submission_count: number | null;
 }
 
 interface MetadataLinkRow {
@@ -116,6 +123,31 @@ function readJson(value: string): PortableJsonValue {
   return JSON.parse(value) as PortableJsonValue;
 }
 
+function readMetadataPayload(row: ExternalMetadataRow): PortableJsonValue {
+  const payload = readJson(row.payload_json);
+
+  if (row.has_igdb_details !== 1) {
+    return payload;
+  }
+
+  const submissionCount = row.time_submission_count ?? 0;
+
+  const timeToBeat: IgdbTimeToBeat | null =
+    row.time_hastily_seconds === null &&
+    row.time_normally_seconds === null &&
+    row.time_completely_seconds === null &&
+    submissionCount === 0
+      ? null
+      : {
+          hastilySeconds: row.time_hastily_seconds,
+          normallySeconds: row.time_normally_seconds,
+          completelySeconds: row.time_completely_seconds,
+          submissionCount,
+        };
+
+  return addPortableIgdbDetails(payload, timeToBeat);
+}
+
 export function readPortableV3IntegrationData(
   database: DatabaseSync,
 ): IntegrationData {
@@ -144,16 +176,28 @@ export function readPortableV3IntegrationData(
     .prepare(
       `
         SELECT
-          id,
-          provider,
-          external_id,
-          title,
-          cover_url,
-          release_date,
-          payload_json,
-          fetched_at
+          external_game_metadata.id,
+          external_game_metadata.provider,
+          external_game_metadata.external_id,
+          external_game_metadata.title,
+          external_game_metadata.cover_url,
+          external_game_metadata.release_date,
+          external_game_metadata.payload_json,
+          external_game_metadata.fetched_at,
+          CASE
+            WHEN igdb_game_details.metadata_id IS NULL THEN 0
+            ELSE 1
+          END AS has_igdb_details,
+          igdb_game_details.time_hastily_seconds,
+          igdb_game_details.time_normally_seconds,
+          igdb_game_details.time_completely_seconds,
+          igdb_game_details.time_submission_count
         FROM external_game_metadata
-        ORDER BY provider ASC, external_id ASC
+        LEFT JOIN igdb_game_details
+          ON igdb_game_details.metadata_id = external_game_metadata.id
+        ORDER BY
+          external_game_metadata.provider ASC,
+          external_game_metadata.external_id ASC
       `,
     )
     .all() as unknown as ExternalMetadataRow[];
@@ -270,7 +314,7 @@ export function readPortableV3IntegrationData(
       title: row.title,
       coverUrl: row.cover_url,
       releaseDate: row.release_date,
-      payload: readJson(row.payload_json),
+      payload: readMetadataPayload(row),
       fetchedAt: normalizeTimestamp(row.fetched_at),
     }));
 

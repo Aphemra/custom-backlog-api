@@ -29,6 +29,7 @@ import {
   insertPortableV3IntegrationData,
   readPortableV3IntegrationData,
 } from "./portableDataV3Storage.js";
+import { restorePortableIgdbDetails } from "./portableIgdbDetails.js";
 import type {
   PortableDataExportV4,
   PortableLibraryGameV4,
@@ -575,6 +576,11 @@ export async function importPortableData(
 
     if (portableData.formatVersion === 3 || portableData.formatVersion === 4) {
       insertPortableV3IntegrationData(database, portableData.data);
+
+      restorePortableIgdbDetails(
+        database,
+        portableData.data.externalGameMetadata,
+      );
     }
 
     database.exec("COMMIT");

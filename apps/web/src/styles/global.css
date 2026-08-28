@@ -1786,14 +1786,11 @@ textarea:focus-visible {
   margin-top: 1rem;
 }
 
-.igdb-search__status {
-  width: min(100%, 16rem);
+.igdb-search__filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
   margin-top: 0.75rem;
-}
-
-.igdb-search__dlc-toggle {
-  width: fit-content;
-  margin-top: 0.8rem;
 }
 
 .igdb-search__message {
@@ -2765,6 +2762,10 @@ textarea:focus-visible {
 
   .library-heading__actions .button {
     flex: 1;
+  }
+
+  .igdb-search__filters {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { Router } from "express";
 import { HttpError } from "../errors/httpError.js";
 import { ImageCacheRepository } from "../features/imageCache/imageCacheRepository.js";
+import { isImageRevalidationDue } from "../features/imageCache/imageCacheTypes.js";
 import {
   ImageCacheService,
   type ImageFetch,
@@ -61,6 +62,22 @@ export function createImageRoutes(
           "image_not_cached",
           "The local image copy is missing.",
         );
+      }
+
+      if (hasSafeLocalCopy && isImageRevalidationDue(image)) {
+        const staleImageId = image.id;
+
+        response.once("finish", () => {
+          void service.refresh(staleImageId).catch(() => undefined);
+        });
+      }
+
+      if (hasSafeLocalCopy && isImageRevalidationDue(image)) {
+        const staleImageId = image.id;
+
+        response.once("finish", () => {
+          void service.refresh(staleImageId).catch(() => undefined);
+        });
       }
 
       response.setHeader("cache-control", "private, max-age=3600");

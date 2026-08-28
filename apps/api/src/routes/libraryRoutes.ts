@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
+import { LibraryGameDetailsRepository } from "../features/library/libraryGameDetailsRepository.js";
 import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 import {
   parseCreateLibraryGameInput,
@@ -50,6 +51,7 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
   const libraryRoutes = Router();
 
   const repository = new LibraryGameRepository(database);
+  const detailsRepository = new LibraryGameDetailsRepository(database);
 
   libraryRoutes.get("/games", (request, response) => {
     const includeHidden = readIncludeHidden(request.query.includeHidden);
@@ -79,6 +81,14 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
     const game = requireGame(repository.findById(readGameId(request)));
 
     response.json({ game });
+  });
+
+  libraryRoutes.get("/games/:gameId/details", (request, response) => {
+    const details = requireGame(
+      detailsRepository.findById(readGameId(request)),
+    );
+
+    response.json({ details });
   });
 
   libraryRoutes.post("/games", (request, response) => {

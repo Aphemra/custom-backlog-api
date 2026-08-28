@@ -3,6 +3,7 @@ import type {
   LibraryGameWithArtwork,
   UpdateLibraryGameInput,
 } from "../../domain/libraryGame";
+import type { LibraryGameDetails } from "../../domain/libraryGameDetails";
 import { requestJson, requestVoid } from "./apiClient";
 
 interface GameResponse {
@@ -13,6 +14,10 @@ interface GamesResponse {
   readonly games: readonly LibraryGameWithArtwork[];
 }
 
+interface GameDetailsResponse {
+  readonly details: LibraryGameDetails;
+}
+
 export const libraryApi = {
   async list(signal?: AbortSignal): Promise<readonly LibraryGameWithArtwork[]> {
     const response = await requestJson<GamesResponse>(
@@ -21,6 +26,18 @@ export const libraryApi = {
     );
 
     return response.games;
+  },
+
+  async getDetails(
+    gameId: string,
+    signal?: AbortSignal,
+  ): Promise<LibraryGameDetails> {
+    const response = await requestJson<GameDetailsResponse>(
+      `/api/library/games/${encodeURIComponent(gameId)}/details`,
+      { signal },
+    );
+
+    return response.details;
   },
 
   async create(input: CreateLibraryGameInput): Promise<LibraryGameWithArtwork> {

@@ -82,7 +82,12 @@ export class ImageCacheRepository {
           .prepare(
             `
             UPDATE cached_images
-            SET source_url = ?, updated_at = ?
+            SET
+              source_url = ?,
+              etag = NULL,
+              last_modified = NULL,
+              last_checked_at = NULL,
+              updated_at = ?
             WHERE id = ?
           `,
           )

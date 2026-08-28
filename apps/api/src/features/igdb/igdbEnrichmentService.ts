@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
 import { ImageCacheService } from "../imageCache/imageCacheService.js";
@@ -8,15 +7,12 @@ import type {
   PlayStationPlatform,
 } from "../library/libraryGameTypes.js";
 import { IgdbClient } from "./igdbClient.js";
-import { createIgdbCoverUrl } from "./igdbSearchService.js";
+import { IgdbImageRegistrationService } from "./igdbImageRegistrationService.js";
+import { IgdbMetadataRepository } from "./igdbMetadataRepository.js";
 
 interface LibraryGameRow {
   id: string;
   platform: PlayStationPlatform;
-}
-
-interface MetadataIdRow {
-  id: string;
 }
 
 interface ExistingMetadataLinkRow {
@@ -39,11 +35,20 @@ export interface IgdbEnrichmentResult {
 }
 
 export class IgdbEnrichmentService {
+  private readonly metadataRepository: IgdbMetadataRepository;
+  private readonly imageRegistration: IgdbImageRegistrationService;
+
   constructor(
     private readonly database: DatabaseSync,
     private readonly client: IgdbClient,
     private readonly imageCache: ImageCacheService,
-  ) {}
+  ) {
+    this.metadataRepository = new IgdbMetadataRepository(database);
+    this.imageRegistration = new IgdbImageRegistrationService(
+      database,
+      imageCache,
+    );
+  }
 
   async enrichExistingGame(
     gameId: string,
@@ -113,73 +118,10 @@ export class IgdbEnrichmentService {
     try {
       const timestamp = new Date().toISOString();
 
-      const coverUrl =
-        igdbGame.coverImageId === null
-          ? null
-          : createIgdbCoverUrl(igdbGame.coverImageId);
-
-      const existingMetadata = this.database
-        .prepare(
-          `
-          SELECT id
-          FROM external_game_metadata
-          WHERE
-            provider = 'igdb'
-            AND external_id = ?
-        `,
-        )
-        .get(externalId) as unknown as MetadataIdRow | undefined;
-
-      const metadataId = existingMetadata?.id ?? randomUUID();
-
-      if (existingMetadata === undefined) {
-        this.database
-          .prepare(
-            `
-            INSERT INTO external_game_metadata (
-              id,
-              provider,
-              external_id,
-              title,
-              cover_url,
-              release_date,
-              payload_json,
-              fetched_at
-            ) VALUES (?, 'igdb', ?, ?, ?, ?, ?, ?)
-          `,
-          )
-          .run(
-            metadataId,
-            externalId,
-            igdbGame.title,
-            coverUrl,
-            igdbGame.releaseDate,
-            JSON.stringify(igdbGame.payload),
-            timestamp,
-          );
-      } else {
-        this.database
-          .prepare(
-            `
-            UPDATE external_game_metadata
-            SET
-              title = ?,
-              cover_url = ?,
-              release_date = ?,
-              payload_json = ?,
-              fetched_at = ?
-            WHERE id = ?
-          `,
-          )
-          .run(
-            igdbGame.title,
-            coverUrl,
-            igdbGame.releaseDate,
-            JSON.stringify(igdbGame.payload),
-            timestamp,
-            metadataId,
-          );
-      }
+      const { metadataId } = this.metadataRepository.upsert(
+        igdbGame,
+        timestamp,
+      );
 
       this.database
         .prepare(
@@ -193,34 +135,12 @@ export class IgdbEnrichmentService {
         )
         .run(gameId, metadataId, timestamp);
 
-      let cover: IgdbEnrichmentResult["metadata"]["cover"] = null;
-
-      if (igdbGame.coverImageId !== null && coverUrl !== null) {
-        const image = this.imageCache.register({
-          provider: "igdb",
-          sourceKey: `cover:${igdbGame.coverImageId}`,
-          sourceUrl: coverUrl,
-        });
-
-        this.database
-          .prepare(
-            `
-            INSERT INTO library_game_images (
-              game_id,
-              image_id,
-              role,
-              sort_order,
-              linked_at
-            ) VALUES (?, ?, 'cover', 0, ?)
-          `,
-          )
-          .run(gameId, image.id, timestamp);
-
-        cover = {
-          imageId: image.id,
-          url: `/api/images/${image.id}`,
-        };
-      }
+      const { cover } = this.imageRegistration.replaceForGame(
+        gameId,
+        metadataId,
+        igdbGame,
+        timestamp,
+      );
 
       this.database.exec("COMMIT");
 

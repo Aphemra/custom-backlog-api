@@ -70,9 +70,14 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
       assert.equal(headers.get("client-id"), "test-client");
       assert.equal(headers.get("authorization"), "Bearer test-access-token");
       assert.match(query, /search "Astro";/);
-      assert.match(query, /platforms = \(9,48,167\)/);
 
-      if (query.includes("game_type = (1,2,13,14)")) {
+      if (requestCounts.games === 1) {
+        assert.match(query, /platforms = \(9,48,167\)/);
+      } else {
+        assert.match(query, /platforms = \(167\)/);
+      }
+
+      if (query.includes("game_type = (1)")) {
         return Response.json([
           {
             id: 350766,
@@ -169,7 +174,8 @@ test("searches IGDB and lazily stores its cover in the local cache", async () =>
     });
 
     const searchWithDlcResponse = await fetch(
-      `${baseUrl}/api/integrations/igdb/games?query=Astro&includeDlc=true`,
+      `${baseUrl}/api/integrations/igdb/games?query=Astro` +
+        "&platform=PS5&scope=dlc",
     );
 
     assert.equal(searchWithDlcResponse.status, 200);
@@ -222,6 +228,32 @@ test("reports missing IGDB credentials without making an external request", asyn
     await once(server, "listening");
 
     const address = server.address() as AddressInfo;
+
+    const invalidPlatformResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/integrations/igdb/games` +
+        "?query=Astro&platform=Vita",
+    );
+
+    assert.equal(invalidPlatformResponse.status, 400);
+
+    assert.deepEqual(await invalidPlatformResponse.json(), {
+      ok: false,
+      error: "invalid_igdb_platform",
+      message: "platform must be all, PS3, PS4, or PS5.",
+    });
+
+    const invalidScopeResponse = await fetch(
+      `http://127.0.0.1:${address.port}/api/integrations/igdb/games` +
+        "?query=Astro&scope=mods",
+    );
+
+    assert.equal(invalidScopeResponse.status, 400);
+
+    assert.deepEqual(await invalidScopeResponse.json(), {
+      ok: false,
+      error: "invalid_igdb_search_scope",
+      message: "scope is not a supported IGDB search scope.",
+    });
 
     const response = await fetch(
       `http://127.0.0.1:${address.port}/api/integrations/igdb/games?query=Astro`,

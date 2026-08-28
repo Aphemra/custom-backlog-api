@@ -168,3 +168,100 @@ test("keeps the existing local copy when a refresh fails validation", async () =
     await rm(cacheDirectory, { recursive: true, force: true });
   }
 });
+
+test("coalesces concurrent refreshes for the same image", async () => {
+  const database = openDatabase(":memory:");
+  const cacheDirectory = await mkdtemp(join(tmpdir(), "backlog-images-"));
+  let releaseRequest: (() => void) | undefined;
+  let requestCount = 0;
+
+  const requestGate = new Promise<void>((resolve) => {
+    releaseRequest = resolve;
+  });
+
+  const repository = new ImageCacheRepository(database);
+
+  const service = new ImageCacheService(
+    repository,
+    cacheDirectory,
+    async () => {
+      requestCount += 1;
+
+      await requestGate;
+
+      return new Response(pngBytes, {
+        status: 200,
+        headers: {
+          "content-type": "image/png",
+        },
+      });
+    },
+  );
+
+  try {
+    const registered = service.register({
+      provider: "igdb",
+      sourceKey: "cover:co-concurrent",
+      sourceUrl:
+        "https://images.igdb.com/igdb/image/upload/t_cover_big/co-concurrent.png",
+    });
+
+    const firstRefresh = service.refresh(registered.id);
+    const secondRefresh = service.refresh(registered.id);
+
+    assert.equal(firstRefresh, secondRefresh);
+
+    releaseRequest?.();
+
+    const [firstResult, secondResult] = await Promise.all([
+      firstRefresh,
+      secondRefresh,
+    ]);
+
+    assert.equal(requestCount, 1);
+    assert.equal(firstResult.image.id, registered.id);
+    assert.equal(secondResult.image.id, registered.id);
+  } finally {
+    database.close();
+    await rm(cacheDirectory, { recursive: true, force: true });
+  }
+});
+
+test("invalidates provider validators when a registered source URL changes", () => {
+  const database = openDatabase(":memory:");
+  const repository = new ImageCacheRepository(database);
+
+  try {
+    const registered = repository.register({
+      provider: "igdb",
+      sourceKey: "cover:co-resized",
+      sourceUrl:
+        "https://images.igdb.com/igdb/image/upload/t_cover_big/co-resized.jpg",
+    });
+
+    repository.markStored({
+      imageId: registered.id,
+      fileName: "existing-cover.jpg",
+      contentType: "image/jpeg",
+      byteSize: 3,
+      etag: '"old-cover"',
+      lastModified: "Wed, 26 Aug 2026 12:00:00 GMT",
+      timestamp: "2026-08-26T12:00:00.000Z",
+    });
+
+    const updated = repository.register({
+      provider: "igdb",
+      sourceKey: "cover:co-resized",
+      sourceUrl:
+        "https://images.igdb.com/igdb/image/upload/t_1080p/co-resized.jpg",
+    });
+
+    assert.equal(updated.id, registered.id);
+    assert.equal(updated.fileName, "existing-cover.jpg");
+    assert.equal(updated.etag, null);
+    assert.equal(updated.lastModified, null);
+    assert.equal(updated.lastCheckedAt, null);
+  } finally {
+    database.close();
+  }
+});

@@ -189,6 +189,11 @@ async function readLimitedBody(response: Response): Promise<Uint8Array> {
 export class ImageCacheService {
   private refreshQueue: Promise<void> = Promise.resolve();
 
+  private readonly activeRefreshes = new Map<
+    string,
+    Promise<ImageRefreshResult>
+  >();
+
   constructor(
     private readonly repository: ImageCacheRepository,
     private readonly cacheDirectory: string,
@@ -219,13 +224,30 @@ export class ImageCacheService {
   }
 
   refresh(imageId: string): Promise<ImageRefreshResult> {
+    const activeRefresh = this.activeRefreshes.get(imageId);
+
+    if (activeRefresh !== undefined) {
+      return activeRefresh;
+    }
+
     const refreshResult = this.refreshQueue.then(() =>
       this.refreshImmediately(imageId),
     );
 
+    this.activeRefreshes.set(imageId, refreshResult);
+
     this.refreshQueue = refreshResult.then(
       () => undefined,
       () => undefined,
+    );
+
+    void refreshResult.then(
+      () => {
+        this.activeRefreshes.delete(imageId);
+      },
+      () => {
+        this.activeRefreshes.delete(imageId);
+      },
     );
 
     return refreshResult;

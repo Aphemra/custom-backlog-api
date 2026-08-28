@@ -8,6 +8,8 @@ import { playStationProfileSnapshotsMigration } from "./006PlayStationProfileSna
 import { playStationTrophyStorageMigration } from "./007PlayStationTrophyStorage.js";
 import { playStationTrophyAccountScopeMigration } from "./008PlayStationTrophyAccountScope.js";
 import { playStationTrophyAvailabilityMigration } from "./009PlayStationTrophyAvailability.js";
+import { igdbGameDetailsMigration } from "./010IgdbGameDetails.js";
+import { igdbMetadataImagesMigration } from "./011IgdbMetadataImages.js";
 
 export const migrations: readonly Migration[] = [
   initialSchemaMigration,
@@ -19,4 +21,6 @@ export const migrations: readonly Migration[] = [
   playStationTrophyStorageMigration,
   playStationTrophyAccountScopeMigration,
   playStationTrophyAvailabilityMigration,
+  igdbGameDetailsMigration,
+  igdbMetadataImagesMigration,
 ];

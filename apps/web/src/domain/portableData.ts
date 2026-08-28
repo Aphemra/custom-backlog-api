@@ -8,6 +8,7 @@ export interface PortableDataCounts {
   readonly trophySnapshots: number;
   readonly trophyAlerts: number;
   readonly cachedImages: number;
+  readonly gameResources: number;
 }
 
 export interface PortableImportPreview {

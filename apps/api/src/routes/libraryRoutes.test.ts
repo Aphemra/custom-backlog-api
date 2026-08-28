@@ -5,13 +5,18 @@ import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
 import type { LibraryGame } from "../features/library/libraryGameTypes.js";
+import type { GameResource } from "../features/resources/gameResourceTypes.js";
 
 interface GameResponse {
   game: LibraryGame;
 }
 
+interface LibraryGameWithResources extends LibraryGame {
+  resources: GameResource[];
+}
+
 interface GamesResponse {
-  games: LibraryGame[];
+  games: LibraryGameWithResources[];
 }
 
 async function closeServer(
@@ -76,6 +81,23 @@ test("exposes library CRUD through the local API", async () => {
     assert.equal(detailsPayload.details.igdb, null);
     assert.equal(detailsPayload.details.playStation, null);
 
+    const createResourceResponse = await fetch(
+      `${baseUrl}/games/${created.game.id}/resources`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          resourceType: "guide",
+          url: "https://www.powerpyx.com/astro-bot-trophy-guide-roadmap/",
+          label: "Trophy guide",
+        }),
+      },
+    );
+
+    assert.equal(createResourceResponse.status, 201);
+
     const updateResponse = await fetch(`${baseUrl}/games/${created.game.id}`, {
       method: "PATCH",
       headers: {
@@ -135,6 +157,10 @@ test("exposes library CRUD through the local API", async () => {
     assert.equal(listed.games.length, 1);
 
     assert.equal(listed.games[0]?.id, created.game.id);
+    assert.equal(listed.games[0]?.resources.length, 1);
+    assert.equal(listed.games[0]?.resources[0]?.resourceType, "guide");
+    assert.equal(listed.games[0]?.resources[0]?.provider, "powerpyx");
+    assert.equal(listed.games[0]?.resources[0]?.label, "Trophy guide");
 
     const invalidResponse = await fetch(`${baseUrl}/games`, {
       method: "POST",

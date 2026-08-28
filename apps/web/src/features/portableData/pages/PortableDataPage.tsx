@@ -44,6 +44,7 @@ function CountComparison({ current, incoming }: CountComparisonProps) {
     ["Trophy snapshots", current.trophySnapshots, incoming.trophySnapshots],
     ["Trophy alerts", current.trophyAlerts, incoming.trophyAlerts],
     ["Cached-image records", current.cachedImages, incoming.cachedImages],
+    ["Game resources", current.gameResources, incoming.gameResources],
   ] as const;
 
   return (
@@ -206,7 +207,8 @@ export function PortableDataPage() {
             <p>
               Downloads library games, archive states, manual ordering,
               Collections, saved views, PlayStation links, trophy history,
-              alerts, metadata, and rebuildable image-cache records as JSON.
+              alerts, metadata, game resources, and rebuildable image-cache
+              records as JSON.
             </p>
           </div>
 
@@ -310,7 +312,7 @@ export function PortableDataPage() {
             <span>
               I understand that the incoming data will replace my current
               library, Collections, saved views, metadata, trophy history,
-              alerts, and image-cache records.
+              alerts, game resources, and image-cache records.
             </span>
           </label>
 

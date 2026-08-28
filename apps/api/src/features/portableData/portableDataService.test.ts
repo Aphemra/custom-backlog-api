@@ -8,6 +8,7 @@ import { openDatabase } from "../../database/database.js";
 import { HttpError } from "../../errors/httpError.js";
 import { CollectionRepository } from "../collections/collectionRepository.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
+import { GameResourceRepository } from "../resources/gameResourceRepository.js";
 import { createCompatiblePursuitStatus } from "../library/libraryGameTypes.js";
 import type { PortableLibraryGame } from "./portableDataTypes.js";
 import type { PortableLibraryGameV4 } from "./portableDataV4Types.js";
@@ -74,6 +75,19 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       firstGame.id,
     ]);
 
+    const sourceResources = new GameResourceRepository(source);
+
+    sourceResources.create(firstGame.id, {
+      resourceType: "trophy_page",
+      url: "https://psnprofiles.com/trophies/12345-astro-bot",
+    });
+
+    sourceResources.create(firstGame.id, {
+      resourceType: "guide",
+      url: "https://www.powerpyx.com/astro-bot-trophy-guide-roadmap/",
+      label: "PowerPyx guide",
+    });
+
     const sourceViews = new SavedViewRepository(source);
 
     sourceViews.create({
@@ -113,6 +127,7 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       trophySnapshots: 0,
       trophyAlerts: 0,
       cachedImages: 0,
+      gameResources: 2,
     });
 
     assert.deepEqual(preview.current, {
@@ -125,6 +140,7 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       trophySnapshots: 0,
       trophyAlerts: 0,
       cachedImages: 0,
+      gameResources: 0,
     });
 
     const backupDirectory = join(temporaryDirectory, "backups");

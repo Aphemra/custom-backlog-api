@@ -1,5 +1,6 @@
 import type {
   CreateLibraryGameInput,
+  LibraryGameListItem,
   LibraryGameWithArtwork,
   UpdateLibraryGameInput,
 } from "../../domain/libraryGame";
@@ -11,7 +12,7 @@ interface GameResponse {
 }
 
 interface GamesResponse {
-  readonly games: readonly LibraryGameWithArtwork[];
+  readonly games: readonly LibraryGameListItem[];
 }
 
 interface GameDetailsResponse {
@@ -19,7 +20,7 @@ interface GameDetailsResponse {
 }
 
 export const libraryApi = {
-  async list(signal?: AbortSignal): Promise<readonly LibraryGameWithArtwork[]> {
+  async list(signal?: AbortSignal): Promise<readonly LibraryGameListItem[]> {
     const response = await requestJson<GamesResponse>(
       "/api/library/games?includeHidden=true",
       { signal },
@@ -66,7 +67,7 @@ export const libraryApi = {
 
   async reorder(
     orderedGameIds: readonly string[],
-  ): Promise<readonly LibraryGameWithArtwork[]> {
+  ): Promise<readonly LibraryGameListItem[]> {
     const response = await requestJson<GamesResponse>(
       "/api/library/games/order",
       {

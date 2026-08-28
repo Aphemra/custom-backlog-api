@@ -1,3 +1,5 @@
+import type { GameResource } from "./gameResource";
+
 export const playStationPlatforms = ["PS3", "PS4", "PS5"] as const;
 
 export type PlayStationPlatform = (typeof playStationPlatforms)[number];
@@ -96,6 +98,10 @@ export interface LibraryGameArtwork {
 
 export interface LibraryGameWithArtwork extends LibraryGameWithTrophySummary {
   readonly artwork: LibraryGameArtwork | null;
+}
+
+export interface LibraryGameListItem extends LibraryGameWithArtwork {
+  readonly resources: readonly GameResource[];
 }
 
 export interface CreateLibraryGameInput {

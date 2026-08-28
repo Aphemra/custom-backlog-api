@@ -8,6 +8,7 @@ import {
   type PlayStationPlatform,
   type PlayStatus,
 } from "../../../domain/libraryGame";
+import { GameResourceEditor } from "./GameResourceEditor";
 import { LibraryTrophyAvailability } from "./LibraryTrophyAvailability";
 
 interface LibraryGameFormProps {
@@ -132,7 +133,10 @@ export function LibraryGameForm({
       </label>
 
       {initialGame === undefined ? null : (
-        <LibraryTrophyAvailability gameId={initialGame.id} />
+        <>
+          <LibraryTrophyAvailability gameId={initialGame.id} />
+          <GameResourceEditor gameId={initialGame.id} />
+        </>
       )}
 
       <label className="field field--wide">

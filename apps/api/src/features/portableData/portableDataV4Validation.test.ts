@@ -20,7 +20,26 @@ test("validates Play Status, unobtainable state, and hidden state in v4", () => 
 
     games.hide(game.id);
 
-    const portableData = createPortableDataExport(database);
+    const currentExport = createPortableDataExport(database);
+
+    const portableData = {
+      format: currentExport.format,
+      formatVersion: 4 as const,
+      exportedAt: currentExport.exportedAt,
+
+      data: {
+        libraryGames: currentExport.data.libraryGames,
+        collections: currentExport.data.collections,
+        savedViews: currentExport.data.savedViews,
+        playstationGameLinks: currentExport.data.playstationGameLinks,
+        externalGameMetadata: currentExport.data.externalGameMetadata,
+        gameMetadataLinks: currentExport.data.gameMetadataLinks,
+        trophySnapshots: currentExport.data.trophySnapshots,
+        trophyAlerts: currentExport.data.trophyAlerts,
+        cachedImages: currentExport.data.cachedImages,
+        libraryGameImages: currentExport.data.libraryGameImages,
+      },
+    };
 
     const parsed = parsePortableDataV4(portableData);
 

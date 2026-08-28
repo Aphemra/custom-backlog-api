@@ -1,11 +1,12 @@
 import { useState } from "react";
 import {
   playStatusLabels,
-  type LibraryGameWithArtwork,
+  type LibraryGameListItem,
 } from "../../../domain/libraryGame";
+import { GameResourceLinks } from "./GameResourceLinks";
 
 interface LibraryGameRowProps {
-  readonly game: LibraryGameWithArtwork;
+  readonly game: LibraryGameListItem;
   readonly position: number | null;
   readonly canMoveUp: boolean;
   readonly canMoveDown: boolean;
@@ -166,6 +167,8 @@ export function LibraryGameRow({
             </>
           )}
         </div>
+
+        <GameResourceLinks gameTitle={game.title} resources={game.resources} />
 
         {game.notes === null ? null : (
           <p className="game-row__notes">{game.notes}</p>

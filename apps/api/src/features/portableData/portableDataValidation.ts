@@ -19,6 +19,7 @@ import {
 } from "./portableDataTypes.js";
 import { parsePortableDataV3 } from "./portableDataV3Validation.js";
 import { parsePortableDataV4 } from "./portableDataV4Validation.js";
+import { parsePortableDataV5 } from "./portableDataV5Validation.js";
 
 const MAX_ITEMS = 50_000;
 
@@ -354,6 +355,10 @@ export function parsePortableDataExport(value: unknown): PortableDataExport {
 
   if (root.format !== PORTABLE_DATA_FORMAT) {
     invalid(`format must be ${PORTABLE_DATA_FORMAT}.`);
+  }
+
+  if (root.formatVersion === 5) {
+    return parsePortableDataV5(value);
   }
 
   if (root.formatVersion === 4) {

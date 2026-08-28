@@ -4,6 +4,7 @@ import { openDatabase } from "../../database/database.js";
 import { HttpError } from "../../errors/httpError.js";
 import { CollectionRepository } from "../collections/collectionRepository.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
+import { GameResourceRepository } from "../resources/gameResourceRepository.js";
 import { createPortableDataExport } from "./portableDataService.js";
 import { parsePortableDataExport } from "./portableDataValidation.js";
 
@@ -26,13 +27,18 @@ function createValidExport() {
 
     collections.replaceGames(collection.id, [game.id]);
 
+    new GameResourceRepository(database).create(game.id, {
+      resourceType: "guide",
+      url: "https://www.powerpyx.com/astro-bot-trophy-guide-roadmap/",
+    });
+
     return createPortableDataExport(database);
   } finally {
     database.close();
   }
 }
 
-test("accepts a complete version-four portable export", () => {
+test("accepts a complete version-five portable export", () => {
   const portableData = createValidExport();
 
   assert.deepEqual(parsePortableDataExport(portableData), portableData);
@@ -45,7 +51,7 @@ test("rejects unsupported versions and broken collection references", () => {
     formatVersion: number;
   };
 
-  unsupportedVersion.formatVersion = 5;
+  unsupportedVersion.formatVersion = 6;
 
   assert.throws(
     () => parsePortableDataExport(unsupportedVersion),
@@ -66,6 +72,28 @@ test("rejects unsupported versions and broken collection references", () => {
 
   assert.throws(
     () => parsePortableDataExport(brokenReference),
+    (error: unknown) =>
+      error instanceof HttpError && error.code === "invalid_portable_data",
+  );
+
+  const brokenResourceReference = structuredClone(createValidExport());
+
+  const firstResource = brokenResourceReference.data.gameResources[0];
+
+  assert.notEqual(firstResource, undefined);
+
+  if (firstResource === undefined) {
+    throw new Error("Expected the portable fixture to contain a resource.");
+  }
+
+  (
+    firstResource as {
+      gameId: string;
+    }
+  ).gameId = "missing-game";
+
+  assert.throws(
+    () => parsePortableDataExport(brokenResourceReference),
     (error: unknown) =>
       error instanceof HttpError && error.code === "invalid_portable_data",
   );

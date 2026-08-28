@@ -23,8 +23,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 11,
-      availableMigrationCount: 11,
+      schemaVersion: 12,
+      availableMigrationCount: 12,
     });
 
     const row = database
@@ -126,6 +126,156 @@ test("enforces platform and trophy-count constraints", () => {
           0,
         );
     });
+  } finally {
+    database.close();
+  }
+});
+
+test("stores ordered game resources with constrained provider combinations", () => {
+  const database = openDatabase(":memory:");
+  const timestamp = "2026-08-28T12:00:00.000Z";
+
+  try {
+    database
+      .prepare(
+        `
+          INSERT INTO library_games (
+            id,
+            title,
+            sort_title,
+            platform,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "resource-game",
+        "Astro Bot",
+        "astro bot",
+        "PS5",
+        timestamp,
+        timestamp,
+      );
+
+    const insertResource = database.prepare(`
+      INSERT INTO game_resources (
+        id,
+        game_id,
+        resource_type,
+        provider,
+        url,
+        label,
+        sort_order,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertResource.run(
+      "trophy-page",
+      "resource-game",
+      "trophy_page",
+      "psnprofiles",
+      "https://psnprofiles.com/trophies/12345-astro-bot",
+      null,
+      1_000,
+      timestamp,
+      timestamp,
+    );
+
+    insertResource.run(
+      "powerpyx-guide",
+      "resource-game",
+      "guide",
+      "powerpyx",
+      "https://www.powerpyx.com/astro-bot-trophy-guide-roadmap/",
+      "Trophy guide",
+      2_000,
+      timestamp,
+      timestamp,
+    );
+
+    insertResource.run(
+      "mapgenie-map",
+      "resource-game",
+      "interactive_map",
+      "mapgenie",
+      "https://mapgenie.io/astro-bot/maps/example",
+      "Interactive map",
+      3_000,
+      timestamp,
+      timestamp,
+    );
+
+    assert.throws(() => {
+      insertResource.run(
+        "duplicate-trophy-page",
+        "resource-game",
+        "trophy_page",
+        "psnprofiles",
+        "https://psnprofiles.com/trophies/67890-astro-bot",
+        null,
+        4_000,
+        timestamp,
+        timestamp,
+      );
+    });
+
+    assert.throws(() => {
+      insertResource.run(
+        "invalid-guide-provider",
+        "resource-game",
+        "guide",
+        "mapgenie",
+        "https://mapgenie.io/astro-bot/guides/example",
+        null,
+        4_000,
+        timestamp,
+        timestamp,
+      );
+    });
+
+    assert.throws(() => {
+      insertResource.run(
+        "unsafe-resource",
+        "resource-game",
+        "guide",
+        "other",
+        "http://example.com/unsafe-guide",
+        null,
+        4_000,
+        timestamp,
+        timestamp,
+      );
+    });
+
+    const storedCount = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM game_resources
+          WHERE game_id = ?
+        `,
+      )
+      .get("resource-game") as unknown as CountRow;
+
+    assert.equal(storedCount.count, 3);
+
+    database
+      .prepare("DELETE FROM library_games WHERE id = ?")
+      .run("resource-game");
+
+    const remainingCount = database
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM game_resources
+        `,
+      )
+      .get() as unknown as CountRow;
+
+    assert.equal(remainingCount.count, 0);
   } finally {
     database.close();
   }
@@ -517,15 +667,15 @@ test("upgrades an existing version-one database without replacing it", () => {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
       schemaVersion: 1,
-      availableMigrationCount: 11,
+      availableMigrationCount: 12,
     });
 
     runMigrations(database);
 
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 11,
-      availableMigrationCount: 11,
+      schemaVersion: 12,
+      availableMigrationCount: 12,
     });
 
     const row = database
@@ -541,13 +691,14 @@ test("upgrades an existing version-one database without replacing it", () => {
               'playstation_profile_snapshots',
               'playstation_trophy_sets',
               'playstation_trophy_groups',
-              'playstation_trophies'
+              'playstation_trophies',
+              'game_resources'
             )
         `,
       )
       .get() as unknown as CountRow;
 
-    assert.equal(row.count, 7);
+    assert.equal(row.count, 8);
   } finally {
     database.close();
   }
@@ -980,7 +1131,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 11);
+      assert.equal(row.count, 12);
     } finally {
       restoredDatabase.close();
     }

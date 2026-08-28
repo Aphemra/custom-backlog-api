@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import type {
   CollectionDetail,
   CollectionInput,
@@ -33,6 +34,9 @@ export function CollectionsPage() {
     useState<CollectionDetail | null>(null);
 
   const [editingCollection, setEditingCollection] =
+    useState<CollectionSummary | null>(null);
+
+  const [collectionPendingDeletion, setCollectionPendingDeletion] =
     useState<CollectionSummary | null>(null);
 
   const [isAdding, setIsAdding] = useState(false);
@@ -230,14 +234,6 @@ export function CollectionsPage() {
   }
 
   async function handleDelete(collection: CollectionSummary): Promise<void> {
-    const confirmed = window.confirm(
-      `Delete the ${collection.name} Collection? Its games will remain in your library.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     const succeeded = await performMutation(
       collection.id,
       `${collection.name} was deleted. Its games were not changed.`,
@@ -245,6 +241,8 @@ export function CollectionsPage() {
     );
 
     if (succeeded) {
+      setCollectionPendingDeletion(null);
+
       if (managedCollection?.id === collection.id) {
         setManagedCollection(null);
       }
@@ -342,6 +340,28 @@ export function CollectionsPage() {
         </div>
       ) : null}
 
+      <ConfirmDialog
+        open={collectionPendingDeletion !== null}
+        title="Delete Collection?"
+        description={
+          <p>
+            Delete{" "}
+            <strong>
+              {collectionPendingDeletion?.name ?? "this Collection"}
+            </strong>
+            ? Games inside it will remain in your Library.
+          </p>
+        }
+        confirmLabel="Delete Collection"
+        busy={busyKey === collectionPendingDeletion?.id}
+        onCancel={() => setCollectionPendingDeletion(null)}
+        onConfirm={() => {
+          if (collectionPendingDeletion !== null) {
+            void handleDelete(collectionPendingDeletion);
+          }
+        }}
+      />
+
       {managedCollection === null ? null : (
         <CollectionGameEditor
           key={`${managedCollection.id}-${managedCollection.updatedAt}`}
@@ -400,7 +420,7 @@ export function CollectionsPage() {
               onMoveDown={() => void moveCollection(collection.id, 1)}
               onManage={() => void openGameManager(collection)}
               onEdit={() => openEditForm(collection)}
-              onDelete={() => void handleDelete(collection)}
+              onDelete={() => setCollectionPendingDeletion(collection)}
             />
           ))}
         </div>

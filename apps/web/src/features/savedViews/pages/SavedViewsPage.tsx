@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import type { CollectionSummary } from "../../../domain/collection";
 import {
   playStatusLabels,
@@ -110,6 +111,9 @@ export function SavedViewsPage() {
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null);
 
   const [editingView, setEditingView] = useState<SavedView | null>(null);
+
+  const [viewPendingDeletion, setViewPendingDeletion] =
+    useState<SavedView | null>(null);
 
   const [isAdding, setIsAdding] = useState(false);
 
@@ -276,25 +280,24 @@ export function SavedViewsPage() {
   }
 
   async function handleDelete(view: SavedView): Promise<void> {
-    const confirmed = window.confirm(
-      `Delete the ${view.name} saved view? No games will be deleted.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     setBusy(true);
     setErrorMessage(null);
+    setNotice(null);
 
     try {
       await savedViewApi.delete(view.id);
-
       await refreshViews();
 
-      setEditingView(null);
+      if (selectedViewId === view.id) {
+        setSelectedViewId(null);
+      }
 
-      setNotice(`${view.name} was deleted. Your library was not changed.`);
+      if (editingView?.id === view.id) {
+        setEditingView(null);
+      }
+
+      setViewPendingDeletion(null);
+      setNotice(`${view.name} was deleted. No games were changed.`);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -429,6 +432,26 @@ export function SavedViewsPage() {
         </div>
       ) : null}
 
+      <ConfirmDialog
+        open={viewPendingDeletion !== null}
+        title="Delete Saved View?"
+        description={
+          <p>
+            Delete{" "}
+            <strong>{viewPendingDeletion?.name ?? "this Saved View"}</strong>?
+            This only removes the reusable filter. No games will be deleted.
+          </p>
+        }
+        confirmLabel="Delete Saved View"
+        busy={busy}
+        onCancel={() => setViewPendingDeletion(null)}
+        onConfirm={() => {
+          if (viewPendingDeletion !== null) {
+            void handleDelete(viewPendingDeletion);
+          }
+        }}
+      />
+
       {loadState === "loading" ? (
         <div className="empty-state" role="status">
           <h3>Loading saved views…</h3>
@@ -512,7 +535,7 @@ export function SavedViewsPage() {
                         className="text-button text-button--danger"
                         type="button"
                         disabled={busy}
-                        onClick={() => void handleDelete(view)}
+                        onClick={() => setViewPendingDeletion(view)}
                       >
                         Delete
                       </button>

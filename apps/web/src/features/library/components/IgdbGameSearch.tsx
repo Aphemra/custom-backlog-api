@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import { CloseIcon } from "../../../components/ui/icons";
 import {
   igdbSearchScopeLabels,
   igdbSearchScopes,
@@ -129,14 +131,11 @@ export function IgdbGameSearch({ onAdded, onClose }: IgdbGameSearchProps) {
           </p>
         </div>
 
-        <button
-          className="icon-button"
-          type="button"
+        <IconButton
+          label="Close IGDB search"
+          icon={<CloseIcon />}
           onClick={onClose}
-          aria-label="Close IGDB search"
-        >
-          ×
-        </button>
+        />
       </div>
 
       <form className="igdb-search__form" onSubmit={handleSearch}>

@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import { CloseIcon } from "../../../components/ui/icons";
 import type { CollectionDetail } from "../../../domain/collection";
 import {
   playStatusLabels,
@@ -112,14 +114,11 @@ export function CollectionGameEditor({
           </p>
         </div>
 
-        <button
-          className="icon-button"
-          type="button"
+        <IconButton
+          label="Close collection game manager"
+          icon={<CloseIcon />}
           onClick={onClose}
-          aria-label="Close game manager"
-        >
-          ×
-        </button>
+        />
       </div>
 
       <div className="membership-editor__section">

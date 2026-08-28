@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import { CloseIcon } from "../../../components/ui/icons";
 import {
   playStationPlatforms,
   playStatuses,
@@ -66,14 +68,11 @@ export function LibraryGameForm({
           </h2>
         </div>
 
-        <button
-          className="icon-button"
-          type="button"
+        <IconButton
+          label="Close game editor"
+          icon={<CloseIcon />}
           onClick={onCancel}
-          aria-label="Close form"
-        >
-          ×
-        </button>
+        />
       </div>
 
       <label className="field field--wide">

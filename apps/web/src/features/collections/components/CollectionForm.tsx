@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import { CloseIcon } from "../../../components/ui/icons";
 import type {
   CollectionInput,
   CollectionSummary,
@@ -55,14 +57,11 @@ export function CollectionForm({
           </h2>
         </div>
 
-        <button
-          className="icon-button"
-          type="button"
+        <IconButton
+          label="Close collection editor"
+          icon={<CloseIcon />}
           onClick={onCancel}
-          aria-label="Close form"
-        >
-          ×
-        </button>
+        />
       </div>
 
       <label className="field field--wide">

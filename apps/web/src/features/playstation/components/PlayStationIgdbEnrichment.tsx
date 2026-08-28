@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import { CloseIcon } from "../../../components/ui/icons";
 import type { IgdbGameSearchResult } from "../../../domain/igdb";
 import type {
   PlayStationLibraryCandidate,
@@ -152,15 +154,12 @@ export function PlayStationIgdbEnrichment({
           <span>The selected result must support {candidate.platform}.</span>
         </div>
 
-        <button
-          className="icon-button"
-          type="button"
+        <IconButton
+          label="Close IGDB metadata search"
+          icon={<CloseIcon />}
           disabled={isSearching || enrichingId !== null}
-          aria-label="Close IGDB metadata search"
           onClick={() => setIsOpen(false)}
-        >
-          ×
-        </button>
+        />
       </div>
 
       <form

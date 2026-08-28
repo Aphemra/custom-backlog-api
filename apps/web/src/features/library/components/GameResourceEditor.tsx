@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { SortableList } from "../../../components/sortable/SortableList";
 import {
   gameResourceProviderLabels,
   gameResourceTypeLabels,
@@ -42,6 +44,8 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [busyResourceId, setBusyResourceId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [resourcePendingDeletion, setResourcePendingDeletion] =
+    useState<GameResource | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -128,30 +132,11 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
     }
   }
 
-  async function moveResource(resourceId: string, direction: -1 | 1) {
-    const currentIndex = resources.findIndex(
-      (resource) => resource.id === resourceId,
-    );
-    const targetIndex = currentIndex + direction;
+  async function reorderResources(reorderedResources: readonly GameResource[]) {
+    const previousResources = resources;
 
-    if (
-      currentIndex < 0 ||
-      targetIndex < 0 ||
-      targetIndex >= resources.length
-    ) {
-      return;
-    }
-
-    const reorderedResources = [...resources];
-    const [movedResource] = reorderedResources.splice(currentIndex, 1);
-
-    if (movedResource === undefined) {
-      return;
-    }
-
-    reorderedResources.splice(targetIndex, 0, movedResource);
-
-    setBusyResourceId(resourceId);
+    setResources(reorderedResources);
+    setBusyResourceId("resource-order");
     setErrorMessage(null);
 
     try {
@@ -162,6 +147,7 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
 
       setResources(savedResources);
     } catch (error: unknown) {
+      setResources(previousResources);
       setErrorMessage(readErrorMessage(error));
     } finally {
       setBusyResourceId(null);
@@ -169,16 +155,6 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
   }
 
   async function deleteResource(resource: GameResource) {
-    const displayName =
-      resource.label ??
-      `${gameResourceProviderLabels[resource.provider]} ${
-        gameResourceTypeLabels[resource.resourceType]
-      }`;
-
-    if (!window.confirm(`Delete “${displayName}”?`)) {
-      return;
-    }
-
     setBusyResourceId(resource.id);
     setErrorMessage(null);
 
@@ -192,6 +168,8 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
       if (editingResourceId === resource.id) {
         resetDraft();
       }
+
+      setResourcePendingDeletion(null);
     } catch (error: unknown) {
       setErrorMessage(readErrorMessage(error));
     } finally {
@@ -237,8 +215,20 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
       ) : null}
 
       {resources.length === 0 ? null : (
-        <div className="resource-list">
-          {resources.map((resource, index) => {
+        <SortableList
+          items={resources}
+          disabled={isBusy}
+          ariaLabel="Useful links"
+          getItemLabel={(resource) =>
+            resource.label ??
+            `${gameResourceProviderLabels[resource.provider]} ${
+              gameResourceTypeLabels[resource.resourceType]
+            }`
+          }
+          onReorder={(reorderedResources) =>
+            void reorderResources(reorderedResources)
+          }
+          renderItem={(resource, controls) => {
             const resourceIsBusy = busyResourceId === resource.id;
             const displayName =
               resource.label ??
@@ -247,25 +237,27 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
               }`;
 
             return (
-              <div className="resource-item" key={resource.id}>
+              <div className="resource-item">
                 <div className="resource-item__order">
+                  {controls.dragHandle}
+
                   <button
                     className="order-button"
                     type="button"
-                    disabled={isBusy || index === 0}
-                    onClick={() => void moveResource(resource.id, -1)}
+                    disabled={!controls.canMoveUp}
+                    onClick={controls.moveUp}
                     aria-label={`Move ${displayName} up`}
                   >
                     ↑
                   </button>
 
-                  <span className="order-number">{index + 1}</span>
+                  <span className="order-number">{controls.position}</span>
 
                   <button
                     className="order-button"
                     type="button"
-                    disabled={isBusy || index === resources.length - 1}
-                    onClick={() => void moveResource(resource.id, 1)}
+                    disabled={!controls.canMoveDown}
+                    onClick={controls.moveDown}
                     aria-label={`Move ${displayName} down`}
                   >
                     ↓
@@ -297,15 +289,15 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
                     className="text-button text-button--danger"
                     type="button"
                     disabled={isBusy}
-                    onClick={() => void deleteResource(resource)}
+                    onClick={() => setResourcePendingDeletion(resource)}
                   >
                     {resourceIsBusy ? "Deleting…" : "Delete"}
                   </button>
                 </div>
               </div>
             );
-          })}
-        </div>
+          }}
+        />
       )}
 
       <div className="resource-editor__fields">
@@ -368,6 +360,39 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
           {errorMessage}
         </div>
       )}
+
+      <ConfirmDialog
+        open={resourcePendingDeletion !== null}
+        title="Delete useful link?"
+        description={
+          <p>
+            Delete{" "}
+            <strong>
+              {resourcePendingDeletion?.label ??
+                (resourcePendingDeletion === null
+                  ? "this link"
+                  : `${
+                      gameResourceProviderLabels[
+                        resourcePendingDeletion.provider
+                      ]
+                    } ${
+                      gameResourceTypeLabels[
+                        resourcePendingDeletion.resourceType
+                      ]
+                    }`)}
+            </strong>
+            ? The game itself will not be changed.
+          </p>
+        }
+        confirmLabel="Delete link"
+        busy={busyResourceId === resourcePendingDeletion?.id}
+        onCancel={() => setResourcePendingDeletion(null)}
+        onConfirm={() => {
+          if (resourcePendingDeletion !== null) {
+            void deleteResource(resourcePendingDeletion);
+          }
+        }}
+      />
 
       <div className="resource-editor__form-actions">
         {editingResourceId === null ? null : (

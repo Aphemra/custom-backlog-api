@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import { CloseIcon } from "../../../components/ui/icons";
 import type { CollectionSummary } from "../../../domain/collection";
 import {
   playStationPlatforms,
@@ -162,14 +164,11 @@ export function SavedViewForm({
           <h2>{initialView?.name ?? "Create a reusable backlog view"}</h2>
         </div>
 
-        <button
-          className="icon-button"
-          type="button"
+        <IconButton
+          label="Close Saved View editor"
+          icon={<CloseIcon />}
           onClick={onCancel}
-          aria-label="Close form"
-        >
-          ×
-        </button>
+        />
       </div>
 
       <div className="saved-view-form__grid">

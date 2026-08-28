@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useToast } from "../../../components/toast/useToast";
 import type { AppSettings } from "../../../domain/settings";
 import { ApiError } from "../../../services/api/apiClient";
 import { settingsApi } from "../../../services/api/settingsApi";
@@ -14,6 +15,9 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function SettingsPage() {
+  const { showToast, setNotificationDurationSeconds: updateToastDuration } =
+    useToast();
+
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
@@ -24,7 +28,6 @@ export function SettingsPage() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -83,8 +86,6 @@ export function SettingsPage() {
     }
 
     setIsSaving(true);
-    setErrorMessage(null);
-    setNotice(null);
 
     try {
       const updatedSettings = await settingsApi.update({
@@ -100,9 +101,17 @@ export function SettingsPage() {
         String(updatedSettings.notificationDurationSeconds),
       );
 
-      setNotice("Settings were saved.");
+      updateToastDuration(updatedSettings.notificationDurationSeconds);
+
+      showToast({
+        tone: "success",
+        message: "Settings were saved.",
+      });
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      showToast({
+        tone: "error",
+        message: getErrorMessage(error),
+      });
     } finally {
       setIsSaving(false);
     }
@@ -127,12 +136,6 @@ export function SettingsPage() {
       {errorMessage === null ? null : (
         <div className="notice notice--error" role="alert">
           {errorMessage}
-        </div>
-      )}
-
-      {notice === null ? null : (
-        <div className="notice notice--success" role="status">
-          {notice}
         </div>
       )}
 
@@ -264,8 +267,8 @@ export function SettingsPage() {
               </label>
 
               <p className="settings-card__footnote">
-                This preference is stored now and will be consumed by the shared
-                toast system during the visual-foundation checkpoint.
+                This duration applies immediately to new notifications after
+                Settings are saved.
               </p>
             </section>
           </div>

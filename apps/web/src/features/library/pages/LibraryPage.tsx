@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { useToast } from "../../../components/toast/useToast";
 import type {
   CreateLibraryGameInput,
   LibraryGame,
@@ -34,15 +36,18 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function LibraryPage() {
+  const { showToast } = useToast();
+
   const [games, setGames] = useState<readonly LibraryGameListItem[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showHidden, setShowHidden] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
   const [editingGame, setEditingGame] = useState<LibraryGame | null>(null);
+  const [gamePendingDeletion, setGamePendingDeletion] =
+    useState<LibraryGame | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [isSynchronizingTrophies, setIsSynchronizingTrophies] = useState(false);
   const [lastProgressSync, setLastProgressSync] =
@@ -150,12 +155,16 @@ export function LibraryPage() {
   ): Promise<boolean> {
     setBusyKey(key);
     setErrorMessage(null);
-    setNotice(null);
 
     try {
       await action();
       await refreshGames();
-      setNotice(successMessage);
+
+      showToast({
+        tone: "success",
+        message: successMessage,
+      });
+
       return true;
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -168,7 +177,6 @@ export function LibraryPage() {
   async function handleSyncTrophyProgress(): Promise<void> {
     setIsSynchronizingTrophies(true);
     setErrorMessage(null);
-    setNotice(null);
 
     try {
       const result = await playStationApi.synchronizeProgress();
@@ -208,7 +216,11 @@ export function LibraryPage() {
   async function handleIgdbAdded(game: LibraryGame): Promise<void> {
     await refreshGames();
     setErrorMessage(null);
-    setNotice(`${game.title} was added from IGDB.`);
+
+    showToast({
+      tone: "success",
+      message: `${game.title} was added from IGDB.`,
+    });
   }
 
   async function handleUpdate(input: CreateLibraryGameInput): Promise<void> {
@@ -248,22 +260,18 @@ export function LibraryPage() {
   }
 
   async function handleDelete(game: LibraryGame): Promise<void> {
-    const confirmed = window.confirm(
-      `Permanently delete ${game.title}? This also deletes its future local trophy history and cannot be undone without a backup.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     const succeeded = await performMutation(
       game.id,
       `${game.title} was permanently deleted.`,
       () => libraryApi.deletePermanently(game.id),
     );
 
-    if (succeeded && editingGame?.id === game.id) {
-      setEditingGame(null);
+    if (succeeded) {
+      setGamePendingDeletion(null);
+
+      if (editingGame?.id === game.id) {
+        setEditingGame(null);
+      }
     }
   }
 
@@ -307,7 +315,6 @@ export function LibraryPage() {
     setEditingGame(null);
     setIsSearchingIgdb(true);
     setErrorMessage(null);
-    setNotice(null);
   }
 
   function openEditForm(game: LibraryGame) {
@@ -557,12 +564,6 @@ export function LibraryPage() {
         </p>
       ) : null}
 
-      {notice === null ? null : (
-        <div className="notice notice--success" role="status">
-          {notice}
-        </div>
-      )}
-
       {errorMessage === null ? null : (
         <div className="notice notice--error" role="alert">
           {errorMessage}
@@ -588,6 +589,27 @@ export function LibraryPage() {
           />
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={gamePendingDeletion !== null}
+        title="Permanently delete game?"
+        description={
+          <p>
+            Permanently delete{" "}
+            <strong>{gamePendingDeletion?.title ?? "this game"}</strong>? Its
+            local metadata, resources, trophy history, and alerts will also be
+            deleted. Recovery requires a backup.
+          </p>
+        }
+        confirmLabel="Permanently delete"
+        busy={busyKey === gamePendingDeletion?.id}
+        onCancel={() => setGamePendingDeletion(null)}
+        onConfirm={() => {
+          if (gamePendingDeletion !== null) {
+            void handleDelete(gamePendingDeletion);
+          }
+        }}
+      />
 
       {loadState === "loading" ? (
         <div className="empty-state" role="status">
@@ -650,7 +672,7 @@ export function LibraryPage() {
                 onEdit={() => openEditForm(game)}
                 onHide={() => void handleHide(game)}
                 onUnhide={() => void handleUnhide(game)}
-                onDelete={() => void handleDelete(game)}
+                onDelete={() => setGamePendingDeletion(game)}
               />
             );
           })}

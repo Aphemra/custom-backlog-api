@@ -5,6 +5,10 @@ import {
   type PlayStationAuthorization,
 } from "./playStationApi.js";
 import { PlayStationAuthorizationSession } from "./playStationAuthorizationSession.js";
+import {
+  readPlayStationCredentialSource,
+  type PlayStationCredentialSource,
+} from "./playStationCredentialProvider.js";
 import { PlayStationRequestGate } from "./playStationRequestGate.js";
 import type {
   PlayStationAccountIdentity,
@@ -81,25 +85,37 @@ export class PlayStationConnectionService {
   private activeConnectionTest: Promise<PlayStationConnectionResult> | null =
     null;
 
+  private readonly authorizationSession: PlayStationAuthorizationSession;
+
   constructor(
-    private readonly credentials: PlayStationCredentials,
+    private readonly credentialSource: PlayStationCredentialSource,
     private readonly operations: PlayStationApiOperations = playStationApiOperations,
     private readonly requestGate: PlayStationRequestGate = new PlayStationRequestGate(),
-    private readonly authorizationSession: PlayStationAuthorizationSession = new PlayStationAuthorizationSession(
-      credentials.readerNpsso,
-      operations,
-      requestGate,
-    ),
-  ) {}
+    authorizationSession?: PlayStationAuthorizationSession,
+  ) {
+    this.authorizationSession =
+      authorizationSession ??
+      new PlayStationAuthorizationSession(
+        () => this.readCredentials().readerNpsso,
+        operations,
+        requestGate,
+      );
+  }
+
+  private readCredentials(): PlayStationCredentials {
+    return readPlayStationCredentialSource(this.credentialSource);
+  }
 
   getStatus(): PlayStationConnectionStatus {
+    const credentials = this.readCredentials();
+
     return {
       configured:
-        this.credentials.readerNpsso !== null &&
-        this.credentials.readerOnlineId !== null &&
-        this.credentials.targetOnlineId !== null,
-      readerOnlineId: this.credentials.readerOnlineId,
-      targetOnlineId: this.credentials.targetOnlineId,
+        credentials.readerNpsso !== null &&
+        credentials.readerOnlineId !== null &&
+        credentials.targetOnlineId !== null,
+      readerOnlineId: credentials.readerOnlineId,
+      targetOnlineId: credentials.targetOnlineId,
     };
   }
 
@@ -168,7 +184,8 @@ export class PlayStationConnectionService {
   }
 
   private requireCredentials(): CompleteCredentials {
-    const { readerNpsso, readerOnlineId, targetOnlineId } = this.credentials;
+    const { readerNpsso, readerOnlineId, targetOnlineId } =
+      this.readCredentials();
 
     if (
       readerNpsso === null ||

@@ -4,6 +4,7 @@ import {
   DeleteIcon,
   EditIcon,
   GameListIcon,
+  PinIcon,
   TrophyIcon,
 } from "../../../components/ui/icons";
 import type { CollectionSummary } from "../../../domain/collection";
@@ -15,6 +16,7 @@ interface CollectionCardProps {
   readonly dragHandle: ReactNode;
   readonly busy: boolean;
   readonly managing: boolean;
+  readonly onPin: () => void;
   readonly onManage: () => void;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
@@ -46,6 +48,7 @@ export function CollectionCard({
   dragHandle,
   busy,
   managing,
+  onPin,
   onManage,
   onEdit,
   onDelete,
@@ -65,7 +68,9 @@ export function CollectionCard({
 
   return (
     <article
-      className={`collection-card${managing ? " collection-card--active" : ""}`}
+      className={`collection-card${
+        managing ? " collection-card--active" : ""
+      }${collection.isPinned ? " collection-card--pinned" : ""}`}
     >
       <div
         className="collection-card__order"
@@ -164,6 +169,17 @@ export function CollectionCard({
       </div>
 
       <div className="collection-card__actions">
+        <IconButton
+          label={`${collection.isPinned ? "Unpin" : "Pin"} ${collection.name}`}
+          tooltip={
+            collection.isPinned ? "Remove from Library" : "Show on Library"
+          }
+          icon={<PinIcon />}
+          disabled={busy}
+          aria-pressed={collection.isPinned}
+          onClick={onPin}
+        />
+
         <IconButton
           label={`${managing ? "Close game manager for" : "Manage games in"} ${
             collection.name

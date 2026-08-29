@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
+import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 import type { PlayStationApiOperations } from "../features/playstation/playStationApi.js";
 import { PlayStationRequestGate } from "../features/playstation/playStationRequestGate.js";
 import { AppSettingsRepository } from "../features/settings/appSettingsRepository.js";
@@ -327,6 +328,194 @@ test("rejects an overlapping sync without consuming another cooldown", async () 
   } finally {
     releaseTitleRequest.resolve();
 
+    await closeServer(server);
+    database.close();
+
+    await rm(cacheDirectory, {
+      recursive: true,
+      force: true,
+    });
+  }
+});
+
+test("refreshes linked IGDB metadata only during a full synchronization", async () => {
+  const database = openDatabase(":memory:");
+  const cacheDirectory = await mkdtemp(
+    join(tmpdir(), "backlog-psn-igdb-sync-"),
+  );
+  const { operations } = createOperations();
+
+  const game = new LibraryGameRepository(database).create({
+    title: "Astro Bot",
+    platform: "PS5",
+    playStatus: "not_started",
+    notes: null,
+  });
+
+  const timestamp = "2026-08-29T12:00:00.000Z";
+
+  database
+    .prepare(
+      `
+      INSERT INTO external_game_metadata (
+        id,
+        provider,
+        external_id,
+        title,
+        cover_url,
+        release_date,
+        payload_json,
+        fetched_at
+      ) VALUES (
+        'metadata-astro',
+        'igdb',
+        '250766',
+        'Old Astro Metadata',
+        NULL,
+        NULL,
+        '{}',
+        ?
+      )
+    `,
+    )
+    .run(timestamp);
+
+  database
+    .prepare(
+      `
+      INSERT INTO game_metadata_links (
+        game_id,
+        metadata_id,
+        linked_at
+      ) VALUES (?, 'metadata-astro', ?)
+    `,
+    )
+    .run(game.id, timestamp);
+
+  new AppSettingsRepository(database).update({
+    trophySyncCooldownEnabled: false,
+  });
+
+  let igdbAuthenticationRequests = 0;
+  let igdbGameRequests = 0;
+  let igdbTimeRequests = 0;
+
+  const externalFetch = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const url = input instanceof Request ? input.url : input.toString();
+
+    if (url === "https://id.twitch.tv/oauth2/token") {
+      igdbAuthenticationRequests += 1;
+
+      return Response.json({
+        access_token: "test-igdb-token",
+        expires_in: 3_600,
+      });
+    }
+
+    if (url === "https://api.igdb.com/v4/games") {
+      igdbGameRequests += 1;
+
+      assert.match(String(init?.body), /where id = 250766/);
+
+      return Response.json([
+        {
+          id: 250766,
+          name: "Current Astro Metadata",
+          platforms: [{ id: 167 }],
+          game_type: {
+            id: 0,
+            type: "Main Game",
+          },
+        },
+      ]);
+    }
+
+    if (url === "https://api.igdb.com/v4/game_time_to_beats") {
+      igdbTimeRequests += 1;
+
+      return Response.json([]);
+    }
+
+    throw new Error(`Unexpected external request: ${url}`);
+  };
+
+  const server = createApp(
+    database,
+    cacheDirectory,
+    {
+      clientId: "test-client",
+      clientSecret: "test-secret",
+    },
+    externalFetch,
+    {
+      credentials: {
+        readerNpsso: "n".repeat(64),
+        readerOnlineId: "BacklogReader",
+        targetOnlineId: "MainAccount",
+      },
+      operations,
+      requestGate: new PlayStationRequestGate({
+        minimumIntervalMs: 0,
+      }),
+    },
+  ).listen(0, "127.0.0.1");
+
+  try {
+    await once(server, "listening");
+
+    const address = server.address() as AddressInfo;
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    const progressResponse = await synchronizeProgress(baseUrl);
+
+    assert.equal(progressResponse.status, 200);
+    assert.equal(igdbAuthenticationRequests, 0);
+    assert.equal(igdbGameRequests, 0);
+    assert.equal(igdbTimeRequests, 0);
+
+    const fullResponse = await synchronizeFull(baseUrl);
+
+    assert.equal(fullResponse.status, 200);
+
+    const fullResult = (await fullResponse.json()) as {
+      metadataRefresh: {
+        expectedGameCount: number;
+        refreshedGameCount: number;
+        failedGameCount: number;
+        skippedGameCount: number;
+        stoppedEarly: boolean;
+        failures: readonly unknown[];
+      };
+    };
+
+    assert.deepEqual(fullResult.metadataRefresh, {
+      expectedGameCount: 1,
+      refreshedGameCount: 1,
+      failedGameCount: 0,
+      skippedGameCount: 0,
+      stoppedEarly: false,
+      failures: [],
+    });
+
+    assert.equal(igdbAuthenticationRequests, 1);
+    assert.equal(igdbGameRequests, 1);
+    assert.equal(igdbTimeRequests, 1);
+
+    const storedMetadata = database
+      .prepare(
+        `
+        SELECT title
+        FROM external_game_metadata
+        WHERE id = 'metadata-astro'
+      `,
+      )
+      .get() as unknown as { title: string } | undefined;
+
+    assert.equal(storedMetadata?.title, "Current Astro Metadata");
+  } finally {
     await closeServer(server);
     database.close();
 

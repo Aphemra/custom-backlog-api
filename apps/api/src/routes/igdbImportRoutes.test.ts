@@ -206,11 +206,15 @@ test("atomically enriches an existing library game without duplicating it", asyn
     if (url === "https://api.igdb.com/v4/games") {
       gameRequests += 1;
 
+      const refreshed = gameRequests > 1;
+
       return Response.json([
         {
           id: 250766,
-          name: "Astro Bot",
-          summary: "A platforming adventure.",
+          name: refreshed ? "Astro Bot Updated" : "Astro Bot",
+          summary: refreshed
+            ? "Updated platforming metadata."
+            : "A platforming adventure.",
           platforms: [{ id: 167 }],
           release_dates: [
             {
@@ -219,7 +223,7 @@ test("atomically enriches an existing library game without duplicating it", asyn
             },
           ],
           cover: {
-            image_id: "co8abc",
+            image_id: refreshed ? "co9xyz" : "co8abc",
           },
         },
       ]);
@@ -312,6 +316,57 @@ test("atomically enriches an existing library game without duplicating it", asyn
     assert.equal(tokenRequests, 1);
     assert.equal(gameRequests, 1);
     assert.equal(readCount(database, "library_games"), 1);
+
+    const refreshEndpoint =
+      `http://127.0.0.1:${address.port}` +
+      `/api/integrations/igdb/library/` +
+      `${encodeURIComponent(libraryGame.id)}/metadata-refresh`;
+
+    const rejectedRefreshResponse = await fetch(refreshEndpoint, {
+      method: "POST",
+    });
+
+    assert.equal(rejectedRefreshResponse.status, 400);
+    assert.equal(gameRequests, 1);
+
+    const refreshResponse = await fetch(refreshEndpoint, {
+      method: "POST",
+      headers: {
+        "x-trophy-backlog-action": "refresh-library-game-from-igdb",
+      },
+    });
+
+    assert.equal(refreshResponse.status, 200);
+
+    const refreshedResult = (await refreshResponse.json()) as {
+      game: LibraryGame;
+      metadata: {
+        provider: string;
+        externalId: string;
+        title: string;
+        cover: {
+          imageId: string;
+          url: string;
+        } | null;
+      };
+    };
+
+    assert.equal(refreshedResult.game.id, libraryGame.id);
+    assert.equal(refreshedResult.game.title, "Astro Bot");
+    assert.equal(refreshedResult.metadata.title, "Astro Bot Updated");
+    assert.equal(refreshedResult.metadata.externalId, "250766");
+    assert.notEqual(
+      refreshedResult.metadata.cover?.imageId,
+      result.metadata.cover?.imageId,
+    );
+
+    assert.equal(tokenRequests, 1);
+    assert.equal(gameRequests, 2);
+    assert.equal(readCount(database, "library_games"), 1);
+    assert.equal(readCount(database, "external_game_metadata"), 1);
+    assert.equal(readCount(database, "game_metadata_links"), 1);
+    assert.equal(readCount(database, "cached_images"), 2);
+    assert.equal(readCount(database, "library_game_images"), 1);
   } finally {
     await closeServer(server);
     database.close();

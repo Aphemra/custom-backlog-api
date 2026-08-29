@@ -23,8 +23,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 13,
-      availableMigrationCount: 13,
+      schemaVersion: 15,
+      availableMigrationCount: 15,
     });
 
     const row = database
@@ -667,15 +667,15 @@ test("upgrades an existing version-one database without replacing it", () => {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
       schemaVersion: 1,
-      availableMigrationCount: 13,
+      availableMigrationCount: 15,
     });
 
     runMigrations(database);
 
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 13,
-      availableMigrationCount: 13,
+      schemaVersion: 15,
+      availableMigrationCount: 15,
     });
 
     const row = database
@@ -1131,7 +1131,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 13);
+      assert.equal(row.count, 15);
     } finally {
       restoredDatabase.close();
     }

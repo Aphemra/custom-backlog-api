@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useProfileProgression } from "../../../components/profile/useProfileProgression";
+import { useToast } from "../../../components/toast/useToast";
 import {
   playStatuses,
   playStatusLabels,
@@ -16,6 +17,7 @@ import type {
   PlayStationReconciliationStatus,
   PlayStationTitlePreview,
   ReconciledPlayStationTitle,
+  PlayStationIgdbMetadataRefreshResult,
   PlayStationSyncResult,
   PlayStationTrophyDetailSynchronizationResult,
 } from "../../../domain/playStation";
@@ -23,6 +25,8 @@ import { ApiError } from "../../../services/api/apiClient";
 import { playStationApi } from "../../../services/api/playStationApi";
 import { libraryApi } from "../../../services/api/libraryApi";
 import { TrophyGradeIcon } from "../../../components/ui/icons";
+import { requestSettingsNavigation } from "../../settings/settingsNavigation";
+import { getPlayStationCredentialGuidance } from "../playStationCredentialError";
 
 type PreviewFilter = "all" | "missing_igdb" | PlayStationReconciliationStatus;
 
@@ -484,6 +488,7 @@ function TrophyTitleRow({
 
 export function PlayStationPage() {
   const { refreshProfileProgression } = useProfileProgression();
+  const { showToast } = useToast();
 
   const [status, setStatus] = useState<PlayStationConnectionStatus | null>(
     null,
@@ -497,7 +502,7 @@ export function PlayStationPage() {
     Readonly<Record<string, string>>
   >({});
 
-  const [activeFilter, setActiveFilter] = useState<PreviewFilter>("all");
+  const [activeFilter, setActiveFilter] = useState<PreviewFilter>("new");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -506,6 +511,8 @@ export function PlayStationPage() {
     useState<PlayStationSyncResult | null>(null);
   const [lastDetailSynchronization, setLastDetailSynchronization] =
     useState<PlayStationTrophyDetailSynchronizationResult | null>(null);
+  const [lastMetadataRefresh, setLastMetadataRefresh] =
+    useState<PlayStationIgdbMetadataRefreshResult | null>(null);
   const [busyIdentity, setBusyIdentity] = useState<string | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -515,6 +522,27 @@ export function PlayStationPage() {
     usePlayStationSyncProgress(isSynchronizing);
   const synchronizationActive =
     isSynchronizing || syncProgress?.status === "running";
+
+  function reportPlayStationError(error: unknown): void {
+    setErrorMessage(getErrorMessage(error));
+
+    const guidance = getPlayStationCredentialGuidance(error);
+
+    if (guidance === null) {
+      return;
+    }
+
+    showToast({
+      tone: "error",
+      title: "PSN credentials need attention",
+      message: guidance,
+      durationSeconds: 15,
+      action: {
+        label: "Open Settings",
+        onSelect: requestSettingsNavigation,
+      },
+    });
+  }
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -674,7 +702,7 @@ export function PlayStationPage() {
         `Read ${loadedPreview.supportedTitleCount} supported trophy titles using ${loadedPreview.requestsMade} PlayStation requests.`,
       );
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      reportPlayStationError(error);
     } finally {
       setIsPreviewing(false);
     }
@@ -691,12 +719,13 @@ export function PlayStationPage() {
       storePreview(result.preview, true);
       setLastSynchronization(result.synchronization);
       setLastDetailSynchronization(result.detailSynchronization);
+      setLastMetadataRefresh(result.metadataRefresh);
 
       await refreshProfileProgression();
 
       if (result.synchronization.status === "succeeded") {
         setNotice(
-          `Synchronized ${result.synchronization.processedTitleCount} linked games and created ${result.synchronization.snapshotsCreated} trophy snapshots.`,
+          `Synchronized ${result.synchronization.processedTitleCount} linked games, created ${result.synchronization.snapshotsCreated} trophy snapshots, and refreshed ${result.metadataRefresh.refreshedGameCount} IGDB records.`,
         );
       }
     } catch (error) {
@@ -711,7 +740,7 @@ export function PlayStationPage() {
         }
       }
 
-      setErrorMessage(getErrorMessage(error));
+      reportPlayStationError(error);
     } finally {
       setIsSynchronizing(false);
     }
@@ -748,7 +777,7 @@ export function PlayStationPage() {
 
       setNotice(`${title.name} was linked to ${candidate.title}.`);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      reportPlayStationError(error);
     } finally {
       setBusyIdentity(null);
     }
@@ -969,6 +998,17 @@ export function PlayStationPage() {
                 <span>Detailed trophy updates</span>
               </div>
             )}
+
+            {lastMetadataRefresh === null ? null : (
+              <div>
+                <strong>
+                  {lastMetadataRefresh.refreshedGameCount} /{" "}
+                  {lastMetadataRefresh.expectedGameCount}
+                </strong>
+
+                <span>IGDB records refreshed</span>
+              </div>
+            )}
           </div>
 
           {lastSynchronization.status === "partial" ? (
@@ -977,6 +1017,44 @@ export function PlayStationPage() {
               previous snapshots were preserved and no assumptions were made
               about their current state.
             </p>
+          ) : null}
+
+          {lastMetadataRefresh !== null &&
+          (lastMetadataRefresh.failedGameCount > 0 ||
+            lastMetadataRefresh.skippedGameCount > 0) ? (
+            <p className="psn-sync-result__warning">
+              IGDB metadata was preserved for{" "}
+              {lastMetadataRefresh.failedGameCount +
+                lastMetadataRefresh.skippedGameCount}{" "}
+              {lastMetadataRefresh.failedGameCount +
+                lastMetadataRefresh.skippedGameCount ===
+              1
+                ? "game"
+                : "games"}{" "}
+              that could not be refreshed. Trophy synchronization still
+              completed normally.
+            </p>
+          ) : null}
+
+          {lastMetadataRefresh !== null &&
+          lastMetadataRefresh.failures.length > 0 ? (
+            <details className="psn-sync-result__failures">
+              <summary>
+                Review {lastMetadataRefresh.failures.length} IGDB{" "}
+                {lastMetadataRefresh.failures.length === 1
+                  ? "failure"
+                  : "failures"}
+              </summary>
+
+              <ul>
+                {lastMetadataRefresh.failures.map((failure) => (
+                  <li key={failure.gameId}>
+                    <strong>{failure.title}</strong>
+                    <span>{failure.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           ) : null}
 
           <p className="psn-sync-result__time">

@@ -12,6 +12,7 @@ export type PlayStationSyncProgressPhase =
   | "fetching_trophies"
   | "caching_artwork"
   | "saving_snapshots"
+  | "refreshing_metadata"
   | "complete"
   | "failed";
 

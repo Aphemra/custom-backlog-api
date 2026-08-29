@@ -11,6 +11,7 @@ const phaseLabels: Readonly<Record<PlayStationSyncProgress["phase"], string>> =
     fetching_trophies: "Fetching trophy details",
     caching_artwork: "Caching trophy artwork",
     saving_snapshots: "Saving trophy progress",
+    refreshing_metadata: "Refreshing IGDB metadata",
     complete: "Complete",
     failed: "Failed",
   };
@@ -56,6 +57,8 @@ export function PlayStationSyncProgressPanel({
     progress.subtaskTotalItems !== null &&
     progress.subtaskTotalItems > 0;
   const elapsed = formatElapsed(progress.startedAt);
+  const primaryUnitLabel =
+    progress.phase === "refreshing_metadata" ? "IGDB games" : "Titles";
 
   return (
     <section
@@ -88,7 +91,7 @@ export function PlayStationSyncProgressPanel({
       {hasPrimaryTotal ? (
         <div className="psn-sync-progress__meter">
           <div>
-            <span>Titles</span>
+            <span>{primaryUnitLabel}</span>
             <strong>
               {progress.completedItems} / {progress.totalItems}
             </strong>

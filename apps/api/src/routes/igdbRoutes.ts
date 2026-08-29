@@ -258,5 +258,33 @@ export function createIgdbRoutes(
     },
   );
 
+  igdbRoutes.post(
+    "/library/:gameId/metadata-refresh",
+    async (request, response, next) => {
+      if (
+        request.get("x-trophy-backlog-action") !==
+        "refresh-library-game-from-igdb"
+      ) {
+        response.status(400).json({
+          ok: false,
+          error: "explicit_igdb_action_required",
+          message: "An explicit IGDB metadata-refresh action is required.",
+        });
+
+        return;
+      }
+
+      try {
+        const gameId = readLibraryGameId(request.params.gameId);
+
+        const result = await enrichmentService.refreshExistingGame(gameId);
+
+        response.json(result);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   return igdbRoutes;
 }

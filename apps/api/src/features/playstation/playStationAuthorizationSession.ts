@@ -16,6 +16,11 @@ interface CachedTokens {
 }
 
 type Clock = () => number;
+type ReaderNpssoSource = string | null | (() => string | null);
+
+function readReaderNpsso(source: ReaderNpssoSource): string | null {
+  return typeof source === "function" ? source() : source;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -56,14 +61,29 @@ export class PlayStationAuthorizationSession {
   private cachedTokens: CachedTokens | null = null;
   private activeAuthorization: Promise<PlayStationAuthorization> | null = null;
 
+  private lastReaderNpsso: string | null | undefined;
+  private credentialGeneration = 0;
+
   constructor(
-    private readonly readerNpsso: string | null,
+    private readonly readerNpssoSource: ReaderNpssoSource,
     private readonly operations: PlayStationApiOperations = playStationApiOperations,
     private readonly requestGate: PlayStationRequestGate = new PlayStationRequestGate(),
     private readonly clock: Clock = Date.now,
   ) {}
 
   getAuthorization(): Promise<PlayStationAuthorization> {
+    const readerNpsso = readReaderNpsso(this.readerNpssoSource);
+
+    if (this.lastReaderNpsso === undefined) {
+      this.lastReaderNpsso = readerNpsso;
+    } else if (this.lastReaderNpsso !== readerNpsso) {
+      this.lastReaderNpsso = readerNpsso;
+      this.cachedTokens = null;
+      this.activeAuthorization = null;
+      this.credentialGeneration += 1;
+    }
+
+    const generation = this.credentialGeneration;
     const cachedTokens = this.cachedTokens;
 
     if (
@@ -82,8 +102,8 @@ export class PlayStationAuthorizationSession {
     const authorization =
       cachedTokens !== null &&
       cachedTokens.refreshTokenExpiresAt - EXPIRY_BUFFER_MS > this.clock()
-        ? this.refreshAuthorization(cachedTokens)
-        : this.authenticateWithNpsso();
+        ? this.refreshAuthorization(cachedTokens, generation)
+        : this.authenticateWithNpsso(readerNpsso, generation);
 
     this.activeAuthorization = authorization;
 
@@ -103,9 +123,10 @@ export class PlayStationAuthorizationSession {
     }
   }
 
-  private async authenticateWithNpsso(): Promise<PlayStationAuthorization> {
-    const npsso = this.readerNpsso;
-
+  private async authenticateWithNpsso(
+    npsso: string | null,
+    generation: number,
+  ): Promise<PlayStationAuthorization> {
     if (npsso === null) {
       throw new HttpError(
         503,
@@ -154,11 +175,12 @@ export class PlayStationAuthorizationSession {
       );
     }
 
-    return this.storeTokens(payload, null);
+    return this.storeTokens(payload, null, generation);
   }
 
   private async refreshAuthorization(
     previousTokens: CachedTokens,
+    generation: number,
   ): Promise<PlayStationAuthorization> {
     let payload: unknown;
 
@@ -169,7 +191,10 @@ export class PlayStationAuthorizationSession {
         ),
       );
     } catch (error) {
-      this.cachedTokens = null;
+      if (generation === this.credentialGeneration) {
+        this.cachedTokens = null;
+      }
+
       throwIfThrottled(error);
 
       throw new HttpError(
@@ -180,9 +205,12 @@ export class PlayStationAuthorizationSession {
     }
 
     try {
-      return this.storeTokens(payload, previousTokens);
+      return this.storeTokens(payload, previousTokens, generation);
     } catch (error) {
-      this.cachedTokens = null;
+      if (generation === this.credentialGeneration) {
+        this.cachedTokens = null;
+      }
+
       throw error;
     }
   }
@@ -190,6 +218,7 @@ export class PlayStationAuthorizationSession {
   private storeTokens(
     payload: unknown,
     previousTokens: CachedTokens | null,
+    generation: number,
   ): PlayStationAuthorization {
     if (!isRecord(payload)) {
       throw this.invalidTokenResponse();
@@ -221,7 +250,7 @@ export class PlayStationAuthorizationSession {
 
     const now = this.clock();
 
-    this.cachedTokens = {
+    const tokens: CachedTokens = {
       accessToken,
       accessTokenExpiresAt: now + expiresIn * 1_000,
       refreshToken,
@@ -230,6 +259,10 @@ export class PlayStationAuthorizationSession {
           ? (previousTokens as CachedTokens).refreshTokenExpiresAt
           : now + refreshTokenExpiresIn * 1_000,
     };
+
+    if (generation === this.credentialGeneration) {
+      this.cachedTokens = tokens;
+    }
 
     return { accessToken };
   }

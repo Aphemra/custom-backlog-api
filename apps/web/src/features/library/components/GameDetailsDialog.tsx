@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useToast } from "../../../components/toast/useToast";
 import { Dialog } from "../../../components/ui/Dialog";
 import { TrophyGradeIcon } from "../../../components/ui/icons";
 import {
@@ -8,6 +9,7 @@ import {
 } from "../../../domain/libraryGame";
 import type { LibraryGameDetails } from "../../../domain/libraryGameDetails";
 import { ApiError } from "../../../services/api/apiClient";
+import { igdbApi } from "../../../services/api/igdbApi";
 import { libraryApi } from "../../../services/api/libraryApi";
 import { GameCompletionHistory } from "./GameCompletionHistory";
 import { GameDetailsResources } from "./GameDetailsResources";
@@ -17,11 +19,13 @@ import { IgdbMetadataOverview } from "./IgdbMetadataOverview";
 interface GameDetailsDialogProps {
   readonly game: LibraryGameListItem | null;
   readonly onClose: () => void;
+  readonly onRefreshed: () => Promise<void>;
 }
 
 interface OpenGameDetailsDialogProps {
   readonly game: LibraryGameListItem;
   readonly onClose: () => void;
+  readonly onRefreshed: () => Promise<void>;
 }
 
 type LoadState = "loading" | "ready" | "error";
@@ -224,12 +228,20 @@ function GameDetailsContent({
   );
 }
 
-function OpenGameDetailsDialog({ game, onClose }: OpenGameDetailsDialogProps) {
+function OpenGameDetailsDialog({
+  game,
+  onClose,
+  onRefreshed,
+}: OpenGameDetailsDialogProps) {
+  const { showToast } = useToast();
+
   const [details, setDetails] = useState<LibraryGameDetails | null>(null);
 
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [refreshingMetadata, setRefreshingMetadata] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -252,6 +264,32 @@ function OpenGameDetailsDialog({ game, onClose }: OpenGameDetailsDialogProps) {
     return () => controller.abort();
   }, [game.id]);
 
+  async function handleRefreshMetadata(): Promise<void> {
+    setRefreshingMetadata(true);
+
+    try {
+      await igdbApi.refreshExistingGame(game.id);
+
+      const refreshedDetails = await libraryApi.getDetails(game.id);
+
+      setDetails(refreshedDetails);
+
+      await onRefreshed();
+
+      showToast({
+        tone: "success",
+        message: `${game.title}'s IGDB metadata was refreshed.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setRefreshingMetadata(false);
+    }
+  }
+
   return (
     <Dialog
       open
@@ -273,16 +311,49 @@ function OpenGameDetailsDialog({ game, onClose }: OpenGameDetailsDialogProps) {
       ) : null}
 
       {loadState === "ready" && details !== null ? (
-        <GameDetailsContent details={details} sourceGame={game} />
+        <>
+          {details.igdb === null ? null : (
+            <div className="game-details__toolbar">
+              <span>
+                IGDB metadata stored{" "}
+                {new Date(details.igdb.storedAt).toLocaleString()}
+              </span>
+
+              <button
+                className="button button--quiet"
+                type="button"
+                disabled={refreshingMetadata}
+                onClick={() => void handleRefreshMetadata()}
+              >
+                {refreshingMetadata
+                  ? "Resyncing IGDB…"
+                  : "Resync IGDB Metadata"}
+              </button>
+            </div>
+          )}
+
+          <GameDetailsContent details={details} sourceGame={game} />
+        </>
       ) : null}
     </Dialog>
   );
 }
 
-export function GameDetailsDialog({ game, onClose }: GameDetailsDialogProps) {
+export function GameDetailsDialog({
+  game,
+  onClose,
+  onRefreshed,
+}: GameDetailsDialogProps) {
   if (game === null) {
     return null;
   }
 
-  return <OpenGameDetailsDialog key={game.id} game={game} onClose={onClose} />;
+  return (
+    <OpenGameDetailsDialog
+      key={game.id}
+      game={game}
+      onClose={onClose}
+      onRefreshed={onRefreshed}
+    />
+  );
 }

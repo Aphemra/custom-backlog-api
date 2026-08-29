@@ -161,6 +161,18 @@ test("creates, edits, orders, fills, and deletes collections", () => {
       name: "Souls",
     });
 
+    assert.equal(firstCollection.isPinned, false);
+    assert.equal(secondCollection.isPinned, false);
+
+    assert.equal(collections.setPinned(firstCollection.id)?.isPinned, true);
+    assert.equal(collections.findById(secondCollection.id)?.isPinned, false);
+
+    assert.equal(collections.setPinned(secondCollection.id)?.isPinned, true);
+    assert.equal(collections.findById(firstCollection.id)?.isPinned, false);
+
+    assert.equal(collections.setPinned(null), null);
+    assert.equal(collections.findById(secondCollection.id)?.isPinned, false);
+
     assert.equal(
       collections.replaceGames(firstCollection.id, [
         secondGame.id,

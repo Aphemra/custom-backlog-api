@@ -19,6 +19,7 @@ interface CollectionRow {
   name: string;
   description: string | null;
   sort_order: number;
+  is_pinned: number;
   game_count: number;
   visible_game_count: number;
   hidden_game_count: number;
@@ -78,6 +79,7 @@ const COLLECTION_SELECT = `
     c.name,
     c.description,
     c.sort_order,
+    c.is_pinned,
     COUNT(cg.game_id) AS game_count,
     COALESCE(SUM(
       CASE
@@ -187,6 +189,7 @@ function mapCollection(row: CollectionRow): CollectionSummary {
     name: row.name,
     description: row.description,
     sortOrder: row.sort_order,
+    isPinned: row.is_pinned === 1,
     gameCount: row.game_count,
     visibleGameCount: row.visible_game_count,
     hiddenGameCount: row.hidden_game_count,
@@ -387,6 +390,46 @@ export class CollectionRepository {
 
       throw error;
     }
+  }
+
+  setPinned(collectionId: string | null): CollectionDetail | null {
+    if (collectionId !== null && this.findById(collectionId) === null) {
+      return null;
+    }
+
+    this.database.exec("BEGIN IMMEDIATE");
+
+    try {
+      this.database
+        .prepare(
+          `
+          UPDATE collections
+          SET is_pinned = 0
+          WHERE is_pinned = 1
+        `,
+        )
+        .run();
+
+      if (collectionId !== null) {
+        this.database
+          .prepare(
+            `
+            UPDATE collections
+            SET is_pinned = 1
+            WHERE id = ?
+          `,
+          )
+          .run(collectionId);
+      }
+
+      this.database.exec("COMMIT");
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+
+      throw error;
+    }
+
+    return collectionId === null ? null : this.requireById(collectionId);
   }
 
   replaceGames(

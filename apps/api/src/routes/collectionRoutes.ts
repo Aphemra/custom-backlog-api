@@ -8,6 +8,7 @@ import {
   parseCollectionOrder,
   parseCreateCollectionInput,
   parseGameCollectionMemberships,
+  parsePinnedCollection,
   parseUpdateCollectionInput,
 } from "../features/collections/collectionValidation.js";
 
@@ -71,6 +72,22 @@ export function createCollectionRoutes(database: DatabaseSync): Router {
 
     response.json({
       collections: repository.list(),
+    });
+  });
+
+  collectionRoutes.put("/pinned", (request, response) => {
+    const collectionId = parsePinnedCollection(request.body);
+
+    if (collectionId !== null && repository.findById(collectionId) === null) {
+      throw new HttpError(
+        404,
+        "collection_not_found",
+        "The Collection selected for pinning was not found.",
+      );
+    }
+
+    response.json({
+      collection: repository.setPinned(collectionId),
     });
   });
 

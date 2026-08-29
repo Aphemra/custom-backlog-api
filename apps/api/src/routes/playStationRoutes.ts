@@ -1,6 +1,10 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
+import { IgdbClient, type IgdbFetch } from "../features/igdb/igdbClient.js";
+import { IgdbEnrichmentService } from "../features/igdb/igdbEnrichmentService.js";
+import { IgdbMetadataRefreshService } from "../features/igdb/igdbMetadataRefreshService.js";
+import type { IgdbCredentials } from "../features/igdb/igdbTypes.js";
 import {
   playStationApiOperations,
   playStationTrophyDetailApiOperations,
@@ -21,6 +25,10 @@ import { PlayStationRequestGate } from "../features/playstation/playStationReque
 import { PlayStationTitlePreviewService } from "../features/playstation/playStationTitlePreviewService.js";
 import { PlayStationTitleReconciliationService } from "../features/playstation/playStationTitleReconciliationService.js";
 import { PlayStationTitleLinkService } from "../features/playstation/playStationTitleLinkService.js";
+import {
+  readPlayStationCredentialSource,
+  type PlayStationCredentialSource,
+} from "../features/playstation/playStationCredentialProvider.js";
 import type { PlayStationCredentials } from "../features/playstation/playStationTypes.js";
 import {
   playStationPlatforms,
@@ -45,7 +53,10 @@ export interface PlayStationRouteOptions {
   database: DatabaseSync;
   imageCacheDirectory: string;
   imageFetch?: ImageFetch;
+  igdbCredentials: IgdbCredentials;
+  igdbFetch?: IgdbFetch;
   credentials: PlayStationCredentials;
+  credentialProvider?: () => PlayStationCredentials;
   operations?: PlayStationApiOperations;
   detailOperations?: PlayStationTrophyDetailApiOperations;
   requestGate?: PlayStationRequestGate;
@@ -143,14 +154,17 @@ export function createPlayStationRoutes(
     options.detailOperations ?? playStationTrophyDetailApiOperations;
   const requestGate = options.requestGate ?? new PlayStationRequestGate();
 
+  const credentialSource: PlayStationCredentialSource =
+    options.credentialProvider ?? options.credentials;
+
   const authorizationSession = new PlayStationAuthorizationSession(
-    options.credentials.readerNpsso,
+    () => readPlayStationCredentialSource(credentialSource).readerNpsso,
     operations,
     requestGate,
   );
 
   const connectionService = new PlayStationConnectionService(
-    options.credentials,
+    credentialSource,
     operations,
     requestGate,
     authorizationSession,
@@ -184,6 +198,15 @@ export function createPlayStationRoutes(
   );
 
   const titleImageService = new PlayStationTitleImageService(imageCacheService);
+
+  const igdbMetadataRefreshService = new IgdbMetadataRefreshService(
+    options.database,
+    new IgdbEnrichmentService(
+      options.database,
+      new IgdbClient(options.igdbCredentials, options.igdbFetch),
+      imageCacheService,
+    ),
+  );
 
   const syncCooldownService = new PlayStationSyncCooldownService(
     options.database,
@@ -605,9 +628,22 @@ export function createPlayStationRoutes(
             preview.requestsMade + detailSynchronization.requestsMade,
         });
 
+        const metadataRefresh = await igdbMetadataRefreshService.refreshAll(
+          (progress) => {
+            syncProgressTracker.update({
+              phase: "refreshing_metadata",
+              completedItems: progress.completedItems,
+              totalItems: progress.totalItems,
+              currentItem: progress.currentItem,
+              message: progress.message,
+            });
+          },
+        );
+
         return {
           synchronization,
           detailSynchronization,
+          metadataRefresh,
           preview,
         };
       });

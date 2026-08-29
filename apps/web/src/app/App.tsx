@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProfileTrophySummary } from "../components/profile/ProfileTrophySummary";
 import { useProfileProgression } from "../components/profile/useProfileProgression";
 import { useToast } from "../components/toast/useToast";
@@ -11,6 +11,7 @@ import { LibraryPage } from "../features/library/pages/LibraryPage";
 import { PlayStationPage } from "../features/playstation/pages/PlayStationPage";
 import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
 import { SettingsPage } from "../features/settings/pages/SettingsPage";
+import { settingsNavigationEvent } from "../features/settings/settingsNavigation";
 
 const navigationItems = [
   {
@@ -45,6 +46,18 @@ export function App() {
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
   const [portableDataBusy, setPortableDataBusy] = useState(false);
   const [dataRevision, setDataRevision] = useState(0);
+
+  useEffect(() => {
+    function openSettings(): void {
+      setActivePage("settings");
+    }
+
+    window.addEventListener(settingsNavigationEvent, openSettings);
+
+    return () => {
+      window.removeEventListener(settingsNavigationEvent, openSettings);
+    };
+  }, []);
 
   async function handlePortableDataImported(): Promise<void> {
     setDataRevision((currentRevision) => currentRevision + 1);

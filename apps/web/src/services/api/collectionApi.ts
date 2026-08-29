@@ -9,6 +9,10 @@ interface CollectionResponse {
   readonly collection: CollectionDetail;
 }
 
+interface NullableCollectionResponse {
+  readonly collection: CollectionDetail | null;
+}
+
 interface CollectionsResponse {
   readonly collections: readonly CollectionSummary[];
 }
@@ -53,6 +57,20 @@ export const collectionApi = {
       {
         method: "PATCH",
         body: JSON.stringify(input),
+      },
+    );
+
+    return response.collection;
+  },
+
+  async setPinned(
+    collectionId: string | null,
+  ): Promise<CollectionDetail | null> {
+    const response = await requestJson<NullableCollectionResponse>(
+      "/api/collections/pinned",
+      {
+        method: "PUT",
+        body: JSON.stringify({ collectionId }),
       },
     );
 

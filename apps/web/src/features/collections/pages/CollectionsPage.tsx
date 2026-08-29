@@ -251,6 +251,16 @@ export function CollectionsPage() {
     }
   }
 
+  async function handlePin(collection: CollectionSummary): Promise<void> {
+    await performMutation(
+      `pin-${collection.id}`,
+      collection.isPinned
+        ? `${collection.name} was removed from the Library summary.`
+        : `${collection.name} is now shown on the Library page.`,
+      () => collectionApi.setPinned(collection.isPinned ? null : collection.id),
+    );
+  }
+
   async function handleDelete(collection: CollectionSummary): Promise<void> {
     const succeeded = await performMutation(
       collection.id,
@@ -454,6 +464,7 @@ export function CollectionsPage() {
                 dragHandle={controls.dragHandle}
                 busy={busyKey !== null}
                 managing={managedCollection?.id === collection.id}
+                onPin={() => void handlePin(collection)}
                 onManage={() => void openGameManager(collection)}
                 onEdit={() => openEditForm(collection)}
                 onDelete={() => setCollectionPendingDeletion(collection)}

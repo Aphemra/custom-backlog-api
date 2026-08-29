@@ -58,6 +58,7 @@ export const runtimeConfig = Object.freeze({
   databasePath: resolve(dataDirectory, "trophy-backlog.sqlite"),
   backupDirectory: resolve(dataDirectory, "backups"),
   imageCacheDirectory: resolve(dataDirectory, "images"),
+  credentialKeyPath: resolve(dataDirectory, "credentials.key"),
   igdbClientId: readOptionalCredential(process.env.IGDB_CLIENT_ID),
   igdbClientSecret: readOptionalCredential(process.env.IGDB_CLIENT_SECRET),
   playStationCredentials,

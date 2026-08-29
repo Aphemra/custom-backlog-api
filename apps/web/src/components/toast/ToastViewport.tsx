@@ -36,7 +36,21 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
 
           <div className="toast__content">
             <strong>{toast.title ?? defaultTitle(toast)}</strong>
+
             <p>{toast.message}</p>
+
+            {toast.action === undefined ? null : (
+              <button
+                className="toast__action"
+                type="button"
+                onClick={() => {
+                  toast.action?.onSelect();
+                  onDismiss(toast.id);
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
           </div>
 
           <IconButton

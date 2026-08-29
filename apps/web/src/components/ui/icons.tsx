@@ -75,6 +75,27 @@ export function GameListIcon() {
   );
 }
 
+export function ExternalLinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 4h6v6" />
+      <path d="m20 4-9 9" />
+      <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
+    </svg>
+  );
+}
+
+export function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m14 4 6 6" />
+      <path d="m16 8-5.5 5.5" />
+      <path d="m8.5 11.5-4 4 4 4 4-4" />
+      <path d="m4 20 5-5" />
+    </svg>
+  );
+}
+
 export function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">

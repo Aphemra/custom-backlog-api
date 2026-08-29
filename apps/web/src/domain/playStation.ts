@@ -176,6 +176,7 @@ export type PlayStationSyncProgressPhase =
   | "fetching_trophies"
   | "caching_artwork"
   | "saving_snapshots"
+  | "refreshing_metadata"
   | "complete"
   | "failed";
 
@@ -265,8 +266,24 @@ export interface PlayStationProgressSynchronizationResponse {
   readonly selection: PlayStationProgressSyncSelection;
 }
 
+export interface PlayStationIgdbMetadataRefreshFailure {
+  readonly gameId: string;
+  readonly title: string;
+  readonly message: string;
+}
+
+export interface PlayStationIgdbMetadataRefreshResult {
+  readonly expectedGameCount: number;
+  readonly refreshedGameCount: number;
+  readonly failedGameCount: number;
+  readonly skippedGameCount: number;
+  readonly stoppedEarly: boolean;
+  readonly failures: readonly PlayStationIgdbMetadataRefreshFailure[];
+}
+
 export interface PlayStationSynchronizationResponse {
   readonly synchronization: PlayStationSyncResult;
   readonly detailSynchronization: PlayStationTrophyDetailSynchronizationResult;
+  readonly metadataRefresh: PlayStationIgdbMetadataRefreshResult;
   readonly preview: PlayStationTitlePreview;
 }

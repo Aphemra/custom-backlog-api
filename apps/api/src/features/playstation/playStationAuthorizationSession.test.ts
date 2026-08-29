@@ -181,3 +181,60 @@ test("stops after a failed refresh instead of silently reauthenticating", async 
 
   assert.equal(codeExchanges, 1);
 });
+
+test("reauthenticates when the configured NPSSO changes", async () => {
+  let currentNpsso = "a".repeat(64);
+  const usedNpssoValues: string[] = [];
+
+  const operations: PlayStationApiOperations = {
+    async getTrophyTitles() {
+      throw new Error("Trophy titles should not be requested.");
+    },
+
+    async exchangeNpssoForAccessCode(npsso) {
+      usedNpssoValues.push(npsso);
+
+      return npsso.startsWith("a") ? "first-code" : "second-code";
+    },
+
+    async exchangeAccessCodeForAuthTokens(accessCode) {
+      return {
+        accessToken:
+          accessCode === "first-code"
+            ? "first-access-token"
+            : "second-access-token",
+        expiresIn: 3_600,
+        refreshToken:
+          accessCode === "first-code"
+            ? "first-refresh-token"
+            : "second-refresh-token",
+        refreshTokenExpiresIn: 7_200,
+      };
+    },
+
+    exchangeRefreshTokenForAuthTokens: unusedOperation,
+    searchAccounts: unusedOperation,
+    getTrophySummary: unusedOperation,
+  };
+
+  const session = new PlayStationAuthorizationSession(
+    () => currentNpsso,
+    operations,
+    new PlayStationRequestGate({
+      minimumIntervalMs: 0,
+    }),
+    () => 1_000,
+  );
+
+  assert.deepEqual(await session.getAuthorization(), {
+    accessToken: "first-access-token",
+  });
+
+  currentNpsso = "b".repeat(64);
+
+  assert.deepEqual(await session.getAuthorization(), {
+    accessToken: "second-access-token",
+  });
+
+  assert.deepEqual(usedNpssoValues, ["a".repeat(64), "b".repeat(64)]);
+});

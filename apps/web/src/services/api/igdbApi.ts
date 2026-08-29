@@ -62,4 +62,17 @@ export const igdbApi = {
       },
     );
   },
+
+  async refreshExistingGame(gameId: string): Promise<IgdbEnrichmentResult> {
+    return requestJson<IgdbEnrichmentResult>(
+      `/api/integrations/igdb/library/` +
+        `${encodeURIComponent(gameId)}/metadata-refresh`,
+      {
+        method: "POST",
+        headers: {
+          "x-trophy-backlog-action": "refresh-library-game-from-igdb",
+        },
+      },
+    );
+  },
 };

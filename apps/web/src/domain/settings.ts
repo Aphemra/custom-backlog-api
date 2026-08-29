@@ -29,6 +29,22 @@ export interface UpdateAppSettingsInput {
   readonly unobtainableColor?: string;
 }
 
+export interface PlayStationCredentialSettings {
+  readonly readerOnlineId: string | null;
+  readonly targetOnlineId: string | null;
+  readonly hasNpsso: boolean;
+  readonly npssoUpdatedAt: string | null;
+  readonly npssoExpectedRenewalAt: string | null;
+  readonly renewalReminderDays: number;
+}
+
+export interface UpdatePlayStationCredentialSettingsInput {
+  readonly readerOnlineId?: string | null;
+  readonly targetOnlineId?: string | null;
+  readonly readerNpsso?: string | null;
+  readonly renewalReminderDays?: number;
+}
+
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettings = {
   accentColor: "#8b5cf6",
   notStartedColor: "#8b5cf6",

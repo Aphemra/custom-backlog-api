@@ -8,6 +8,9 @@ import { runtimeConfig } from "./config/runtimeConfig.js";
 import { HttpError } from "./errors/httpError.js";
 import type { IgdbFetch } from "./features/igdb/igdbClient.js";
 import type { IgdbCredentials } from "./features/igdb/igdbTypes.js";
+import { PlayStationCredentialProvider } from "./features/playstation/playStationCredentialProvider.js";
+import { loadOrCreateLocalSecretCipher } from "./features/settings/localSecretCipher.js";
+import { PlayStationCredentialSettingsRepository } from "./features/settings/playStationCredentialSettingsRepository.js";
 import { createCollectionRoutes } from "./routes/collectionRoutes.js";
 import { createDataRoutes } from "./routes/dataRoutes.js";
 import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
@@ -32,8 +35,30 @@ export function createApp(
   },
   externalFetch: IgdbFetch = fetch,
   playStationOptions: Partial<PlayStationRouteOptions> = {},
+  credentialKeyPath: string = runtimeConfig.credentialKeyPath,
 ) {
   const app = express();
+
+  let localPlayStationCredentialProvider: PlayStationCredentialProvider | null =
+    null;
+
+  function readRuntimePlayStationCredentials() {
+    localPlayStationCredentialProvider ??= new PlayStationCredentialProvider(
+      new PlayStationCredentialSettingsRepository(
+        database,
+        loadOrCreateLocalSecretCipher(credentialKeyPath),
+      ),
+      runtimeConfig.playStationCredentials,
+    );
+
+    return localPlayStationCredentialProvider.getCredentials();
+  }
+
+  const credentialProvider =
+    playStationOptions.credentialProvider ??
+    (playStationOptions.credentials === undefined
+      ? readRuntimePlayStationCredentials
+      : undefined);
 
   app.disable("x-powered-by");
   app.use(
@@ -65,8 +90,11 @@ export function createApp(
       database,
       imageCacheDirectory,
       imageFetch: externalFetch,
+      igdbCredentials: playStationOptions.igdbCredentials ?? igdbCredentials,
+      igdbFetch: playStationOptions.igdbFetch ?? externalFetch,
       credentials:
         playStationOptions.credentials ?? runtimeConfig.playStationCredentials,
+      ...(credentialProvider === undefined ? {} : { credentialProvider }),
       ...(playStationOptions.operations === undefined
         ? {}
         : { operations: playStationOptions.operations }),
@@ -92,7 +120,7 @@ export function createApp(
 
   app.use("/api/saved-views", createSavedViewRoutes(database));
 
-  app.use("/api/settings", createSettingsRoutes(database));
+  app.use("/api/settings", createSettingsRoutes(database, credentialKeyPath));
 
   app.use("/api/trophy-alerts", createTrophyAlertRoutes(database));
 

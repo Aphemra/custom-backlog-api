@@ -209,3 +209,26 @@ export function parseGameCollectionMemberships(
     "collectionIds",
   );
 }
+
+export function parsePinnedCollection(value: unknown): string | null {
+  const record = requireRecord(value);
+
+  rejectUnknownKeys(record, new Set(["collectionId"]));
+
+  if (record.collectionId === null) {
+    return null;
+  }
+
+  if (
+    typeof record.collectionId !== "string" ||
+    record.collectionId.trim().length === 0
+  ) {
+    throw new HttpError(
+      400,
+      "invalid_pinned_collection",
+      "collectionId must be a non-empty string or null.",
+    );
+  }
+
+  return record.collectionId.trim();
+}

@@ -20,7 +20,10 @@ import type {
   LibraryGameListItem,
   UpdateLibraryGameInput,
 } from "../../../domain/libraryGame";
-import type { PlayStationProgressSynchronizationResponse } from "../../../domain/playStation";
+import type {
+  PlayStationProgressSynchronizationResponse,
+  PlayStationTrophyCounts,
+} from "../../../domain/playStation";
 import type {
   SavedView,
   SavedViewFilters,
@@ -33,6 +36,8 @@ import { libraryApi } from "../../../services/api/libraryApi";
 import { playStationApi } from "../../../services/api/playStationApi";
 import { savedViewApi } from "../../../services/api/savedViewApi";
 import { PlayStationSyncProgressPanel } from "../../playstation/components/PlayStationSyncProgressPanel";
+import { getPlayStationCredentialGuidance } from "../../playstation/playStationCredentialError";
+import { requestSettingsNavigation } from "../../settings/settingsNavigation";
 import { usePlayStationSyncProgress } from "../../playstation/hooks/usePlayStationSyncProgress";
 import { SavedViewForm } from "../../savedViews/components/SavedViewForm";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
@@ -52,6 +57,10 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
 
 function formatDateTime(value: string): string {
   return dateTimeFormatter.format(new Date(value));
+}
+
+function countTrophies(counts: PlayStationTrophyCounts): number {
+  return counts.bronze + counts.silver + counts.gold + counts.platinum;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -192,6 +201,26 @@ export function LibraryPage() {
   );
 
   const viewAdjusted = filterOverrides !== null || sortOverride !== null;
+
+  const pinnedCollection =
+    collections.find((collection) => collection.isPinned) ?? null;
+
+  const pinnedTrophySummary = pinnedCollection?.trophySummary ?? null;
+
+  const pinnedEarnedTrophies =
+    pinnedTrophySummary === null
+      ? 0
+      : countTrophies(pinnedTrophySummary.earnedTrophies);
+
+  const pinnedTotalTrophies =
+    pinnedTrophySummary === null
+      ? 0
+      : countTrophies(pinnedTrophySummary.totalTrophies);
+
+  const pinnedProgressPercent =
+    pinnedTotalTrophies === 0
+      ? 0
+      : Math.round((pinnedEarnedTrophies / pinnedTotalTrophies) * 100);
 
   const refreshGames = useCallback(async (): Promise<void> => {
     setGames(await libraryApi.list());
@@ -492,6 +521,21 @@ export function LibraryPage() {
         }
       }
 
+      const credentialGuidance = getPlayStationCredentialGuidance(error);
+
+      if (credentialGuidance !== null) {
+        showToast({
+          tone: "error",
+          title: "PSN credentials need attention",
+          message: credentialGuidance,
+          durationSeconds: 15,
+          action: {
+            label: "Open Settings",
+            onSelect: requestSettingsNavigation,
+          },
+        });
+      }
+
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsSynchronizingTrophies(false);
@@ -786,6 +830,62 @@ export function LibraryPage() {
         </div>
       </div>
 
+      {pinnedCollection === null ? null : (
+        <section
+          className="pinned-collection-summary"
+          aria-labelledby="pinned-collection-title"
+        >
+          <div className="pinned-collection-summary__identity">
+            <span>Pinned Collection</span>
+
+            <h3 id="pinned-collection-title">{pinnedCollection.name}</h3>
+          </div>
+
+          <div className="pinned-collection-summary__progress">
+            <div className="pinned-collection-summary__progress-heading">
+              <strong>{pinnedProgressPercent}%</strong>
+
+              <span>
+                {pinnedTrophySummary?.completedGameCount ?? 0} of{" "}
+                {pinnedCollection.gameCount} games at 100%
+              </span>
+            </div>
+
+            <div
+              className="pinned-collection-summary__track"
+              role="progressbar"
+              aria-label={`${pinnedCollection.name} trophy progress`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={pinnedProgressPercent}
+            >
+              <span style={{ width: `${pinnedProgressPercent}%` }} />
+            </div>
+          </div>
+
+          <div className="pinned-collection-summary__totals">
+            {pinnedTrophySummary === null ? (
+              <span>No trophy data yet</span>
+            ) : (
+              <>
+                <strong>
+                  {pinnedEarnedTrophies.toLocaleString()} /{" "}
+                  {pinnedTotalTrophies.toLocaleString()}
+                </strong>
+
+                <span>Trophies earned</span>
+
+                <strong>
+                  {pinnedTrophySummary.points.remaining.toLocaleString()}
+                </strong>
+
+                <span>Points remaining</span>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
       <PlayStationSyncProgressPanel progress={syncProgress} />
 
       {lastProgressSync === null ? null : (
@@ -1010,6 +1110,7 @@ export function LibraryPage() {
       <GameDetailsDialog
         game={detailsGame}
         onClose={() => setDetailsGame(null)}
+        onRefreshed={refreshGames}
       />
 
       <Dialog

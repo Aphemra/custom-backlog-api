@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useToast } from "../../../components/toast/useToast";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { ExternalLinkIcon } from "../../../components/ui/icons";
+import { Tooltip } from "../../../components/ui/Tooltip";
 import {
   deleteEntireBacklogConfirmation,
   type BacklogDeletionResult,
@@ -9,6 +11,8 @@ import {
   DEFAULT_APPEARANCE_SETTINGS,
   type AppearanceSettings,
   type AppSettings,
+  type PlayStationCredentialSettings,
+  type UpdatePlayStationCredentialSettingsInput,
 } from "../../../domain/settings";
 import { ApiError } from "../../../services/api/apiClient";
 import { portableDataApi } from "../../../services/api/portableDataApi";
@@ -41,6 +45,28 @@ interface SettingsPageProps {
   readonly onBacklogDeleted: () => void;
 }
 
+const settingsDateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function formatSettingsDate(value: string | null): string {
+  return value === null
+    ? "Not available"
+    : settingsDateFormatter.format(new Date(value));
+}
+
+function onlineIdIsValid(value: string): boolean {
+  const onlineId = value.trim();
+
+  return (
+    onlineId.length === 0 ||
+    (onlineId.length >= 3 &&
+      onlineId.length <= 16 &&
+      /^[a-zA-Z0-9_-]+$/.test(onlineId))
+  );
+}
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.message;
@@ -54,12 +80,23 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
     useToast();
 
   const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  const [playStationSettings, setPlayStationSettings] =
+    useState<PlayStationCredentialSettings | null>(null);
+
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const [cooldownEnabled, setCooldownEnabled] = useState(true);
   const [cooldownSeconds, setCooldownSeconds] = useState("300");
   const [notificationDurationSeconds, setNotificationDurationSeconds] =
     useState("5");
+
+  const [readerOnlineId, setReaderOnlineId] = useState("");
+  const [targetOnlineId, setTargetOnlineId] = useState("");
+  const [npssoDraft, setNpssoDraft] = useState("");
+  const [npssoFocused, setNpssoFocused] = useState(false);
+  const [removeStoredNpsso, setRemoveStoredNpsso] = useState(false);
+  const [renewalReminderDays, setRenewalReminderDays] = useState("7");
 
   const [appearance, setAppearance] = useState<AppearanceSettings>(
     DEFAULT_APPEARANCE_SETTINGS,
@@ -74,16 +111,27 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
 
     async function loadSettings() {
       try {
-        const loadedSettings = await settingsApi.get(abortController.signal);
+        const [loadedSettings, loadedPlayStationSettings] = await Promise.all([
+          settingsApi.get(abortController.signal),
+          settingsApi.getPlayStation(abortController.signal),
+        ]);
 
         if (!abortController.signal.aborted) {
           setSettings(loadedSettings);
+          setPlayStationSettings(loadedPlayStationSettings);
           setCooldownEnabled(loadedSettings.trophySyncCooldownEnabled);
           setCooldownSeconds(String(loadedSettings.trophySyncCooldownSeconds));
           setNotificationDurationSeconds(
             String(loadedSettings.notificationDurationSeconds),
           );
           setAppearance(pickAppearanceSettings(loadedSettings));
+          setReaderOnlineId(loadedPlayStationSettings.readerOnlineId ?? "");
+          setTargetOnlineId(loadedPlayStationSettings.targetOnlineId ?? "");
+          setRenewalReminderDays(
+            String(loadedPlayStationSettings.renewalReminderDays),
+          );
+          setNpssoDraft("");
+          setRemoveStoredNpsso(false);
           applyAppearanceSettings(loadedSettings);
           setLoadState("ready");
         }
@@ -100,9 +148,14 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
   }, []);
 
   const parsedCooldownSeconds = Number(cooldownSeconds);
+
   const parsedNotificationDurationSeconds = Number(notificationDurationSeconds);
 
-  const valuesAreValid =
+  const parsedRenewalReminderDays = Number(renewalReminderDays);
+
+  const npssoReplacement = npssoDraft.trim();
+
+  const appSettingsAreValid =
     Number.isInteger(parsedCooldownSeconds) &&
     parsedCooldownSeconds >= 1 &&
     parsedCooldownSeconds <= 86_400 &&
@@ -110,13 +163,33 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
     parsedNotificationDurationSeconds >= 1 &&
     parsedNotificationDurationSeconds <= 60;
 
-  const hasChanges =
+  const credentialSettingsAreValid =
+    onlineIdIsValid(readerOnlineId) &&
+    onlineIdIsValid(targetOnlineId) &&
+    (npssoReplacement.length === 0 || npssoReplacement.length === 64) &&
+    Number.isInteger(parsedRenewalReminderDays) &&
+    parsedRenewalReminderDays >= 1 &&
+    parsedRenewalReminderDays <= 30;
+
+  const valuesAreValid = appSettingsAreValid && credentialSettingsAreValid;
+
+  const appSettingsHaveChanges =
     settings !== null &&
     (cooldownEnabled !== settings.trophySyncCooldownEnabled ||
       parsedCooldownSeconds !== settings.trophySyncCooldownSeconds ||
       parsedNotificationDurationSeconds !==
         settings.notificationDurationSeconds ||
       !appearanceSettingsEqual(appearance, settings));
+
+  const credentialSettingsHaveChanges =
+    playStationSettings !== null &&
+    ((readerOnlineId.trim() || null) !== playStationSettings.readerOnlineId ||
+      (targetOnlineId.trim() || null) !== playStationSettings.targetOnlineId ||
+      parsedRenewalReminderDays !== playStationSettings.renewalReminderDays ||
+      npssoReplacement.length > 0 ||
+      removeStoredNpsso);
+
+  const hasChanges = appSettingsHaveChanges || credentialSettingsHaveChanges;
 
   function updateAppearanceColor(
     key: keyof AppearanceSettings,
@@ -141,31 +214,69 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
   ): Promise<void> {
     event.preventDefault();
 
-    if (!valuesAreValid) {
+    if (!valuesAreValid || settings === null || playStationSettings === null) {
       return;
     }
 
     setIsSaving(true);
 
     try {
-      const updatedSettings = await settingsApi.update({
-        trophySyncCooldownEnabled: cooldownEnabled,
-        trophySyncCooldownSeconds: parsedCooldownSeconds,
-        notificationDurationSeconds: parsedNotificationDurationSeconds,
-        ...appearance,
-      });
+      let updatedSettings = settings;
+      let updatedPlayStationSettings = playStationSettings;
+
+      if (appSettingsHaveChanges) {
+        updatedSettings = await settingsApi.update({
+          trophySyncCooldownEnabled: cooldownEnabled,
+          trophySyncCooldownSeconds: parsedCooldownSeconds,
+          notificationDurationSeconds: parsedNotificationDurationSeconds,
+          ...appearance,
+        });
+      }
+
+      if (credentialSettingsHaveChanges) {
+        const credentialUpdate: UpdatePlayStationCredentialSettingsInput = {
+          readerOnlineId: readerOnlineId.trim() || null,
+          targetOnlineId: targetOnlineId.trim() || null,
+          renewalReminderDays: parsedRenewalReminderDays,
+          ...(npssoReplacement.length > 0
+            ? { readerNpsso: npssoReplacement }
+            : removeStoredNpsso
+              ? { readerNpsso: null }
+              : {}),
+        };
+
+        updatedPlayStationSettings =
+          await settingsApi.updatePlayStation(credentialUpdate);
+      }
 
       setSettings(updatedSettings);
+      setPlayStationSettings(updatedPlayStationSettings);
+
       setCooldownEnabled(updatedSettings.trophySyncCooldownEnabled);
+
       setCooldownSeconds(String(updatedSettings.trophySyncCooldownSeconds));
+
       setNotificationDurationSeconds(
         String(updatedSettings.notificationDurationSeconds),
       );
+
+      setReaderOnlineId(updatedPlayStationSettings.readerOnlineId ?? "");
+
+      setTargetOnlineId(updatedPlayStationSettings.targetOnlineId ?? "");
+
+      setRenewalReminderDays(
+        String(updatedPlayStationSettings.renewalReminderDays),
+      );
+
+      setNpssoDraft("");
+      setNpssoFocused(false);
+      setRemoveStoredNpsso(false);
 
       const updatedAppearance = pickAppearanceSettings(updatedSettings);
 
       setAppearance(updatedAppearance);
       applyAppearanceSettings(updatedAppearance);
+
       updateToastDuration(updatedSettings.notificationDurationSeconds);
 
       showToast({
@@ -227,8 +338,9 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
           <h2 id="settings-title">Settings</h2>
 
           <p className="library-heading__description">
-            Configure synchronization safety, notification timing, and interface
-            colors. These settings are stored only in your local database.
+            Configure local PlayStation access, synchronization safety,
+            notification timing, and interface colors. Credentials remain on
+            this computer and are never included in repository files.
           </p>
         </div>
       </div>
@@ -252,6 +364,233 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
       {loadState === "ready" ? (
         <form className="settings-form" onSubmit={handleSubmit}>
           <div className="settings-grid">
+            <section
+              className="settings-card"
+              aria-labelledby="playstation-account-settings-title"
+            >
+              <div className="settings-card__heading">
+                <div>
+                  <p className="eyebrow">Local PlayStation access</p>
+
+                  <h3 id="playstation-account-settings-title">
+                    Reader and target accounts
+                  </h3>
+                </div>
+
+                <span
+                  className={`status-pill${
+                    playStationSettings?.hasNpsso === true && !removeStoredNpsso
+                      ? ""
+                      : " status-pill--warning"
+                  }`}
+                >
+                  {playStationSettings?.hasNpsso === true && !removeStoredNpsso
+                    ? "NPSSO stored"
+                    : "NPSSO missing"}
+                </span>
+              </div>
+
+              <p className="settings-card__description">
+                The reader account performs read-only trophy requests. The
+                target account is the profile whose trophies belong in this
+                backlog. The NPSSO is encrypted before being stored in the local
+                database.
+              </p>
+
+              <div className="settings-credential-grid">
+                <label className="field">
+                  <span>Reader account online ID</span>
+
+                  <input
+                    type="text"
+                    minLength={3}
+                    maxLength={16}
+                    pattern="[a-zA-Z0-9_-]{3,16}"
+                    value={readerOnlineId}
+                    disabled={isSaving}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="BacklogReader"
+                    onChange={(event) => setReaderOnlineId(event.target.value)}
+                  />
+
+                  <small>
+                    The dedicated secondary account used to read public trophy
+                    information.
+                  </small>
+                </label>
+
+                <label className="field">
+                  <span>Target account online ID</span>
+
+                  <input
+                    type="text"
+                    minLength={3}
+                    maxLength={16}
+                    pattern="[a-zA-Z0-9_-]{3,16}"
+                    value={targetOnlineId}
+                    disabled={isSaving}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="YourPSNName"
+                    onChange={(event) => setTargetOnlineId(event.target.value)}
+                  />
+
+                  <small>
+                    Your actual PlayStation account whose trophies will be
+                    synchronized.
+                  </small>
+                </label>
+
+                <div className="field settings-credential-secret">
+                  <span>Reader account NPSSO</span>
+
+                  <div className="settings-secret-input-row">
+                    <input
+                      type={npssoFocused ? "text" : "password"}
+                      value={npssoDraft}
+                      disabled={isSaving}
+                      autoComplete="new-password"
+                      spellCheck={false}
+                      placeholder={
+                        playStationSettings?.hasNpsso === true &&
+                        !removeStoredNpsso
+                          ? "••••••••••••••••"
+                          : "Paste the 64-character NPSSO"
+                      }
+                      aria-describedby="npsso-field-description"
+                      onFocus={() => setNpssoFocused(true)}
+                      onBlur={() => setNpssoFocused(false)}
+                      onChange={(event) => {
+                        setNpssoDraft(event.target.value);
+                        setRemoveStoredNpsso(false);
+                      }}
+                    />
+
+                    <Tooltip
+                      content="Open PlayStation sign-in"
+                      placement="top"
+                      alignment="center"
+                    >
+                      <a
+                        className="icon-button settings-external-link"
+                        href="https://www.playstation.com/"
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Open PlayStation sign-in"
+                      >
+                        <ExternalLinkIcon />
+                      </a>
+                    </Tooltip>
+
+                    <Tooltip
+                      content="Open the NPSSO cookie page"
+                      placement="top"
+                      alignment="end"
+                    >
+                      <a
+                        className="icon-button settings-external-link"
+                        href="https://ca.account.sony.com/api/v1/ssocookie"
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Open the NPSSO cookie page"
+                      >
+                        <ExternalLinkIcon />
+                      </a>
+                    </Tooltip>
+                  </div>
+
+                  <small id="npsso-field-description">
+                    Newly entered text is visible while this field is focused
+                    and masked when focus leaves. The stored value is never sent
+                    back to the browser.
+                  </small>
+
+                  {npssoReplacement.length > 0 &&
+                  npssoReplacement.length !== 64 ? (
+                    <small className="field-error">
+                      NPSSO keys must contain exactly 64 characters. Current
+                      length: {npssoReplacement.length}.
+                    </small>
+                  ) : null}
+
+                  {playStationSettings?.hasNpsso === true ? (
+                    <button
+                      className="text-button settings-secret-remove"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => {
+                        if (removeStoredNpsso) {
+                          setRemoveStoredNpsso(false);
+                        } else {
+                          setNpssoDraft("");
+                          setRemoveStoredNpsso(true);
+                        }
+                      }}
+                    >
+                      {removeStoredNpsso
+                        ? "Keep stored NPSSO"
+                        : "Remove stored NPSSO"}
+                    </button>
+                  ) : null}
+
+                  {removeStoredNpsso ? (
+                    <div className="settings-warning">
+                      <strong>The stored NPSSO will be removed.</strong>
+
+                      <span>
+                        PlayStation synchronization will stop working until a
+                        replacement is entered.
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+
+                <label className="field settings-number-field">
+                  <span>Renewal reminder lead time in days</span>
+
+                  <input
+                    required
+                    type="number"
+                    min={1}
+                    max={30}
+                    step={1}
+                    value={renewalReminderDays}
+                    disabled={isSaving}
+                    onChange={(event) =>
+                      setRenewalReminderDays(event.target.value)
+                    }
+                  />
+
+                  <small>
+                    Warn this many days before the expected NPSSO renewal date.
+                  </small>
+                </label>
+              </div>
+
+              <div className="settings-credential-status">
+                <div>
+                  <span>Last replaced</span>
+
+                  <strong>
+                    {formatSettingsDate(
+                      playStationSettings?.npssoUpdatedAt ?? null,
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Expected renewal</span>
+
+                  <strong>
+                    {formatSettingsDate(
+                      playStationSettings?.npssoExpectedRenewalAt ?? null,
+                    )}
+                  </strong>
+                </div>
+              </div>
+            </section>
+
             <section
               className="settings-card"
               aria-labelledby="sync-settings-title"

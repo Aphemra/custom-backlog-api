@@ -31,6 +31,7 @@ export interface CollectionSummary {
   readonly name: string;
   readonly description: string | null;
   readonly sortOrder: number;
+  readonly isPinned: boolean;
   readonly gameCount: number;
   readonly visibleGameCount: number;
   readonly hiddenGameCount: number;

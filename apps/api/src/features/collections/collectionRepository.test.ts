@@ -22,6 +22,83 @@ test("creates, edits, orders, fills, and deletes collections", () => {
 
     games.hide(secondGame.id);
 
+    const metadataTimestamp = "2026-08-27T12:00:00.000Z";
+
+    database
+      .prepare(
+        `
+        INSERT INTO external_game_metadata (
+          id,
+          provider,
+          external_id,
+          title,
+          cover_url,
+          release_date,
+          payload_json,
+          fetched_at
+        ) VALUES (?, 'igdb', '250766', 'Astro Bot', NULL, NULL, '{}', ?)
+      `,
+      )
+      .run("astro-igdb", metadataTimestamp);
+
+    database
+      .prepare(
+        `
+        INSERT INTO game_metadata_links (
+          game_id,
+          metadata_id,
+          linked_at
+        ) VALUES (?, ?, ?)
+      `,
+      )
+      .run(firstGame.id, "astro-igdb", metadataTimestamp);
+
+    database
+      .prepare(
+        `
+        INSERT INTO igdb_game_details (
+          metadata_id,
+          platforms_json,
+          releases_json,
+          screenshots_json,
+          artworks_json,
+          genres_json,
+          game_modes_json,
+          companies_json,
+          collections_json,
+          franchises_json,
+          game_type_external_id,
+          total_rating_count,
+          time_hastily_seconds,
+          time_normally_seconds,
+          time_completely_seconds,
+          time_submission_count,
+          is_dlc,
+          stored_at
+        ) VALUES (
+          ?,
+          '[]',
+          '[]',
+          '[]',
+          '[]',
+          '[]',
+          '[]',
+          '[]',
+          '[]',
+          '[]',
+          '0',
+          0,
+          3600,
+          7200,
+          10800,
+          12,
+          0,
+          ?
+        )
+      `,
+      )
+      .run("astro-igdb", metadataTimestamp);
+
     const insertSnapshot = database.prepare(`
       INSERT INTO trophy_snapshots (
         id,
@@ -118,6 +195,28 @@ test("creates, edits, orders, fills, and deletes collections", () => {
         remaining: 300,
       },
     });
+
+    assert.deepEqual(populated?.timeEstimateSummary, {
+      gameCountWithEstimates: 1,
+      hastily: {
+        gameCount: 1,
+        totalSeconds: 3_600,
+      },
+      normally: {
+        gameCount: 1,
+        totalSeconds: 7_200,
+      },
+      completely: {
+        gameCount: 1,
+        totalSeconds: 10_800,
+      },
+      submissionCount: 12,
+    });
+
+    assert.equal(
+      collections.findById(secondCollection.id)?.timeEstimateSummary,
+      null,
+    );
 
     assert.deepEqual(
       populated?.games.map((game) => game.id),

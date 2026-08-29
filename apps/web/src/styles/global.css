@@ -1618,16 +1618,28 @@ textarea:focus-visible {
   background: var(--color-surface-soft);
 }
 
-.game-row--trophies-progress {
-  box-shadow: inset 3px 0 0 rgba(96, 165, 250, 0.62);
+.game-row--status-not-started {
+  box-shadow: inset 3px 0 0 var(--status-not-started-color);
 }
 
-.game-row--trophies-platinum {
-  box-shadow: inset 3px 0 0 rgba(var(--color-accent-bright-rgb), 0.72);
+.game-row--status-playing {
+  box-shadow: inset 3px 0 0 var(--status-playing-color);
 }
 
-.game-row--trophies-complete {
-  box-shadow: inset 3px 0 0 rgba(45, 212, 191, 0.72);
+.game-row--status-on-hold {
+  box-shadow: inset 3px 0 0 var(--status-on-hold-color);
+}
+
+.game-row--status-waiting {
+  box-shadow: inset 3px 0 0 var(--status-waiting-color);
+}
+
+.game-row--status-completed {
+  box-shadow: inset 3px 0 0 var(--status-completed-color);
+}
+
+.game-row--status-unreleased {
+  box-shadow: inset 3px 0 0 var(--status-unreleased-color);
 }
 
 .game-row__order {
@@ -1845,16 +1857,36 @@ textarea:focus-visible {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: #60a5fa;
+  background: var(--color-text-subtle);
   transition: width 180ms ease;
 }
 
-.game-row--trophies-platinum .game-row__progress-track > span {
-  background: var(--color-accent-bright);
+.game-row--status-not-started .game-row__progress-track > span {
+  background: var(--status-not-started-color);
 }
 
-.game-row--trophies-complete .game-row__progress-track > span {
-  background: var(--color-success);
+.game-row--status-playing .game-row__progress-track > span {
+  background: var(--status-playing-color);
+}
+
+.game-row--status-on-hold .game-row__progress-track > span {
+  background: var(--status-on-hold-color);
+}
+
+.game-row--status-waiting .game-row__progress-track > span {
+  background: var(--status-waiting-color);
+}
+
+.game-row--status-completed .game-row__progress-track > span {
+  background: var(--status-completed-color);
+}
+
+.game-row--status-unreleased .game-row__progress-track > span {
+  background: var(--status-unreleased-color);
+}
+
+.game-row--trophies-platinum .game-row__progress-track {
+  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.72);
 }
 
 .game-row__trophy-counts {
@@ -1955,7 +1987,7 @@ textarea:focus-visible {
   display: inline-block;
   min-width: 0;
   overflow: hidden;
-  color: var(--color-accent-bright);
+  color: var(--trophy-platinum);
   cursor: default;
   font-size: 0.7rem;
   font-weight: 650;
@@ -1971,7 +2003,7 @@ textarea:focus-visible {
 }
 
 .game-row--trophies-complete .game-row__completion-text {
-  color: #5eead4;
+  color: var(--trophy-gold);
 }
 
 .game-resource-links {
@@ -2143,46 +2175,89 @@ textarea:focus-visible {
   line-height: 1.55;
 }
 
+.collections-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.35rem 0 0.75rem;
+}
+
+.collections-toolbar__summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.collections-toolbar__summary strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
 .collection-list {
   display: grid;
   gap: 0.65rem;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
+}
+
+.collection-list .sortable-list {
+  gap: 0.65rem;
 }
 
 .collection-card {
   display: grid;
   grid-template-columns: 3.1rem minmax(0, 1fr) auto;
-  gap: 0.9rem;
-  align-items: center;
+  gap: 0.85rem;
+  align-items: stretch;
+  min-height: 7.4rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-medium);
   padding: 0.8rem;
-  background: rgba(17, 22, 34, 0.84);
+  background: var(--color-surface);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .collection-card:hover,
 .collection-card--active {
-  border-color: rgba(var(--color-accent-bright-rgb), 0.4);
-  background: rgba(23, 29, 43, 0.92);
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-raised);
 }
 
 .collection-card--active {
-  box-shadow: inset 0 0 0 1px rgba(var(--color-accent-rgb), 0.16);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.collection-card__order {
+  display: grid;
+  grid-template-rows: auto auto;
+  place-items: center;
+  align-content: center;
+  gap: 0.35rem;
+  border-right: 1px solid var(--color-border);
+  padding-right: 0.75rem;
+}
+
+.collection-card__order .drag-handle {
+  width: 1.9rem;
+  height: 1.9rem;
 }
 
 .collection-card__content {
+  display: grid;
   min-width: 0;
-}
-
-.collection-card__title-line,
-.collection-card__counts,
-.collection-card__actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  align-content: center;
 }
 
 .collection-card__title-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
   gap: 0.55rem;
 }
 
@@ -2190,65 +2265,133 @@ textarea:focus-visible {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font-size: 1.08rem;
+  font-size: 1.05rem;
   letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .collection-count {
+  flex: 0 0 auto;
   border-radius: var(--radius-pill);
-  padding: 0.24rem 0.52rem;
+  padding: 0.2rem 0.45rem;
   background: var(--color-accent-soft);
   color: var(--color-accent-text);
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
 }
 
 .collection-card__description {
-  display: -webkit-box;
+  min-height: 1.2rem;
+  margin: 0.25rem 0 0;
   overflow: hidden;
-  margin: 0.45rem 0 0;
   color: var(--color-text-muted);
-  font-size: 0.82rem;
-  line-height: 1.45;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  font-size: var(--font-size-small);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.collection-card__counts {
-  gap: 0.65rem;
-  margin-top: 0.5rem;
-  color: #cbd5e1;
-  font-size: 0.74rem;
+.collection-card__description--empty {
+  color: var(--color-text-subtle);
+  font-style: italic;
+}
+
+.collection-card__membership {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 0.2rem;
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-caption);
+}
+
+.collection-card__membership span + span::before {
+  content: "·";
+  margin-right: var(--space-2);
+}
+
+.collection-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: 0.65rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.6rem;
+}
+
+.collection-card__metric {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+}
+
+.collection-card__metric strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-card__metric > span {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-card__metric-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.collection-card__metric-with-icon > svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--trophy-platinum);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .collection-card__actions {
-  justify-content: flex-end;
-  gap: 0.25rem;
-  max-width: 9rem;
+  display: grid;
+  place-content: center;
+  gap: var(--space-1);
+  border-left: 1px solid var(--color-border);
+  padding-left: 0.65rem;
+}
+
+.collection-card__actions .icon-button {
+  width: 2rem;
+  height: 2rem;
+}
+
+.collection-card__actions .icon-button[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
 }
 
 .membership-editor {
-  margin-top: 1rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-large);
-  padding: clamp(1rem, 3vw, 1.4rem);
-  background: rgba(17, 22, 34, 0.96);
-  box-shadow: 0 1.25rem 3.5rem rgba(0, 0, 0, 0.28);
-}
-
-.membership-editor__intro {
-  max-width: 42rem;
-  margin: 0.55rem 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.84rem;
-  line-height: 1.5;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
 }
 
 .membership-editor__section {
-  margin-top: 1.1rem;
+  min-width: 0;
+}
+
+.membership-editor__section + .membership-editor__section {
+  border-left: 1px solid var(--color-border);
+  padding-left: var(--space-5);
 }
 
 .membership-editor__section-heading {
@@ -2284,9 +2427,13 @@ textarea:focus-visible {
   gap: 0.45rem;
 }
 
+.selected-game-list .sortable-list {
+  gap: 0.45rem;
+}
+
 .selected-game {
   display: grid;
-  grid-template-columns: 4.8rem minmax(0, 1fr) auto;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
   border: 1px solid var(--color-border);
@@ -2297,10 +2444,16 @@ textarea:focus-visible {
 
 .selected-game__order {
   display: grid;
-  grid-template-columns: 1.5rem 1.4rem 1.5rem;
+  grid-template-rows: auto auto;
   place-items: center;
+  gap: 0.2rem;
   border-right: 1px solid var(--color-border);
   padding-right: 0.55rem;
+}
+
+.selected-game__order .drag-handle {
+  width: 1.8rem;
+  height: 1.8rem;
 }
 
 .selected-game__identity,
@@ -2329,9 +2482,11 @@ textarea:focus-visible {
   margin-bottom: 0.6rem;
 }
 
+.selected-game-list,
 .membership-picker {
-  max-height: 20rem;
+  max-height: min(26rem, 55vh);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding-right: 0.2rem;
 }
 
@@ -2359,6 +2514,7 @@ textarea:focus-visible {
 .membership-editor__actions {
   position: sticky;
   bottom: 0;
+  grid-column: 1 / -1;
   border-top: 1px solid var(--color-border);
   padding-top: 0.85rem;
   background: rgba(17, 22, 34, 0.98);
@@ -4989,11 +5145,33 @@ textarea:focus-visible {
     grid-template-columns: 2.8rem minmax(0, 1fr);
   }
 
+  .collection-card__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .collection-card__actions {
+    display: flex;
     grid-column: 2;
     justify-content: flex-start;
-    max-width: none;
-    padding-top: 0.2rem;
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+    padding-top: 0.55rem;
+    padding-left: 0;
+  }
+
+  .membership-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .membership-editor__section + .membership-editor__section {
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+    padding-top: var(--space-5);
+    padding-left: 0;
+  }
+
+  .membership-editor__actions {
+    grid-column: auto;
   }
 }
 
@@ -5003,11 +5181,15 @@ textarea:focus-visible {
     padding: 0.7rem;
   }
 
-  .selected-game {
-    grid-template-columns: 4.8rem minmax(0, 1fr);
+  .collection-card__metrics {
+    grid-template-columns: 1fr;
   }
 
-  .selected-game > .text-button {
+  .selected-game {
+    grid-template-columns: 3rem minmax(0, 1fr);
+  }
+
+  .selected-game > .icon-button {
     grid-column: 2;
     justify-self: start;
   }

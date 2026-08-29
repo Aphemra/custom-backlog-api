@@ -60,6 +60,21 @@ export function HideIcon() {
   );
 }
 
+export function GameListIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="4" cy="6" r="1" />
+      <circle cx="4" cy="12" r="1" />
+      <circle cx="4" cy="18" r="1" />
+      <path d="M8 6h12" />
+      <path d="M8 12h12" />
+      <path d="M8 18h6" />
+      <path d="M18 15v6" />
+      <path d="M15 18h6" />
+    </svg>
+  );
+}
+
 export function PlusIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { SortableList } from "../../../components/sortable/SortableList";
+import { useToast } from "../../../components/toast/useToast";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { Dialog } from "../../../components/ui/Dialog";
+import { IconButton } from "../../../components/ui/IconButton";
+import { PlusIcon } from "../../../components/ui/icons";
 import type {
   CollectionDetail,
   CollectionInput,
@@ -24,6 +29,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function CollectionsPage() {
+  const { showToast } = useToast();
+
   const [collections, setCollections] = useState<readonly CollectionSummary[]>(
     [],
   );
@@ -44,8 +51,6 @@ export function CollectionsPage() {
   const [loadState, setLoadState] = useState<LoadState>("loading");
 
   const [busyKey, setBusyKey] = useState<string | null>(null);
-
-  const [notice, setNotice] = useState<string | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -82,11 +87,6 @@ export function CollectionsPage() {
         0,
       ),
 
-      visibleMemberships: collections.reduce(
-        (total, collection) => total + collection.visibleGameCount,
-        0,
-      ),
-
       hiddenMemberships: collections.reduce(
         (total, collection) => total + collection.hiddenGameCount,
         0,
@@ -105,17 +105,22 @@ export function CollectionsPage() {
     action: () => Promise<unknown>,
   ): Promise<boolean> {
     setBusyKey(key);
-    setNotice(null);
-    setErrorMessage(null);
 
     try {
       await action();
       await refreshCollections();
-      setNotice(successMessage);
+
+      showToast({
+        tone: "success",
+        message: successMessage,
+      });
 
       return true;
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      showToast({
+        tone: "error",
+        message: getErrorMessage(error),
+      });
 
       return false;
     } finally {
@@ -159,7 +164,6 @@ export function CollectionsPage() {
     }
 
     setBusyKey(`manage-${collection.id}`);
-    setErrorMessage(null);
 
     try {
       const [detail, games] = await Promise.all([
@@ -172,7 +176,10 @@ export function CollectionsPage() {
       setIsAdding(false);
       setEditingCollection(null);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      showToast({
+        tone: "error",
+        message: getErrorMessage(error),
+      });
     } finally {
       setBusyKey(null);
     }
@@ -185,52 +192,63 @@ export function CollectionsPage() {
       return;
     }
 
-    const updatedCollection = await collectionApi.replaceGames(
-      managedCollection.id,
-      orderedGameIds,
-    );
+    const collection = managedCollection;
+    const membershipBusyKey = `memberships-${collection.id}`;
 
-    setManagedCollection(updatedCollection);
-    await refreshCollections();
+    setBusyKey(membershipBusyKey);
 
-    setNotice(`The game list for ${updatedCollection.name} was saved.`);
+    try {
+      const updatedCollection = await collectionApi.replaceGames(
+        collection.id,
+        orderedGameIds,
+      );
 
-    setErrorMessage(null);
+      setManagedCollection(updatedCollection);
+      await refreshCollections();
+
+      showToast({
+        tone: "success",
+        message: `The game list for ${updatedCollection.name} was saved.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setBusyKey(null);
+    }
   }
 
-  async function moveCollection(
-    collectionId: string,
-    direction: -1 | 1,
+  async function reorderCollections(
+    reorderedCollections: readonly CollectionSummary[],
   ): Promise<void> {
-    const currentIndex = collections.findIndex(
-      (collection) => collection.id === collectionId,
-    );
+    const previousCollections = collections;
 
-    const targetIndex = currentIndex + direction;
+    setCollections(reorderedCollections);
+    setBusyKey("order");
 
-    if (
-      currentIndex < 0 ||
-      targetIndex < 0 ||
-      targetIndex >= collections.length
-    ) {
-      return;
-    }
-
-    const reorderedCollections = [...collections];
-
-    const [movedCollection] = reorderedCollections.splice(currentIndex, 1);
-
-    if (movedCollection === undefined) {
-      return;
-    }
-
-    reorderedCollections.splice(targetIndex, 0, movedCollection);
-
-    await performMutation("order", "Collection order was updated.", () =>
-      collectionApi.reorder(
+    try {
+      const savedCollections = await collectionApi.reorder(
         reorderedCollections.map((collection) => collection.id),
-      ),
-    );
+      );
+
+      setCollections(savedCollections);
+
+      showToast({
+        tone: "success",
+        message: "Collection order was updated.",
+      });
+    } catch (error) {
+      setCollections(previousCollections);
+
+      showToast({
+        tone: "error",
+        message: getErrorMessage(error),
+      });
+    } finally {
+      setBusyKey(null);
+    }
   }
 
   async function handleDelete(collection: CollectionSummary): Promise<void> {
@@ -257,14 +275,12 @@ export function CollectionsPage() {
     setIsAdding(true);
     setEditingCollection(null);
     setManagedCollection(null);
-    setErrorMessage(null);
   }
 
   function openEditForm(collection: CollectionSummary) {
     setEditingCollection(collection);
     setIsAdding(false);
     setManagedCollection(null);
-    setErrorMessage(null);
   }
 
   function closeForm() {
@@ -274,71 +290,72 @@ export function CollectionsPage() {
 
   return (
     <section className="library-page" aria-labelledby="collections-title">
-      <div className="library-heading">
-        <div>
-          <p className="eyebrow">Curated groups</p>
+      <div className="collections-toolbar">
+        <h2 id="collections-title" className="visually-hidden">
+          Collections
+        </h2>
 
-          <h2 id="collections-title">Collections</h2>
-
-          <p className="library-heading__description">
-            Organize one library into series, moods, goals, or any groups that
-            are useful to you.
-          </p>
-        </div>
-
-        <button
-          className="button button--primary"
-          type="button"
-          onClick={openAddForm}
+        <div
+          className="collections-toolbar__summary"
+          aria-label="Collection summary"
         >
-          New collection
-        </button>
+          <span>
+            <strong>{collections.length}</strong>{" "}
+            {collections.length === 1 ? "Collection" : "Collections"}
+          </span>
+
+          <span aria-hidden="true">·</span>
+
+          <span>
+            <strong>{summary.memberships}</strong>{" "}
+            {summary.memberships === 1 ? "membership" : "memberships"}
+          </span>
+
+          {summary.hiddenMemberships === 0 ? null : (
+            <>
+              <span aria-hidden="true">·</span>
+
+              <span>
+                <strong>{summary.hiddenMemberships}</strong> hidden
+              </span>
+            </>
+          )}
+        </div>
+
+        <IconButton
+          label="Create a Collection"
+          tooltip="New Collection"
+          tooltipPlacement="bottom"
+          tooltipAlignment="end"
+          icon={<PlusIcon />}
+          disabled={busyKey !== null}
+          onClick={openAddForm}
+        />
       </div>
 
-      <div className="stats-strip" aria-label="Collection summary">
-        <div>
-          <strong>{collections.length}</strong>
-          <span>Collections</span>
-        </div>
-
-        <div>
-          <strong>{summary.memberships}</strong>
-          <span>Total memberships</span>
-        </div>
-
-        <div>
-          <strong>{summary.visibleMemberships}</strong>
-          <span>Visible memberships</span>
-        </div>
-
-        <div>
-          <strong>{summary.hiddenMemberships}</strong>
-          <span>Hidden memberships</span>
-        </div>
-      </div>
-
-      {notice === null ? null : (
-        <div className="notice notice--success" role="status">
-          {notice}
-        </div>
-      )}
-
-      {errorMessage === null ? null : (
-        <div className="notice notice--error" role="alert">
-          {errorMessage}
-        </div>
-      )}
-
-      {isAdding || editingCollection !== null ? (
-        <div className="editor-panel">
-          <CollectionForm
-            key={editingCollection?.id ?? "new-collection"}
-            initialCollection={editingCollection ?? undefined}
-            onSubmit={editingCollection === null ? handleCreate : handleUpdate}
-            onCancel={closeForm}
-          />
-        </div>
-      ) : null}
+      <Dialog
+        open={isAdding || editingCollection !== null}
+        title={
+          editingCollection === null
+            ? "Create Collection"
+            : `Edit ${editingCollection.name}`
+        }
+        description={
+          editingCollection === null
+            ? "Create a curated group without duplicating games in your Library."
+            : "Update this Collection's name and optional description."
+        }
+        size="small"
+        dismissible={busyKey !== "create" && busyKey !== editingCollection?.id}
+        onClose={closeForm}
+      >
+        <CollectionForm
+          key={editingCollection?.id ?? "new-collection"}
+          initialCollection={editingCollection ?? undefined}
+          onSubmit={editingCollection === null ? handleCreate : handleUpdate}
+          onCancel={closeForm}
+        />
+      </Dialog>
 
       <ConfirmDialog
         open={collectionPendingDeletion !== null}
@@ -362,15 +379,27 @@ export function CollectionsPage() {
         }}
       />
 
-      {managedCollection === null ? null : (
-        <CollectionGameEditor
-          key={`${managedCollection.id}-${managedCollection.updatedAt}`}
-          collection={managedCollection}
-          libraryGames={libraryGames}
-          onSave={saveGameList}
-          onClose={() => setManagedCollection(null)}
-        />
-      )}
+      <Dialog
+        open={managedCollection !== null}
+        title={`Games in ${managedCollection?.name ?? "Collection"}`}
+        description="Select Library games, then drag the selected list into the order you want for this Collection."
+        size="xlarge"
+        dismissible={
+          managedCollection === null ||
+          busyKey !== `memberships-${managedCollection.id}`
+        }
+        onClose={() => setManagedCollection(null)}
+      >
+        {managedCollection === null ? null : (
+          <CollectionGameEditor
+            key={`${managedCollection.id}-${managedCollection.updatedAt}`}
+            collection={managedCollection}
+            libraryGames={libraryGames}
+            onSave={saveGameList}
+            onClose={() => setManagedCollection(null)}
+          />
+        )}
+      </Dialog>
 
       {loadState === "loading" ? (
         <div className="empty-state" role="status">
@@ -382,7 +411,10 @@ export function CollectionsPage() {
         <div className="empty-state">
           <h3>Collections could not be loaded.</h3>
 
-          <p>Check that the local API is running, then reload this page.</p>
+          <p>
+            {errorMessage ??
+              "Check that the local API is running, then reload this page."}
+          </p>
         </div>
       ) : null}
 
@@ -406,23 +438,28 @@ export function CollectionsPage() {
       ) : null}
 
       {loadState === "ready" && collections.length > 0 ? (
-        <div className="collection-list" aria-label="Collections">
-          {collections.map((collection, index) => (
-            <CollectionCard
-              key={collection.id}
-              collection={collection}
-              position={index + 1}
-              canMoveUp={index > 0}
-              canMoveDown={index < collections.length - 1}
-              busy={busyKey !== null}
-              managing={managedCollection?.id === collection.id}
-              onMoveUp={() => void moveCollection(collection.id, -1)}
-              onMoveDown={() => void moveCollection(collection.id, 1)}
-              onManage={() => void openGameManager(collection)}
-              onEdit={() => openEditForm(collection)}
-              onDelete={() => setCollectionPendingDeletion(collection)}
-            />
-          ))}
+        <div className="collection-list">
+          <SortableList
+            items={collections}
+            disabled={busyKey !== null}
+            ariaLabel="Collection order"
+            getItemLabel={(collection) => collection.name}
+            onReorder={(reorderedCollections) => {
+              void reorderCollections(reorderedCollections);
+            }}
+            renderItem={(collection, controls) => (
+              <CollectionCard
+                collection={collection}
+                position={controls.position}
+                dragHandle={controls.dragHandle}
+                busy={busyKey !== null}
+                managing={managedCollection?.id === collection.id}
+                onManage={() => void openGameManager(collection)}
+                onEdit={() => openEditForm(collection)}
+                onDelete={() => setCollectionPendingDeletion(collection)}
+              />
+            )}
+          />
         </div>
       ) : null}
     </section>

@@ -40,6 +40,12 @@ function totalTrophies(counts: {
   return counts.bronze + counts.silver + counts.gold + counts.platinum;
 }
 
+function playStatusClassName(
+  playStatus: LibraryGameListItem["playStatus"],
+): string {
+  return `game-row--status-${playStatus.replaceAll("_", "-")}`;
+}
+
 function trophyStateClassName(summary: LibraryTrophySummary | null): string {
   if (summary === null) {
     return "game-row--trophies-untracked";
@@ -174,7 +180,9 @@ export function LibraryGameRow({
 
   return (
     <article
-      className={`game-row ${trophyStateClassName(trophySummary)}${
+      className={`game-row ${playStatusClassName(
+        game.playStatus,
+      )} ${trophyStateClassName(trophySummary)}${
         isHidden ? " game-row--hidden" : ""
       }`}
     >

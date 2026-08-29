@@ -32,6 +32,14 @@ interface CollectionRow {
   silver_total: number;
   gold_total: number;
   platinum_total: number;
+  time_game_count: number;
+  time_hastily_game_count: number;
+  time_normally_game_count: number;
+  time_completely_game_count: number;
+  time_hastily_seconds: number;
+  time_normally_seconds: number;
+  time_completely_seconds: number;
+  time_submission_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -100,6 +108,42 @@ const COLLECTION_SELECT = `
     COALESCE(SUM(ts.silver_total), 0) AS silver_total,
     COALESCE(SUM(ts.gold_total), 0) AS gold_total,
     COALESCE(SUM(ts.platinum_total), 0) AS platinum_total,
+    COALESCE(SUM(
+      CASE
+        WHEN
+          igdb_time.time_hastily_seconds IS NOT NULL OR
+          igdb_time.time_normally_seconds IS NOT NULL OR
+          igdb_time.time_completely_seconds IS NOT NULL
+        THEN 1
+        ELSE 0
+      END
+    ), 0) AS time_game_count,
+    COALESCE(SUM(
+      CASE
+        WHEN igdb_time.time_hastily_seconds IS NOT NULL THEN 1
+        ELSE 0
+      END
+    ), 0) AS time_hastily_game_count,
+    COALESCE(SUM(
+      CASE
+        WHEN igdb_time.time_normally_seconds IS NOT NULL THEN 1
+        ELSE 0
+      END
+    ), 0) AS time_normally_game_count,
+    COALESCE(SUM(
+      CASE
+        WHEN igdb_time.time_completely_seconds IS NOT NULL THEN 1
+        ELSE 0
+      END
+    ), 0) AS time_completely_game_count,
+    COALESCE(SUM(igdb_time.time_hastily_seconds), 0)
+      AS time_hastily_seconds,
+    COALESCE(SUM(igdb_time.time_normally_seconds), 0)
+      AS time_normally_seconds,
+    COALESCE(SUM(igdb_time.time_completely_seconds), 0)
+      AS time_completely_seconds,
+    COALESCE(SUM(igdb_time.time_submission_count), 0)
+      AS time_submission_count,
     c.created_at,
     c.updated_at
   FROM collections c
@@ -112,6 +156,12 @@ const COLLECTION_SELECT = `
     ORDER BY latest.captured_at DESC, latest.id DESC
     LIMIT 1
   )
+  LEFT JOIN game_metadata_links gml ON gml.game_id = lg.id
+  LEFT JOIN external_game_metadata metadata ON
+    metadata.id = gml.metadata_id AND
+    metadata.provider = 'igdb'
+  LEFT JOIN igdb_game_details igdb_time ON
+    igdb_time.metadata_id = metadata.id
 `;
 
 function mapCollection(row: CollectionRow): CollectionSummary {
@@ -153,6 +203,25 @@ function mapCollection(row: CollectionRow): CollectionSummary {
               total: pointSummary.totalPoints,
               remaining: pointSummary.remainingPoints,
             },
+          },
+    timeEstimateSummary:
+      row.time_game_count === 0
+        ? null
+        : {
+            gameCountWithEstimates: row.time_game_count,
+            hastily: {
+              gameCount: row.time_hastily_game_count,
+              totalSeconds: row.time_hastily_seconds,
+            },
+            normally: {
+              gameCount: row.time_normally_game_count,
+              totalSeconds: row.time_normally_seconds,
+            },
+            completely: {
+              gameCount: row.time_completely_game_count,
+              totalSeconds: row.time_completely_seconds,
+            },
+            submissionCount: row.time_submission_count,
           },
     createdAt: row.created_at,
     updatedAt: row.updated_at,

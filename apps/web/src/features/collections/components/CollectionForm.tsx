@@ -1,6 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { IconButton } from "../../../components/ui/IconButton";
-import { CloseIcon } from "../../../components/ui/icons";
 import type {
   CollectionInput,
   CollectionSummary,
@@ -42,33 +40,11 @@ export function CollectionForm({
 
   return (
     <form className="collection-form" onSubmit={handleSubmit}>
-      <div className="game-form__heading">
-        <div>
-          <p className="eyebrow">
-            {initialCollection === undefined
-              ? "New collection"
-              : "Edit collection"}
-          </p>
-
-          <h2>
-            {initialCollection === undefined
-              ? "Create a collection"
-              : initialCollection.name}
-          </h2>
-        </div>
-
-        <IconButton
-          label="Close collection editor"
-          icon={<CloseIcon />}
-          onClick={onCancel}
-        />
-      </div>
-
       <label className="field field--wide">
         <span>Name</span>
 
         <input
-          autoFocus
+          data-dialog-initial-focus
           required
           maxLength={100}
           value={name}

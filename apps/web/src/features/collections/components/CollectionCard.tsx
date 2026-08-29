@@ -1,58 +1,79 @@
+import type { ReactNode } from "react";
+import { IconButton } from "../../../components/ui/IconButton";
+import {
+  DeleteIcon,
+  EditIcon,
+  GameListIcon,
+  TrophyIcon,
+} from "../../../components/ui/icons";
 import type { CollectionSummary } from "../../../domain/collection";
+import type { PlayStationTrophyCounts } from "../../../domain/playStation";
 
 interface CollectionCardProps {
   readonly collection: CollectionSummary;
   readonly position: number;
-  readonly canMoveUp: boolean;
-  readonly canMoveDown: boolean;
+  readonly dragHandle: ReactNode;
   readonly busy: boolean;
   readonly managing: boolean;
-  readonly onMoveUp: () => void;
-  readonly onMoveDown: () => void;
   readonly onManage: () => void;
   readonly onEdit: () => void;
   readonly onDelete: () => void;
 }
 
+const numberFormatter = new Intl.NumberFormat();
+
+function formatNumber(value: number): string {
+  return numberFormatter.format(value);
+}
+
+function totalTrophies(counts: PlayStationTrophyCounts): number {
+  return counts.bronze + counts.silver + counts.gold + counts.platinum;
+}
+
+function formatTimeEstimate(seconds: number): string {
+  const hours = seconds / 3_600;
+
+  if (hours < 10) {
+    return `${hours.toFixed(1)} hours`;
+  }
+
+  return `${formatNumber(Math.round(hours))} hours`;
+}
+
 export function CollectionCard({
   collection,
   position,
-  canMoveUp,
-  canMoveDown,
+  dragHandle,
   busy,
   managing,
-  onMoveUp,
-  onMoveDown,
   onManage,
   onEdit,
   onDelete,
 }: CollectionCardProps) {
+  const trophySummary = collection.trophySummary;
+  const completionistEstimate =
+    collection.timeEstimateSummary?.completely ?? null;
+
+  const earnedTrophyCount =
+    trophySummary === null ? 0 : totalTrophies(trophySummary.earnedTrophies);
+
+  const totalTrophyCount =
+    trophySummary === null ? 0 : totalTrophies(trophySummary.totalTrophies);
+
+  const hasCompletionistEstimate =
+    completionistEstimate !== null && completionistEstimate.gameCount > 0;
+
   return (
     <article
       className={`collection-card${managing ? " collection-card--active" : ""}`}
     >
-      <div className="game-row__order" aria-label={`Position ${position}`}>
-        <button
-          className="order-button"
-          type="button"
-          disabled={busy || !canMoveUp}
-          onClick={onMoveUp}
-          aria-label={`Move ${collection.name} up`}
-        >
-          ↑
-        </button>
+      <div
+        className="collection-card__order"
+        aria-label={`Position ${position}`}
+      >
+        {dragHandle}
 
         <span className="order-number">{position}</span>
-
-        <button
-          className="order-button"
-          type="button"
-          disabled={busy || !canMoveDown}
-          onClick={onMoveDown}
-          aria-label={`Move ${collection.name} down`}
-        >
-          ↓
-        </button>
       </div>
 
       <div className="collection-card__content">
@@ -65,50 +86,111 @@ export function CollectionCard({
           </span>
         </div>
 
-        {collection.description === null ? null : (
-          <p className="collection-card__description">
-            {collection.description}
-          </p>
-        )}
+        <p
+          className={`collection-card__description${
+            collection.description === null
+              ? " collection-card__description--empty"
+              : ""
+          }`}
+        >
+          {collection.description ?? "No description"}
+        </p>
 
-        <div className="collection-card__counts">
+        <div className="collection-card__membership">
           <span>{collection.visibleGameCount} visible</span>
 
-          {collection.hiddenGameCount > 0 ? (
+          {collection.hiddenGameCount === 0 ? null : (
             <span>{collection.hiddenGameCount} hidden</span>
-          ) : null}
+          )}
+        </div>
 
-          <span className="trophy-placeholder">Trophy totals after sync</span>
+        <div className="collection-card__metrics">
+          {trophySummary === null ? (
+            <div className="collection-card__metric">
+              <strong>—</strong>
+              <span>No synced trophy data</span>
+            </div>
+          ) : (
+            <>
+              <div className="collection-card__metric">
+                <strong className="collection-card__metric-with-icon">
+                  <TrophyIcon />
+
+                  <span>
+                    {formatNumber(earnedTrophyCount)} /{" "}
+                    {formatNumber(totalTrophyCount)}
+                  </span>
+                </strong>
+
+                <span>Trophies earned</span>
+              </div>
+
+              <div className="collection-card__metric">
+                <strong>
+                  {trophySummary.completedGameCount} /{" "}
+                  {trophySummary.gameCountWithTrophies}
+                </strong>
+
+                <span>Games at 100%</span>
+              </div>
+
+              <div className="collection-card__metric">
+                <strong>{formatNumber(trophySummary.points.remaining)}</strong>
+
+                <span>Points remaining</span>
+              </div>
+            </>
+          )}
+
+          {hasCompletionistEstimate ? (
+            <div className="collection-card__metric">
+              <strong>
+                {formatTimeEstimate(completionistEstimate.totalSeconds)}
+              </strong>
+
+              <span>
+                Completionist · {completionistEstimate.gameCount}/
+                {collection.gameCount} games
+              </span>
+            </div>
+          ) : (
+            <div className="collection-card__metric">
+              <strong>—</strong>
+
+              <span>No completion-time estimate</span>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="collection-card__actions">
-        <button
-          className="text-button"
-          type="button"
+        <IconButton
+          label={`${managing ? "Close game manager for" : "Manage games in"} ${
+            collection.name
+          }`}
+          tooltip={managing ? "Close game manager" : "Manage games"}
+          icon={<GameListIcon />}
           disabled={busy}
+          aria-pressed={managing}
           onClick={onManage}
-        >
-          {managing ? "Close games" : "Manage games"}
-        </button>
+        />
 
-        <button
-          className="text-button"
-          type="button"
+        <IconButton
+          label={`Edit ${collection.name}`}
+          tooltip="Edit Collection"
+          icon={<EditIcon />}
           disabled={busy}
           onClick={onEdit}
-        >
-          Edit
-        </button>
+        />
 
-        <button
-          className="text-button text-button--danger"
-          type="button"
+        <IconButton
+          label={`Delete ${collection.name}`}
+          tooltip="Delete Collection"
+          icon={<DeleteIcon />}
+          tone="danger"
           disabled={busy}
           onClick={onDelete}
-        >
-          Delete
-        </button>
+        />
       </div>
     </article>
   );

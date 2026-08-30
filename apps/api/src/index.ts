@@ -8,8 +8,9 @@ const app = createApp(database);
 
 const server = app.listen(runtimeConfig.port, runtimeConfig.host, () => {
   console.log(
-    `Trophy Backlog API listening at http://${runtimeConfig.host}:${runtimeConfig.port}`,
+    `Trophy Backlog listening at http://${runtimeConfig.host}:${runtimeConfig.port}`,
   );
+  console.log(`Trophy Backlog data directory: ${runtimeConfig.dataDirectory}`);
 });
 
 let isShuttingDown = false;

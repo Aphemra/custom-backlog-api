@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { extname, resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import express, {
   type NextFunction,
@@ -37,6 +39,7 @@ export function createApp(
   externalFetch: IgdbFetch = fetch,
   playStationOptions: Partial<PlayStationRouteOptions> = {},
   credentialKeyPath: string = runtimeConfig.credentialKeyPath,
+  webDirectory: string = runtimeConfig.webDirectory,
 ) {
   const app = express();
 
@@ -138,6 +141,37 @@ export function createApp(
       error: "api_route_not_found",
     });
   });
+
+  const webIndexPath = resolve(webDirectory, "index.html");
+
+  if (existsSync(webIndexPath)) {
+    app.use(
+      express.static(webDirectory, {
+        index: false,
+      }),
+    );
+
+    app.use((request, response, next) => {
+      if (request.method !== "GET" || extname(request.path) !== "") {
+        next();
+        return;
+      }
+
+      response.sendFile(
+        webIndexPath,
+        {
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        },
+        (error) => {
+          if (error !== undefined) {
+            next(error);
+          }
+        },
+      );
+    });
+  }
 
   app.use(
     (

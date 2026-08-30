@@ -15,7 +15,12 @@
     "typecheck": "npm run typecheck --workspace apps/api && npm run typecheck --workspace apps/web",
     "lint": "npm run lint --workspace apps/web",
     "test": "npm run test --workspaces --if-present",
-    "start:api": "npm run start --workspace apps/api"
+    "start": "npm run start:api",
+    "start:api": "npm run start --workspace apps/api",
+    "production:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-production-task.ps1",
+    "production:start": "schtasks.exe /Run /TN \"Trophy Backlog\"",
+    "production:stop": "schtasks.exe /End /TN \"Trophy Backlog\"",
+    "production:uninstall": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-production-task.ps1"
   },
   "engines": {
     "node": ">=24.15"

@@ -16,4 +16,4 @@ launcherPath = scriptDirectory & "\start-production.ps1"
 
 command = """" & powershellPath & """ -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & launcherPath & """"
 
-shell.Run command, 0, False
+shell.Run command, 0, True

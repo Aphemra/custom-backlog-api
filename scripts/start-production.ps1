@@ -49,6 +49,7 @@ try {
     $logDirectory = Join-Path $applicationDataDirectory "logs"
     $logPath = Join-Path $logDirectory "production.log"
     $apiEntryPoint = Join-Path $repositoryDirectory "apps\api\dist\index.js"
+    $apiEnvironmentPath = Join-Path $repositoryDirectory "apps\api\.env"
     $webDirectory = Join-Path $repositoryDirectory "apps\web\dist"
     $webIndexPath = Join-Path $webDirectory "index.html"
 
@@ -77,6 +78,11 @@ try {
     $env:BACKLOG_PORT = "47831"
     $env:BACKLOG_DATA_DIRECTORY = $applicationDataDirectory
     $env:BACKLOG_WEB_DIRECTORY = $webDirectory
+
+    if (Test-Path -LiteralPath $apiEnvironmentPath -PathType Leaf) {
+        $env:DOTENV_CONFIG_PATH = $apiEnvironmentPath
+        $env:DOTENV_CONFIG_QUIET = "true"
+    }
 
     Add-Content `
         -LiteralPath $logPath `

@@ -1,4 +1,5 @@
 import { ExternalLinkIcon } from "../../../components/ui/icons";
+import { Tooltip } from "../../../components/ui/Tooltip";
 import {
   gameResourceProviderLabels,
   gameResourceTypeLabels,
@@ -19,17 +20,28 @@ interface ResourceLinkProps {
 
 function ResourceLink({ href, label, description }: ResourceLinkProps) {
   return (
-    <a
-      className="game-details-resource-bar__link"
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      title={`${label} — ${description}`}
+    <Tooltip
+      content={
+        <span className="tooltip__stacked-copy">
+          <strong>{label}</strong>
+          <span>{description}</span>
+        </span>
+      }
+      placement="top"
+      alignment="center"
     >
-      <ExternalLinkIcon />
+      <a
+        className="game-details-resource-bar__link"
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`${label}: ${description}`}
+      >
+        <ExternalLinkIcon />
 
-      <span>{label}</span>
-    </a>
+        <span>{label}</span>
+      </a>
+    </Tooltip>
   );
 }
 

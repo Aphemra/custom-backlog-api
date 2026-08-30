@@ -6,8 +6,6 @@ import type {
   SavedViewFilters,
   SavedViewSort,
 } from "../savedViews/savedViewTypes.js";
-import type { PortableDataExportV3 } from "./portableDataV3Types.js";
-import type { PortableDataExportV4 } from "./portableDataV4Types.js";
 import type { PortableDataExportV5 } from "./portableDataV5Types.js";
 
 export const PORTABLE_DATA_FORMAT = "trophy-backlog-portable-data";
@@ -54,15 +52,6 @@ interface PortableDataBase {
   readonly exportedAt: string;
 }
 
-export interface PortableDataExportV1 extends PortableDataBase {
-  readonly formatVersion: 1;
-
-  readonly data: {
-    readonly libraryGames: readonly PortableLibraryGame[];
-    readonly collections: readonly PortableCollection[];
-  };
-}
-
 export interface PortableDataExportV2 extends PortableDataBase {
   readonly formatVersion: 2;
 
@@ -73,12 +62,7 @@ export interface PortableDataExportV2 extends PortableDataBase {
   };
 }
 
-export type PortableDataExport =
-  | PortableDataExportV1
-  | PortableDataExportV2
-  | PortableDataExportV3
-  | PortableDataExportV4
-  | PortableDataExportV5;
+export type PortableDataExport = PortableDataExportV5;
 
 export interface PortableDataCounts {
   readonly libraryGames: number;

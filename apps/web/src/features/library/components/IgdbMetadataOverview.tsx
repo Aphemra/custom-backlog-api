@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { ImageLightbox } from "../../../components/ui/ImageLightbox";
 import type { IgdbGameSearchResult } from "../../../domain/igdb";
 import type {
   LibraryGameDetailsImage,
@@ -176,6 +177,10 @@ export function IgdbMetadataOverview({
   actions,
   showTitle = true,
 }: IgdbMetadataOverviewProps) {
+  const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState<
+    number | null
+  >(null);
+
   const developers =
     metadata?.companies.filter((company) => company.developer) ?? [];
 
@@ -185,6 +190,11 @@ export function IgdbMetadataOverview({
   const cover = metadataCover(metadata) ?? fallbackCover;
 
   const screenshots = metadata === null ? [] : metadataScreenshots(metadata);
+
+  const lightboxImages = screenshots.map((screenshot, index) => ({
+    src: screenshot.url,
+    alt: `${title} screenshot ${index + 1}`,
+  }));
 
   const genreNames = metadata === null ? [] : uniqueNames(metadata.genres);
 
@@ -349,19 +359,38 @@ export function IgdbMetadataOverview({
 
           <div className="game-details__disclosure-body">
             <div className="game-details__gallery">
-              {screenshots.map((screenshot, index) => (
-                <img
-                  key={screenshot.imageId}
-                  src={screenshot.url}
-                  alt={`${title} screenshot ${index + 1}`}
-                  loading="lazy"
-                  decoding="async"
-                />
-              ))}
+              {screenshots.map((screenshot, index) => {
+                const screenshotAlt = `${title} screenshot ${index + 1}`;
+
+                return (
+                  <button
+                    className="game-details__gallery-image"
+                    type="button"
+                    key={screenshot.imageId}
+                    aria-label={`Enlarge ${screenshotAlt}`}
+                    onClick={() => setSelectedScreenshotIndex(index)}
+                  >
+                    <img
+                      src={screenshot.url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
+
+                    <span aria-hidden="true">Enlarge</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </details>
       )}
+
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={selectedScreenshotIndex}
+        onClose={() => setSelectedScreenshotIndex(null)}
+      />
     </>
   );
 }

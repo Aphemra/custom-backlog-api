@@ -194,48 +194,60 @@ export class PlayStationTrophyArtworkService {
       ? references.filter((reference) => reference.imageId === null)
       : references;
 
-    const cachedByUrl = new Map<string, CachedArtworkResult | null>();
+    const cachedByUrl = new Map<string, Promise<CachedArtworkResult | null>>();
 
     let attachedCount = 0;
     let failedCount = 0;
     let downloadedCount = 0;
     let notModifiedCount = 0;
+    let completedReferences = 0;
 
     reportProgress?.({
       completedReferences: 0,
       totalReferences: referencesToCache.length,
     });
 
-    for (const [index, reference] of referencesToCache.entries()) {
-      let cached = cachedByUrl.get(reference.sourceUrl);
+    await Promise.all(
+      referencesToCache.map(async (reference) => {
+        let cachedRequest = cachedByUrl.get(reference.sourceUrl);
+        let ownsRequest = false;
 
-      if (cached === undefined) {
-        cached = await this.cacheReference(
-          trophySet.npServiceName,
-          trophySet.npCommunicationId,
-          reference,
-        );
+        if (cachedRequest === undefined) {
+          ownsRequest = true;
 
-        cachedByUrl.set(reference.sourceUrl, cached);
+          cachedRequest = this.cacheReference(
+            trophySet.npServiceName,
+            trophySet.npCommunicationId,
+            reference,
+          );
 
-        if (cached?.status === "downloaded") {
-          downloadedCount += 1;
-        } else if (cached?.status === "not_modified") {
-          notModifiedCount += 1;
+          cachedByUrl.set(reference.sourceUrl, cachedRequest);
         }
-      }
 
-      if (cached === null || !reference.attach(cached.imageId)) {
-        failedCount += 1;
-      } else {
-        attachedCount += 1;
-      }
+        const cached = await cachedRequest;
 
-      reportProgress?.({
-        completedReferences: index + 1,
-        totalReferences: referencesToCache.length,
-      });
-    }
+        if (ownsRequest) {
+          if (cached?.status === "downloaded") {
+            downloadedCount += 1;
+          } else if (cached?.status === "not_modified") {
+            notModifiedCount += 1;
+          }
+        }
+
+        if (cached === null || !reference.attach(cached.imageId)) {
+          failedCount += 1;
+        } else {
+          attachedCount += 1;
+        }
+
+        completedReferences += 1;
+
+        reportProgress?.({
+          completedReferences,
+          totalReferences: referencesToCache.length,
+        });
+      }),
+    );
 
     return {
       referenceCount: referencesToCache.length,

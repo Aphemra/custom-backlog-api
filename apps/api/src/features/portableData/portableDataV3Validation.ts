@@ -4,7 +4,7 @@ import {
   type PlayStationPlatform,
 } from "../library/libraryGameTypes.js";
 import { PORTABLE_DATA_FORMAT } from "./portableDataTypes.js";
-import { parsePortableDataExport } from "./portableDataValidation.js";
+import { parsePortableDataCore } from "./portableDataCoreValidation.js";
 import type {
   PortableCachedImage,
   PortableDataExportV3,
@@ -618,7 +618,7 @@ export function parsePortableDataV3(value: unknown): PortableDataExportV3 {
     "data",
   );
 
-  const core = parsePortableDataExport({
+  const core = parsePortableDataCore({
     format: PORTABLE_DATA_FORMAT,
     formatVersion: 2,
     exportedAt: root.exportedAt,

@@ -9,8 +9,6 @@ import { createDatabaseBackup } from "../features/backups/createDatabaseBackup.j
 import { openDatabase } from "./database.js";
 import { getDatabaseStatus } from "./getDatabaseStatus.js";
 import { initialSchemaMigration } from "./migrations/001InitialSchema.js";
-import { integrationStorageMigration } from "./migrations/002IntegrationStorage.js";
-import { playStatusFoundationMigration } from "./migrations/003PlayStatusFoundation.js";
 import { runMigrations } from "./runMigrations.js";
 
 interface CountRow {
@@ -23,8 +21,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 17,
-      availableMigrationCount: 17,
+      schemaVersion: 1,
+      availableMigrationCount: 1,
     });
 
     const row = database
@@ -658,255 +656,6 @@ test("stores constrained normalized PlayStation trophy data", () => {
   }
 });
 
-test("upgrades an existing version-one database without replacing it", () => {
-  const database = new DatabaseSync(":memory:");
-
-  try {
-    runMigrations(database, [initialSchemaMigration]);
-
-    assert.deepEqual(getDatabaseStatus(database), {
-      ok: true,
-      schemaVersion: 1,
-      availableMigrationCount: 17,
-    });
-
-    runMigrations(database);
-
-    assert.deepEqual(getDatabaseStatus(database), {
-      ok: true,
-      schemaVersion: 17,
-      availableMigrationCount: 17,
-    });
-
-    const row = database
-      .prepare(
-        `
-          SELECT COUNT(*) AS count
-          FROM sqlite_schema
-          WHERE type = 'table'
-            AND name IN (
-              'playstation_game_links',
-              'cached_images',
-              'library_game_images',
-              'playstation_profile_snapshots',
-              'playstation_trophy_sets',
-              'playstation_trophy_groups',
-              'playstation_trophies',
-              'game_resources',
-              'backlog_history_entries'
-            )
-        `,
-      )
-      .get() as unknown as CountRow;
-
-    assert.equal(row.count, 9);
-  } finally {
-    database.close();
-  }
-});
-
-test("migrates legacy pursuit statuses into the play-status model", () => {
-  const database = new DatabaseSync(":memory:");
-  const timestamp = new Date().toISOString();
-
-  try {
-    runMigrations(database, [
-      initialSchemaMigration,
-      integrationStorageMigration,
-    ]);
-
-    const insertGame = database.prepare(`
-      INSERT INTO library_games (
-        id,
-        title,
-        sort_title,
-        platform,
-        pursuit_status,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, 'PS5', ?, ?, ?)
-    `);
-
-    const legacyStatuses = [
-      ["unplanned-game", "unplanned"],
-      ["pursuing-soon-game", "pursuing_soon"],
-      ["in-progress-game", "in_progress"],
-      ["paused-game", "paused"],
-      ["finished-game", "finished"],
-      ["abandoned-game", "abandoned"],
-    ] as const;
-
-    for (const [id, pursuitStatus] of legacyStatuses) {
-      insertGame.run(id, id, id, pursuitStatus, timestamp, timestamp);
-    }
-
-    runMigrations(database);
-
-    const rows = database
-      .prepare(
-        `
-          SELECT
-            id,
-            play_status,
-            is_unobtainable
-          FROM library_games
-          ORDER BY id ASC
-        `,
-      )
-      .all() as unknown as Array<{
-      id: string;
-      play_status: string;
-      is_unobtainable: number;
-    }>;
-
-    assert.deepEqual(
-      rows.map((row) => ({ ...row })),
-      [
-        {
-          id: "abandoned-game",
-          play_status: "on_hold",
-          is_unobtainable: 0,
-        },
-        {
-          id: "finished-game",
-          play_status: "completed",
-          is_unobtainable: 0,
-        },
-        {
-          id: "in-progress-game",
-          play_status: "playing",
-          is_unobtainable: 0,
-        },
-        {
-          id: "paused-game",
-          play_status: "on_hold",
-          is_unobtainable: 0,
-        },
-        {
-          id: "pursuing-soon-game",
-          play_status: "not_started",
-          is_unobtainable: 0,
-        },
-        {
-          id: "unplanned-game",
-          play_status: "not_started",
-          is_unobtainable: 0,
-        },
-      ],
-    );
-
-    assert.throws(() => {
-      database
-        .prepare(
-          `
-            UPDATE library_games
-            SET play_status = 'abandoned'
-            WHERE id = 'abandoned-game'
-          `,
-        )
-        .run();
-    });
-
-    assert.throws(() => {
-      database
-        .prepare(
-          `
-            UPDATE library_games
-            SET is_unobtainable = 2
-            WHERE id = 'abandoned-game'
-          `,
-        )
-        .run();
-    });
-  } finally {
-    database.close();
-  }
-});
-
-test("migrates saved views to Play Status and Hidden Games filters", () => {
-  const database = new DatabaseSync(":memory:");
-  const timestamp = new Date().toISOString();
-
-  try {
-    runMigrations(database, [
-      initialSchemaMigration,
-      integrationStorageMigration,
-      playStatusFoundationMigration,
-    ]);
-
-    database
-      .prepare(
-        `
-          INSERT INTO saved_views (
-            id,
-            builtin_key,
-            name,
-            filters_json,
-            sort_json,
-            sort_order,
-            is_builtin,
-            created_at,
-            updated_at
-          ) VALUES (?, NULL, ?, ?, ?, ?, 0, ?, ?)
-        `,
-      )
-      .run(
-        "legacy-custom-view",
-        "Legacy custom view",
-        JSON.stringify({
-          pursuitStatuses: ["unplanned", "pursuing_soon", "in_progress"],
-          archiveMode: "archived",
-        }),
-        JSON.stringify({
-          field: "pursuitStatus",
-          direction: "asc",
-        }),
-        100,
-        timestamp,
-        timestamp,
-      );
-
-    runMigrations(database);
-
-    const row = database
-      .prepare(
-        `
-          SELECT filters_json, sort_json
-          FROM saved_views
-          WHERE id = 'legacy-custom-view'
-        `,
-      )
-      .get() as unknown as {
-      filters_json: string;
-      sort_json: string;
-    };
-
-    const filters = JSON.parse(row.filters_json) as {
-      playStatuses: string[];
-      hiddenMode: string;
-    };
-
-    const sort = JSON.parse(row.sort_json) as {
-      field: string;
-      direction: string;
-    };
-
-    assert.deepEqual(
-      new Set(filters.playStatuses),
-      new Set(["not_started", "playing"]),
-    );
-
-    assert.equal(filters.hiddenMode, "hidden");
-
-    assert.deepEqual(sort, {
-      field: "playStatus",
-      direction: "asc",
-    });
-  } finally {
-    database.close();
-  }
-});
-
 test("stores PlayStation identity and local image-cache metadata", () => {
   const database = openDatabase(":memory:");
   const timestamp = new Date().toISOString();
@@ -1132,7 +881,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 17);
+      assert.equal(row.count, 1);
     } finally {
       restoredDatabase.close();
     }

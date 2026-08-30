@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-type TooltipPlacement = "top" | "bottom";
+type TooltipPlacement = "top" | "bottom" | "inside-top";
 type TooltipAlignment = "start" | "center" | "end";
 
 interface TooltipTriggerProps {
@@ -72,10 +72,15 @@ export function Tooltip({
       resolvedPlacement = "top";
     }
 
-    let top =
-      resolvedPlacement === "top"
-        ? triggerBounds.top - tooltipBounds.height - TOOLTIP_GAP
-        : triggerBounds.bottom + TOOLTIP_GAP;
+    let top: number;
+
+    if (resolvedPlacement === "inside-top") {
+      top = triggerBounds.top + TOOLTIP_GAP;
+    } else if (resolvedPlacement === "top") {
+      top = triggerBounds.top - tooltipBounds.height - TOOLTIP_GAP;
+    } else {
+      top = triggerBounds.bottom + TOOLTIP_GAP;
+    }
 
     let left: number;
 

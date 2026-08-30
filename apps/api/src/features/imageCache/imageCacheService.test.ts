@@ -227,6 +227,86 @@ test("coalesces concurrent refreshes for the same image", async () => {
   }
 });
 
+test("limits image downloading to four concurrent refreshes", async () => {
+  const database = openDatabase(":memory:");
+  const cacheDirectory = await mkdtemp(join(tmpdir(), "backlog-images-"));
+
+  let activeRequests = 0;
+  let maximumActiveRequests = 0;
+  let startedRequests = 0;
+  let releaseRequests: (() => void) | undefined;
+  let notifyFourStarted: (() => void) | undefined;
+
+  const requestGate = new Promise<void>((resolve) => {
+    releaseRequests = resolve;
+  });
+
+  const fourStarted = new Promise<void>((resolve) => {
+    notifyFourStarted = resolve;
+  });
+
+  const service = new ImageCacheService(
+    new ImageCacheRepository(database),
+    cacheDirectory,
+    async () => {
+      activeRequests += 1;
+      startedRequests += 1;
+
+      maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
+
+      if (startedRequests === 4) {
+        notifyFourStarted?.();
+      }
+
+      await requestGate;
+
+      activeRequests -= 1;
+
+      return new Response(pngBytes, {
+        status: 200,
+        headers: {
+          "content-type": "image/png",
+        },
+      });
+    },
+  );
+
+  try {
+    const images = Array.from({ length: 6 }, (_, index) =>
+      service.register({
+        provider: "igdb",
+        sourceKey: `cover:concurrency-${index}`,
+        sourceUrl:
+          `https://images.igdb.com/igdb/image/upload/` +
+          `t_cover_big/concurrency-${index}.png`,
+      }),
+    );
+
+    const refreshes = images.map((image) => service.refresh(image.id));
+
+    await fourStarted;
+
+    assert.equal(activeRequests, 4);
+    assert.equal(startedRequests, 4);
+
+    releaseRequests?.();
+
+    await Promise.all(refreshes);
+
+    assert.equal(maximumActiveRequests, 4);
+    assert.equal(startedRequests, 6);
+  } finally {
+    releaseRequests?.();
+
+    database.close();
+
+    await rm(cacheDirectory, {
+      recursive: true,
+      force: true,
+    });
+  }
+});
+
 test("invalidates provider validators when a registered source URL changes", () => {
   const database = openDatabase(":memory:");
   const repository = new ImageCacheRepository(database);

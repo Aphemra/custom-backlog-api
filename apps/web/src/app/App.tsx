@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { ProfileTrophySummary } from "../components/profile/ProfileTrophySummary";
 import { useProfileProgression } from "../components/profile/useProfileProgression";
 import { useToast } from "../components/toast/useToast";
@@ -43,20 +49,49 @@ const navigationItems = [
 ] as const;
 
 type ActivePage = (typeof navigationItems)[number]["id"];
+type PageTransitionDirection = "none" | "forward" | "backward";
 
 export function App() {
   const { refreshProfileProgression } = useProfileProgression();
   const { showToast } = useToast();
 
   const [activePage, setActivePage] = useState<ActivePage>("library");
+  const [pageTransitionDirection, setPageTransitionDirection] =
+    useState<PageTransitionDirection>("none");
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
   const [portableDataBusy, setPortableDataBusy] = useState(false);
   const [dataRevision, setDataRevision] = useState(0);
   const [unreadAlertCount, setUnreadAlertCount] = useState(0);
 
+  const navigationPagesRef = useRef<HTMLDivElement>(null);
+  const navigationButtonRefs = useRef<
+    Partial<Record<ActivePage, HTMLButtonElement | null>>
+  >({});
+
+  const navigateToPage = useCallback(
+    (nextPage: ActivePage): void => {
+      if (nextPage === activePage) {
+        return;
+      }
+
+      const currentIndex = navigationItems.findIndex(
+        (item) => item.id === activePage,
+      );
+      const nextIndex = navigationItems.findIndex(
+        (item) => item.id === nextPage,
+      );
+
+      setPageTransitionDirection(
+        nextIndex > currentIndex ? "forward" : "backward",
+      );
+      setActivePage(nextPage);
+    },
+    [activePage],
+  );
+
   useEffect(() => {
     function openSettings(): void {
-      setActivePage("settings");
+      navigateToPage("settings");
     }
 
     window.addEventListener(settingsNavigationEvent, openSettings);
@@ -64,7 +99,49 @@ export function App() {
     return () => {
       window.removeEventListener(settingsNavigationEvent, openSettings);
     };
-  }, []);
+  }, [navigateToPage]);
+
+  useLayoutEffect(() => {
+    const navigationPages = navigationPagesRef.current;
+    const activeButton = navigationButtonRefs.current[activePage];
+
+    if (navigationPages === null || activeButton == null) {
+      return;
+    }
+
+    const measuredNavigationPages: HTMLDivElement = navigationPages;
+    const measuredActiveButton: HTMLButtonElement = activeButton;
+
+    function updateIndicator(): void {
+      measuredNavigationPages.style.setProperty(
+        "--primary-nav-indicator-x",
+        `${measuredActiveButton.offsetLeft}px`,
+      );
+      measuredNavigationPages.style.setProperty(
+        "--primary-nav-indicator-y",
+        `${measuredActiveButton.offsetTop}px`,
+      );
+      measuredNavigationPages.style.setProperty(
+        "--primary-nav-indicator-width",
+        `${measuredActiveButton.offsetWidth}px`,
+      );
+      measuredNavigationPages.style.setProperty(
+        "--primary-nav-indicator-height",
+        `${measuredActiveButton.offsetHeight}px`,
+      );
+      measuredNavigationPages.dataset.indicatorReady = "true";
+    }
+
+    updateIndicator();
+
+    const resizeObserver = new ResizeObserver(updateIndicator);
+    resizeObserver.observe(measuredNavigationPages);
+    resizeObserver.observe(measuredActiveButton);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [activePage, unreadAlertCount]);
 
   const refreshUnreadAlertCount = useCallback(async (): Promise<void> => {
     const counts = await trophyAlertApi.getCounts().catch(() => null);
@@ -116,35 +193,42 @@ export function App() {
       </header>
 
       <nav className="primary-nav" aria-label="Primary navigation">
-        {navigationItems.map((item) => {
-          const isActive = activePage === item.id;
-          const itemAlertCount = item.id === "alerts" ? unreadAlertCount : 0;
-          const accessibleLabel =
-            itemAlertCount > 0
-              ? `${item.label}, ${itemAlertCount} unread`
-              : item.label;
+        <div className="primary-nav__pages" ref={navigationPagesRef}>
+          <span className="primary-nav__indicator" aria-hidden="true" />
 
-          return (
-            <button
-              key={item.id}
-              className={`primary-nav__item${
-                isActive ? " primary-nav__item--active" : ""
-              }`}
-              type="button"
-              aria-label={accessibleLabel}
-              aria-current={isActive ? "page" : undefined}
-              onClick={() => setActivePage(item.id)}
-            >
-              <span>{item.label}</span>
+          {navigationItems.map((item) => {
+            const isActive = activePage === item.id;
+            const itemAlertCount = item.id === "alerts" ? unreadAlertCount : 0;
+            const accessibleLabel =
+              itemAlertCount > 0
+                ? `${item.label}, ${itemAlertCount} unread`
+                : item.label;
 
-              {itemAlertCount > 0 ? (
-                <span className="primary-nav__alert-count" aria-hidden="true">
-                  {itemAlertCount > 99 ? "99+" : itemAlertCount}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={item.id}
+                ref={(button) => {
+                  navigationButtonRefs.current[item.id] = button;
+                }}
+                className={`primary-nav__item${
+                  isActive ? " primary-nav__item--active" : ""
+                }`}
+                type="button"
+                aria-label={accessibleLabel}
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => navigateToPage(item.id)}
+              >
+                <span>{item.label}</span>
+
+                {itemAlertCount > 0 ? (
+                  <span className="primary-nav__alert-count" aria-hidden="true">
+                    {itemAlertCount > 99 ? "99+" : itemAlertCount}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="primary-nav__actions">
           <IconButton
@@ -158,42 +242,47 @@ export function App() {
         </div>
       </nav>
 
-      {activePage === "library" ? (
-        <LibraryPage
-          key={dataRevision}
-          onAlertsChanged={refreshUnreadAlertCount}
-        />
-      ) : null}
+      <div
+        key={activePage}
+        className={`app-page app-page--${pageTransitionDirection}`}
+      >
+        {activePage === "library" ? (
+          <LibraryPage
+            key={dataRevision}
+            onAlertsChanged={refreshUnreadAlertCount}
+          />
+        ) : null}
 
-      {activePage === "collections" ? (
-        <CollectionsPage key={dataRevision} />
-      ) : null}
+        {activePage === "collections" ? (
+          <CollectionsPage key={dataRevision} />
+        ) : null}
 
-      {activePage === "playstation" ? (
-        <PlayStationPage
-          key={dataRevision}
-          onAlertsChanged={refreshUnreadAlertCount}
-        />
-      ) : null}
+        {activePage === "playstation" ? (
+          <PlayStationPage
+            key={dataRevision}
+            onAlertsChanged={refreshUnreadAlertCount}
+          />
+        ) : null}
 
-      {activePage === "alerts" ? (
-        <TrophyAlertsPage
-          key={dataRevision}
-          onUnreadCountChanged={setUnreadAlertCount}
-        />
-      ) : null}
+        {activePage === "alerts" ? (
+          <TrophyAlertsPage
+            key={dataRevision}
+            onUnreadCountChanged={setUnreadAlertCount}
+          />
+        ) : null}
 
-      {activePage === "history" ? <HistoryPage key={dataRevision} /> : null}
+        {activePage === "history" ? <HistoryPage key={dataRevision} /> : null}
 
-      {activePage === "settings" ? (
-        <SettingsPage
-          key={dataRevision}
-          onBacklogDeleted={() => {
-            setUnreadAlertCount(0);
-            setActivePage("library");
-          }}
-        />
-      ) : null}
+        {activePage === "settings" ? (
+          <SettingsPage
+            key={dataRevision}
+            onBacklogDeleted={() => {
+              setUnreadAlertCount(0);
+              navigateToPage("library");
+            }}
+          />
+        ) : null}
+      </div>
 
       <Dialog
         open={backupDialogOpen}

@@ -1,4 +1,5 @@
 import { TrophyIcon } from "../../../components/ui/icons";
+import { Tooltip } from "../../../components/ui/Tooltip";
 import type {
   GameResource,
   GameResourceProvider,
@@ -92,59 +93,75 @@ export function GameResourceLinks({
       aria-label={`Useful links for ${gameTitle}`}
     >
       {trophyPage === undefined ? (
-        <a
-          className="game-resource-link game-resource-link--search"
-          href={trophySearchUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Search PSNProfiles for ${gameTitle}`}
-          title="Search PSNProfiles"
-        >
-          <SearchIcon />
-        </a>
+        <Tooltip content="Search PSNProfiles" placement="top" alignment="start">
+          <a
+            className="game-resource-link game-resource-link--search"
+            href={trophySearchUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Search PSNProfiles for ${gameTitle}`}
+          >
+            <SearchIcon />
+          </a>
+        </Tooltip>
       ) : (
-        <a
-          className="game-resource-link game-resource-link--trophy"
-          href={trophyPage.url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Open ${resourceName(trophyPage)}`}
-          title={resourceName(trophyPage)}
+        <Tooltip
+          content={resourceName(trophyPage)}
+          placement="top"
+          alignment="start"
         >
-          <TrophyIcon />
-        </a>
+          <a
+            className="game-resource-link game-resource-link--trophy"
+            href={trophyPage.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${resourceName(trophyPage)}`}
+          >
+            <TrophyIcon />
+          </a>
+        </Tooltip>
       )}
 
       {guides.map((guide) => (
-        <a
-          className={`game-resource-link game-resource-link--guide game-resource-link--${guide.provider}`}
-          href={guide.url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Open ${resourceName(guide)}`}
-          title={resourceName(guide)}
+        <Tooltip
           key={guide.id}
+          content={resourceName(guide)}
+          placement="top"
+          alignment="center"
         >
-          <GuideIcon />
+          <a
+            className={`game-resource-link game-resource-link--guide game-resource-link--${guide.provider}`}
+            href={guide.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${resourceName(guide)}`}
+          >
+            <GuideIcon />
 
-          <span className="game-resource-link__provider" aria-hidden="true">
-            {guideProviderMarker(guide.provider)}
-          </span>
-        </a>
+            <span className="game-resource-link__provider" aria-hidden="true">
+              {guideProviderMarker(guide.provider)}
+            </span>
+          </a>
+        </Tooltip>
       ))}
 
       {interactiveMaps.map((interactiveMap) => (
-        <a
-          className="game-resource-link game-resource-link--map"
-          href={interactiveMap.url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Open ${resourceName(interactiveMap)}`}
-          title={resourceName(interactiveMap)}
+        <Tooltip
           key={interactiveMap.id}
+          content={resourceName(interactiveMap)}
+          placement="top"
+          alignment="end"
         >
-          <MapIcon />
-        </a>
+          <a
+            className="game-resource-link game-resource-link--map"
+            href={interactiveMap.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${resourceName(interactiveMap)}`}
+          >
+            <MapIcon />
+          </a>
+        </Tooltip>
       ))}
     </nav>
   );

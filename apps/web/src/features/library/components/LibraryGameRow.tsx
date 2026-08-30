@@ -322,20 +322,24 @@ export function LibraryGameRow({
             <div className="game-row__progress-copy">
               <strong>{displayedProgressPercent}%</strong>
 
-              <span
-                title={
+              <Tooltip
+                content={
                   hasUnobtainableTrophies
                     ? `${earnedTrophyCount} earned, ${attainableTrophyCount} attainable, ${totalTrophyCount} total trophies`
                     : `${earnedTrophyCount} earned of ${totalTrophyCount} total trophies`
                 }
+                placement="top"
+                alignment="end"
               >
-                {earnedTrophyCount} /{" "}
-                {hasUnobtainableTrophies
-                  ? attainableTrophyCount
-                  : totalTrophyCount}
-                {hasUnobtainableTrophies ? ` (${totalTrophyCount})` : ""}{" "}
-                trophies
-              </span>
+                <span tabIndex={0}>
+                  {earnedTrophyCount} /{" "}
+                  {hasUnobtainableTrophies
+                    ? attainableTrophyCount
+                    : totalTrophyCount}
+                  {hasUnobtainableTrophies ? ` (${totalTrophyCount})` : ""}{" "}
+                  trophies
+                </span>
+              </Tooltip>
             </div>
 
             <div
@@ -372,7 +376,6 @@ export function LibraryGameRow({
               <span
                 className="game-row__trophy-count game-row__trophy-count--bronze"
                 aria-label={`Bronze trophies: ${trophySummary.earnedTrophies.bronze} of ${trophySummary.totalTrophies.bronze}`}
-                title="Bronze trophies"
               >
                 <TrophyGradeIcon grade="bronze" />
 
@@ -385,7 +388,6 @@ export function LibraryGameRow({
               <span
                 className="game-row__trophy-count game-row__trophy-count--silver"
                 aria-label={`Silver trophies: ${trophySummary.earnedTrophies.silver} of ${trophySummary.totalTrophies.silver}`}
-                title="Silver trophies"
               >
                 <TrophyGradeIcon grade="silver" />
 
@@ -398,7 +400,6 @@ export function LibraryGameRow({
               <span
                 className="game-row__trophy-count game-row__trophy-count--gold"
                 aria-label={`Gold trophies: ${trophySummary.earnedTrophies.gold} of ${trophySummary.totalTrophies.gold}`}
-                title="Gold trophies"
               >
                 <TrophyGradeIcon grade="gold" />
 
@@ -419,11 +420,6 @@ export function LibraryGameRow({
                     ? "This game has no platinum trophy"
                     : `Platinum trophies: ${trophySummary.earnedTrophies.platinum} of ${trophySummary.totalTrophies.platinum}`
                 }
-                title={
-                  trophySummary.totalTrophies.platinum === 0
-                    ? "No platinum trophy"
-                    : "Platinum trophies"
-                }
               >
                 <TrophyGradeIcon grade="platinum" />
 
@@ -436,28 +432,33 @@ export function LibraryGameRow({
             </div>
 
             <div className="game-row__metadata-rail">
-              <div
-                className="game-row__points"
-                title={
+              <Tooltip
+                content={
                   hasUnobtainableTrophies
                     ? `${trophySummary.points.earned.toLocaleString()} earned, ${trophySummary.availability.attainablePoints.toLocaleString()} attainable, ${trophySummary.points.total.toLocaleString()} total points`
                     : `${trophySummary.points.earned.toLocaleString()} earned of ${trophySummary.points.total.toLocaleString()} total points`
                 }
+                placement="top"
+                alignment="end"
               >
-                <strong>{trophySummary.points.earned.toLocaleString()}</strong>
+                <div className="game-row__points" tabIndex={0}>
+                  <strong>
+                    {trophySummary.points.earned.toLocaleString()}
+                  </strong>
 
-                <span>
-                  {" "}
-                  /{" "}
-                  {hasUnobtainableTrophies
-                    ? trophySummary.availability.attainablePoints.toLocaleString()
-                    : trophySummary.points.total.toLocaleString()}
-                  {hasUnobtainableTrophies
-                    ? ` (${trophySummary.points.total.toLocaleString()})`
-                    : ""}{" "}
-                  points
-                </span>
-              </div>
+                  <span>
+                    {" "}
+                    /{" "}
+                    {hasUnobtainableTrophies
+                      ? trophySummary.availability.attainablePoints.toLocaleString()
+                      : trophySummary.points.total.toLocaleString()}
+                    {hasUnobtainableTrophies
+                      ? ` (${trophySummary.points.total.toLocaleString()})`
+                      : ""}{" "}
+                    points
+                  </span>
+                </div>
+              </Tooltip>
 
               {completionState === null || completionDisplay === null ? null : (
                 <Tooltip

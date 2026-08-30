@@ -136,7 +136,7 @@ export class PlayStationTrophyDetailSyncService {
     const artworkJobs = new Map<string, ArtworkJob>();
 
     for (const gameId of fullyRefreshedGameIds) {
-      artworkJobs.set(gameId, { gameId, missingOnly: false });
+      artworkJobs.set(gameId, { gameId, missingOnly: true });
     }
 
     for (const gameId of this.artworkService.findGameIdsNeedingCache()) {

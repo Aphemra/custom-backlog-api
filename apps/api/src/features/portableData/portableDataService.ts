@@ -1,16 +1,12 @@
 import type { DatabaseSync } from "node:sqlite";
-import { HttpError } from "../../errors/httpError.js";
 import { BacklogActivityRecorder } from "../history/backlogActivityRecorder.js";
 import {
   createDatabaseBackup,
   type DatabaseBackupResult,
 } from "../backups/createDatabaseBackup.js";
-import {
-  createCompatiblePursuitStatus,
-  migratePursuitStatus,
-  type PlayStationPlatform,
-  type PlayStatus,
-  type PursuitStatus,
+import type {
+  PlayStationPlatform,
+  PlayStatus,
 } from "../library/libraryGameTypes.js";
 import { GameResourceRepository } from "../resources/gameResourceRepository.js";
 import {
@@ -27,15 +23,12 @@ import {
   type PortableSavedView,
 } from "./portableDataTypes.js";
 import {
-  deletePortableV3IntegrationData,
-  insertPortableV3IntegrationData,
-  readPortableV3IntegrationData,
-} from "./portableDataV3Storage.js";
+  deletePortableIntegrationData,
+  insertPortableIntegrationData,
+  readPortableIntegrationData,
+} from "./portableDataIntegrationStorage.js";
 import { restorePortableIgdbDetails } from "./portableIgdbDetails.js";
-import type {
-  PortableDataExportV4,
-  PortableLibraryGameV4,
-} from "./portableDataV4Types.js";
+import type { PortableLibraryGameV4 } from "./portableDataV4Types.js";
 import type { PortableDataExportV5 } from "./portableDataV5Types.js";
 
 interface LibraryGameRow {
@@ -43,7 +36,6 @@ interface LibraryGameRow {
   title: string;
   sort_title: string;
   platform: PlayStationPlatform;
-  pursuit_status: PursuitStatus;
   play_status: PlayStatus;
   is_unobtainable: number;
   priority_rank: number;
@@ -207,12 +199,10 @@ function getCurrentCounts(database: DatabaseSync): PortableDataCounts {
 }
 
 function getIncomingCounts(
-  database: DatabaseSync,
   portableData: PortableDataExport,
 ): PortableDataCounts {
   return {
     libraryGames: portableData.data.libraryGames.length,
-
     collections: portableData.data.collections.length,
 
     memberships: portableData.data.collections.reduce(
@@ -220,129 +210,14 @@ function getIncomingCounts(
       0,
     ),
 
-    savedViews:
-      portableData.formatVersion !== 1
-        ? portableData.data.savedViews.length
-        : readCount(database, "saved_views"),
-
-    playstationLinks:
-      portableData.formatVersion === 3 ||
-      portableData.formatVersion === 4 ||
-      portableData.formatVersion === 5
-        ? portableData.data.playstationGameLinks.length
-        : 0,
-
-    metadataEntries:
-      portableData.formatVersion === 3 ||
-      portableData.formatVersion === 4 ||
-      portableData.formatVersion === 5
-        ? portableData.data.externalGameMetadata.length
-        : 0,
-
-    trophySnapshots:
-      portableData.formatVersion === 3 ||
-      portableData.formatVersion === 4 ||
-      portableData.formatVersion === 5
-        ? portableData.data.trophySnapshots.length
-        : 0,
-
-    trophyAlerts:
-      portableData.formatVersion === 3 ||
-      portableData.formatVersion === 4 ||
-      portableData.formatVersion === 5
-        ? portableData.data.trophyAlerts.length
-        : 0,
-
-    cachedImages:
-      portableData.formatVersion === 3 ||
-      portableData.formatVersion === 4 ||
-      portableData.formatVersion === 5
-        ? portableData.data.cachedImages.length
-        : 0,
-
-    gameResources:
-      portableData.formatVersion === 5
-        ? portableData.data.gameResources.length
-        : 0,
+    savedViews: portableData.data.savedViews.length,
+    playstationLinks: portableData.data.playstationGameLinks.length,
+    metadataEntries: portableData.data.externalGameMetadata.length,
+    trophySnapshots: portableData.data.trophySnapshots.length,
+    trophyAlerts: portableData.data.trophyAlerts.length,
+    cachedImages: portableData.data.cachedImages.length,
+    gameResources: portableData.data.gameResources.length,
   };
-}
-
-function assertImportWillNotDiscardUnsupportedData(
-  database: DatabaseSync,
-  portableData: PortableDataExport,
-): void {
-  if (portableData.formatVersion === 5) {
-    return;
-  }
-
-  const gameResourceCount = readCount(database, "game_resources");
-
-  if (portableData.formatVersion === 3 || portableData.formatVersion === 4) {
-    if (gameResourceCount === 0) {
-      return;
-    }
-
-    throw new HttpError(
-      409,
-      "portable_import_would_discard_game_resources",
-      "This older export version cannot preserve existing game resources. Export the current app as version five before replacing this data.",
-    );
-  }
-
-  const unsupportedRecordCount =
-    readCount(database, "playstation_game_links") +
-    readCount(database, "external_game_metadata") +
-    readCount(database, "game_metadata_links") +
-    readCount(database, "trophy_snapshots") +
-    readCount(database, "trophy_alerts") +
-    readCount(database, "cached_images") +
-    readCount(database, "library_game_images") +
-    gameResourceCount;
-
-  if (unsupportedRecordCount > 0) {
-    throw new HttpError(
-      409,
-      "portable_import_would_discard_unsupported_data",
-      "This older export version cannot preserve existing PlayStation, metadata, trophy, alert, or image-cache records, and it cannot preserve game resources, so the import was stopped.",
-    );
-  }
-}
-
-function assertVersionOneCanPreserveSavedViews(
-  database: DatabaseSync,
-  portableData: PortableDataExport,
-): void {
-  if (portableData.formatVersion !== 1) {
-    return;
-  }
-
-  const rows = database
-    .prepare(
-      `
-      SELECT filters_json
-      FROM saved_views
-      WHERE is_builtin = 0
-    `,
-    )
-    .all() as unknown as Array<{
-    filters_json: string;
-  }>;
-
-  const hasCollectionDependentView = rows.some((row) => {
-    const filters = parseSavedViewFilters(
-      JSON.parse(row.filters_json) as unknown,
-    );
-
-    return filters.collectionIds !== undefined;
-  });
-
-  if (hasCollectionDependentView) {
-    throw new HttpError(
-      409,
-      "portable_v1_cannot_preserve_collection_views",
-      "A version-one import could break saved views that use Collections. Export the current app as version five before replacing this data.",
-    );
-  }
 }
 
 export function createPortableDataExport(
@@ -356,7 +231,6 @@ export function createPortableDataExport(
         title,
         sort_title,
         platform,
-        pursuit_status,
         play_status,
         is_unobtainable,
         priority_rank,
@@ -425,7 +299,7 @@ export function createPortableDataExport(
     )
     .all() as unknown as SavedViewRow[];
 
-  const integrationData = readPortableV3IntegrationData(database);
+  const integrationData = readPortableIntegrationData(database);
 
   const resourceRepository = new GameResourceRepository(database);
 
@@ -458,17 +332,10 @@ export function previewPortableImport(
   database: DatabaseSync,
   portableData: PortableDataExport,
 ): PortableImportPreview {
-  assertImportWillNotDiscardUnsupportedData(database, portableData);
-
-  assertVersionOneCanPreserveSavedViews(database, portableData);
-
   return {
     formatVersion: portableData.formatVersion,
-
     exportedAt: portableData.exportedAt,
-
-    incoming: getIncomingCounts(database, portableData),
-
+    incoming: getIncomingCounts(portableData),
     current: getCurrentCounts(database),
   };
 }
@@ -488,7 +355,6 @@ export async function importPortableData(
       title,
       sort_title,
       platform,
-      pursuit_status,
       play_status,
       is_unobtainable,
       priority_rank,
@@ -496,7 +362,7 @@ export async function importPortableData(
       created_at,
       updated_at,
       archived_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertCollection = database.prepare(`
@@ -550,52 +416,28 @@ export async function importPortableData(
   database.exec("BEGIN IMMEDIATE");
 
   try {
-    if (
-      portableData.formatVersion === 3 ||
-      portableData.formatVersion === 4 ||
-      portableData.formatVersion === 5
-    ) {
-      deletePortableV3IntegrationData(database);
-    }
+    deletePortableIntegrationData(database);
 
     database.exec(`
       DELETE FROM collection_games;
       DELETE FROM collections;
       DELETE FROM library_games;
+      DELETE FROM saved_views;
     `);
 
-    if (portableData.formatVersion !== 1) {
-      database.exec("DELETE FROM saved_views;");
-    }
-
     for (const game of portableData.data.libraryGames) {
-      const isVersionFour = "playStatus" in game;
-
-      const playStatus = isVersionFour
-        ? game.playStatus
-        : migratePursuitStatus(game.pursuitStatus);
-
-      const pursuitStatus = isVersionFour
-        ? createCompatiblePursuitStatus(game.playStatus)
-        : game.pursuitStatus;
-
-      const isUnobtainable = isVersionFour ? game.isUnobtainable : false;
-
-      const hiddenAt = isVersionFour ? game.hiddenAt : game.archivedAt;
-
       insertGame.run(
         game.id,
         game.title,
         game.sortTitle,
         game.platform,
-        pursuitStatus,
-        playStatus,
-        isUnobtainable ? 1 : 0,
+        game.playStatus,
+        game.isUnobtainable ? 1 : 0,
         game.priorityRank,
         game.notes,
         game.createdAt,
         game.updatedAt,
-        hiddenAt,
+        game.hiddenAt,
       );
     }
 
@@ -619,49 +461,39 @@ export async function importPortableData(
       });
     }
 
-    if (portableData.formatVersion !== 1) {
-      for (const view of portableData.data.savedViews) {
-        insertSavedView.run(
-          view.id,
-          view.builtinKey,
-          view.name,
-          JSON.stringify(view.filters),
-          JSON.stringify(view.sort),
-          view.sortOrder,
-          view.isBuiltin ? 1 : 0,
-          view.createdAt,
-          view.updatedAt,
-        );
-      }
-    }
-
-    if (
-      portableData.formatVersion === 3 ||
-      portableData.formatVersion === 4 ||
-      portableData.formatVersion === 5
-    ) {
-      insertPortableV3IntegrationData(database, portableData.data);
-
-      restorePortableIgdbDetails(
-        database,
-        portableData.data.externalGameMetadata,
+    for (const view of portableData.data.savedViews) {
+      insertSavedView.run(
+        view.id,
+        view.builtinKey,
+        view.name,
+        JSON.stringify(view.filters),
+        JSON.stringify(view.sort),
+        view.sortOrder,
+        view.isBuiltin ? 1 : 0,
+        view.createdAt,
+        view.updatedAt,
       );
     }
 
-    if (portableData.formatVersion === 5) {
-      for (const resource of portableData.data.gameResources) {
-        insertGameResource.run(
-          resource.id,
-          resource.gameId,
-          resource.resourceType,
-          resource.provider,
-          resource.url,
-          resource.label,
-          resource.sortOrder,
-          resource.createdAt,
-          resource.updatedAt,
-        );
-      }
+    insertPortableIntegrationData(database, portableData.data);
+
+    restorePortableIgdbDetails(
+      database,
+      portableData.data.externalGameMetadata,
+    );
+
+    for (const resource of portableData.data.gameResources) {
+      insertGameResource.run(
+        resource.id,
+        resource.gameId,
+        resource.resourceType,
+        resource.provider,
+        resource.url,
+        resource.label,
+        resource.sortOrder,
+        resource.createdAt,
+        resource.updatedAt,
+      );
     }
 
     new BacklogActivityRecorder(

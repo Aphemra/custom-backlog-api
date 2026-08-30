@@ -1,3 +1,5 @@
+import { Tooltip } from "./Tooltip";
+
 export function CloseIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -137,14 +139,16 @@ export function TrophyGradeIcon({ grade, label }: TrophyGradeIconProps) {
   const accessibleLabel = label ?? trophyGradeLabels[grade];
 
   return (
-    <span
-      className={`trophy-grade-icon trophy-grade-icon--${grade}`}
-      role="img"
-      aria-label={accessibleLabel}
-      title={accessibleLabel}
-    >
-      <TrophyIcon />
-    </span>
+    <Tooltip content={accessibleLabel} placement="top" alignment="center">
+      <span
+        className={`trophy-grade-icon trophy-grade-icon--${grade}`}
+        role="img"
+        aria-label={accessibleLabel}
+        tabIndex={0}
+      >
+        <TrophyIcon />
+      </span>
+    </Tooltip>
   );
 }
 

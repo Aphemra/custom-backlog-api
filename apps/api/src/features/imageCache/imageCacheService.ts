@@ -13,6 +13,7 @@ import type {
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 const IMAGE_REQUEST_TIMEOUT_MS = 30_000;
+const MAX_CONCURRENT_IMAGE_REFRESHES = 4;
 
 const allowedHosts: Readonly<Record<ImageProvider, ReadonlySet<string>>> = {
   igdb: new Set(["images.igdb.com"]),
@@ -187,7 +188,9 @@ async function readLimitedBody(response: Response): Promise<Uint8Array> {
 }
 
 export class ImageCacheService {
-  private refreshQueue: Promise<void> = Promise.resolve();
+  private activeRefreshCount = 0;
+
+  private readonly refreshWaiters: Array<() => void> = [];
 
   private readonly activeRefreshes = new Map<
     string,
@@ -230,16 +233,11 @@ export class ImageCacheService {
       return activeRefresh;
     }
 
-    const refreshResult = this.refreshQueue.then(() =>
+    const refreshResult = this.runWithRefreshSlot(() =>
       this.refreshImmediately(imageId),
     );
 
     this.activeRefreshes.set(imageId, refreshResult);
-
-    this.refreshQueue = refreshResult.then(
-      () => undefined,
-      () => undefined,
-    );
 
     void refreshResult.then(
       () => {
@@ -251,6 +249,38 @@ export class ImageCacheService {
     );
 
     return refreshResult;
+  }
+
+  private async runWithRefreshSlot<T>(operation: () => Promise<T>): Promise<T> {
+    await this.acquireRefreshSlot();
+
+    try {
+      return await operation();
+    } finally {
+      this.releaseRefreshSlot();
+    }
+  }
+
+  private async acquireRefreshSlot(): Promise<void> {
+    if (this.activeRefreshCount < MAX_CONCURRENT_IMAGE_REFRESHES) {
+      this.activeRefreshCount += 1;
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      this.refreshWaiters.push(resolve);
+    });
+  }
+
+  private releaseRefreshSlot(): void {
+    const nextRefresh = this.refreshWaiters.shift();
+
+    if (nextRefresh !== undefined) {
+      nextRefresh();
+      return;
+    }
+
+    this.activeRefreshCount -= 1;
   }
 
   private async refreshImmediately(

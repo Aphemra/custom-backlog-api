@@ -1,10 +1,11 @@
 import { TrophyGradeIcon } from "../../../components/ui/icons";
-import type { TrophyHistoryStatistics } from "../../../domain/history";
+import { Tooltip } from "../../../components/ui/Tooltip";
+import type {
+  TrophyHistoryPlatformStatistic,
+  TrophyHistoryStatistics,
+  TrophyHistoryTypeStatistic,
+} from "../../../domain/history";
 
-const chartWidth = 720;
-const chartHeight = 180;
-const horizontalPadding = 18;
-const verticalPadding = 18;
 const numberFormatter = new Intl.NumberFormat();
 
 const monthFormatter = new Intl.DateTimeFormat(undefined, {
@@ -17,8 +18,211 @@ function formatMonth(month: string): string {
   return monthFormatter.format(new Date(`${month}-01T00:00:00.000Z`));
 }
 
-function percentage(value: number, total: number): number {
-  return total === 0 ? 0 : (value / total) * 100;
+function trophyTypeLabel(statistic: TrophyHistoryTypeStatistic): string {
+  return (
+    statistic.trophyType.charAt(0).toLocaleUpperCase("en-US") +
+    statistic.trophyType.slice(1)
+  );
+}
+
+function segmentedColumns(
+  statistics: ReadonlyArray<{
+    readonly trophyCount: number;
+  }>,
+): string {
+  return statistics
+    .map((statistic) => `${Math.max(1, statistic.trophyCount)}fr`)
+    .join(" ");
+}
+
+function TrophyGradeSegments({
+  statistics,
+}: {
+  readonly statistics: readonly TrophyHistoryTypeStatistic[];
+}) {
+  const activeStatistics = statistics.filter(
+    (statistic) => statistic.trophyCount > 0,
+  );
+
+  const totalTrophies = activeStatistics.reduce(
+    (total, statistic) => total + statistic.trophyCount,
+    0,
+  );
+
+  const totalPoints = activeStatistics.reduce(
+    (total, statistic) => total + statistic.points,
+    0,
+  );
+
+  return (
+    <section className="history-segment-section">
+      <div className="history-segment-section__heading">
+        <h4>By trophy grade</h4>
+
+        <span>
+          {numberFormatter.format(totalTrophies)} trophies ·{" "}
+          {numberFormatter.format(totalPoints)} points
+        </span>
+      </div>
+
+      <div
+        className="history-segmented-bar"
+        style={{
+          gridTemplateColumns: segmentedColumns(activeStatistics),
+        }}
+        role="group"
+        aria-label="Trophy history divided by trophy grade"
+      >
+        {activeStatistics.map((statistic, index) => {
+          const label = trophyTypeLabel(statistic);
+          const alignment =
+            index === 0
+              ? "start"
+              : index === activeStatistics.length - 1
+                ? "end"
+                : "center";
+
+          return (
+            <Tooltip
+              key={statistic.trophyType}
+              content={
+                <span className="history-segment-tooltip">
+                  <strong>{label}</strong>
+
+                  <span>
+                    {numberFormatter.format(statistic.trophyCount)} trophies
+                  </span>
+
+                  <span>{numberFormatter.format(statistic.points)} points</span>
+                </span>
+              }
+              placement="top"
+              alignment={alignment}
+            >
+              <span
+                className={`history-segmented-bar__segment history-segmented-bar__segment--${statistic.trophyType}`}
+                role="img"
+                tabIndex={0}
+                aria-label={`${label}: ${numberFormatter.format(
+                  statistic.trophyCount,
+                )} trophies worth ${numberFormatter.format(
+                  statistic.points,
+                )} points`}
+              />
+            </Tooltip>
+          );
+        })}
+      </div>
+
+      <div className="history-segment-legend">
+        {activeStatistics.map((statistic) => (
+          <div key={statistic.trophyType}>
+            <TrophyGradeIcon grade={statistic.trophyType} />
+
+            <span>{trophyTypeLabel(statistic)}</span>
+
+            <strong>{numberFormatter.format(statistic.trophyCount)}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PlatformSegments({
+  statistics,
+}: {
+  readonly statistics: readonly TrophyHistoryPlatformStatistic[];
+}) {
+  const activeStatistics = statistics.filter(
+    (statistic) => statistic.trophyCount > 0,
+  );
+
+  const totalTrophies = activeStatistics.reduce(
+    (total, statistic) => total + statistic.trophyCount,
+    0,
+  );
+
+  const totalPoints = activeStatistics.reduce(
+    (total, statistic) => total + statistic.points,
+    0,
+  );
+
+  return (
+    <section className="history-segment-section">
+      <div className="history-segment-section__heading">
+        <h4>By platform</h4>
+
+        <span>
+          {numberFormatter.format(totalTrophies)} trophies ·{" "}
+          {numberFormatter.format(totalPoints)} points
+        </span>
+      </div>
+
+      <div
+        className="history-segmented-bar"
+        style={{
+          gridTemplateColumns: segmentedColumns(activeStatistics),
+        }}
+        role="group"
+        aria-label="Trophy history divided by PlayStation platform"
+      >
+        {activeStatistics.map((statistic, index) => {
+          const alignment =
+            index === 0
+              ? "start"
+              : index === activeStatistics.length - 1
+                ? "end"
+                : "center";
+
+          return (
+            <Tooltip
+              key={statistic.platform}
+              content={
+                <span className="history-segment-tooltip">
+                  <strong>{statistic.platform}</strong>
+
+                  <span>
+                    {numberFormatter.format(statistic.trophyCount)} trophies
+                  </span>
+
+                  <span>{numberFormatter.format(statistic.points)} points</span>
+                </span>
+              }
+              placement="top"
+              alignment={alignment}
+            >
+              <span
+                className={`history-segmented-bar__segment history-segmented-bar__segment--${statistic.platform.toLowerCase()}`}
+                role="img"
+                tabIndex={0}
+                aria-label={`${statistic.platform}: ${numberFormatter.format(
+                  statistic.trophyCount,
+                )} trophies worth ${numberFormatter.format(
+                  statistic.points,
+                )} points`}
+              />
+            </Tooltip>
+          );
+        })}
+      </div>
+
+      <div className="history-segment-legend">
+        {activeStatistics.map((statistic) => (
+          <div key={statistic.platform}>
+            <span
+              className={`history-segment-legend__platform history-segment-legend__platform--${statistic.platform.toLowerCase()}`}
+              aria-hidden="true"
+            />
+
+            <span>{statistic.platform}</span>
+
+            <strong>{numberFormatter.format(statistic.trophyCount)}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export function HistoryStatistics({
@@ -35,14 +239,6 @@ export function HistoryStatistics({
     1,
     ...statistics.monthlyActivity.map((month) => month.trophyCount),
   );
-
-  const drawableWidth = chartWidth - horizontalPadding * 2;
-  const drawableHeight = chartHeight - verticalPadding * 2;
-  const barSlotWidth =
-    statistics.monthlyActivity.length === 0
-      ? drawableWidth
-      : drawableWidth / statistics.monthlyActivity.length;
-  const barWidth = Math.max(2, barSlotWidth - 2);
 
   const busiestMonth =
     statistics.monthlyActivity.length === 0
@@ -70,72 +266,10 @@ export function HistoryStatistics({
         </div>
       </div>
 
-      <div className="history-statistics__distributions">
-        <article>
-          <h4>By trophy grade</h4>
+      <div className="history-statistics__segments">
+        <TrophyGradeSegments statistics={statistics.byTrophyType} />
 
-          <div className="history-distribution-list">
-            {statistics.byTrophyType.map((statistic) => (
-              <div
-                className={`history-distribution history-distribution--${statistic.trophyType}`}
-                key={statistic.trophyType}
-              >
-                <div className="history-distribution__identity">
-                  <TrophyGradeIcon grade={statistic.trophyType} />
-
-                  <span>{statistic.trophyType}</span>
-                </div>
-
-                <div className="history-distribution__track">
-                  <span
-                    style={{
-                      width: `${percentage(
-                        statistic.trophyCount,
-                        totalTrophies,
-                      )}%`,
-                    }}
-                  />
-                </div>
-
-                <strong>{numberFormatter.format(statistic.trophyCount)}</strong>
-
-                <small>{numberFormatter.format(statistic.points)} points</small>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article>
-          <h4>By platform</h4>
-
-          <div className="history-distribution-list">
-            {statistics.byPlatform.map((statistic) => (
-              <div
-                className={`history-distribution history-distribution--${statistic.platform.toLowerCase()}`}
-                key={statistic.platform}
-              >
-                <div className="history-distribution__identity">
-                  <span className="platform-badge">{statistic.platform}</span>
-                </div>
-
-                <div className="history-distribution__track">
-                  <span
-                    style={{
-                      width: `${percentage(
-                        statistic.trophyCount,
-                        totalTrophies,
-                      )}%`,
-                    }}
-                  />
-                </div>
-
-                <strong>{numberFormatter.format(statistic.trophyCount)}</strong>
-
-                <small>{numberFormatter.format(statistic.points)} points</small>
-              </div>
-            ))}
-          </div>
-        </article>
+        <PlatformSegments statistics={statistics.byPlatform} />
       </div>
 
       <article className="history-monthly-chart">
@@ -163,56 +297,63 @@ export function HistoryStatistics({
           </div>
         ) : (
           <>
-            <div className="history-monthly-chart__canvas">
-              <svg
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                role="img"
-                aria-label="Monthly earned trophy activity"
-              >
-                {[0.25, 0.5, 0.75, 1].map((ratio) => {
-                  const y = verticalPadding + (1 - ratio) * drawableHeight;
+            <div
+              className="history-monthly-chart__bars"
+              style={{
+                gridTemplateColumns: `repeat(${statistics.monthlyActivity.length}, minmax(2px, 1fr))`,
+              }}
+              role="img"
+              aria-label="Monthly earned trophy activity"
+            >
+              {statistics.monthlyActivity.map((month, index) => {
+                const barHeight = Math.max(
+                  2,
+                  (month.trophyCount / maximumMonthlyTrophies) * 100,
+                );
 
-                  return (
-                    <line
-                      key={ratio}
-                      className="history-chart__grid-line"
-                      x1={horizontalPadding}
-                      x2={chartWidth - horizontalPadding}
-                      y1={y}
-                      y2={y}
-                    />
-                  );
-                })}
+                const tooltipAlignment =
+                  index === 0
+                    ? "start"
+                    : index === statistics.monthlyActivity.length - 1
+                      ? "end"
+                      : "center";
 
-                {statistics.monthlyActivity.map((month, index) => {
-                  const barHeight =
-                    (month.trophyCount / maximumMonthlyTrophies) *
-                    drawableHeight;
-                  const x =
-                    horizontalPadding +
-                    index * barSlotWidth +
-                    (barSlotWidth - barWidth) / 2;
-                  const y = verticalPadding + drawableHeight - barHeight;
+                return (
+                  <Tooltip
+                    key={month.month}
+                    content={
+                      <span className="history-monthly-tooltip">
+                        <strong>{formatMonth(month.month)}</strong>
 
-                  return (
-                    <rect
-                      key={month.month}
+                        <span>
+                          {numberFormatter.format(month.trophyCount)}{" "}
+                          {month.trophyCount === 1 ? "trophy" : "trophies"}
+                        </span>
+
+                        <span>
+                          {numberFormatter.format(month.points)} points
+                        </span>
+                      </span>
+                    }
+                    placement="inside-top"
+                    alignment={tooltipAlignment}
+                  >
+                    <span
                       className="history-monthly-chart__bar"
-                      x={x}
-                      y={y}
-                      width={barWidth}
-                      height={barHeight}
-                      rx="1"
-                    >
-                      <title>
-                        {formatMonth(month.month)}:{" "}
-                        {numberFormatter.format(month.trophyCount)} trophies,{" "}
-                        {numberFormatter.format(month.points)} points
-                      </title>
-                    </rect>
-                  );
-                })}
-              </svg>
+                      style={{ height: `${barHeight}%` }}
+                      role="img"
+                      tabIndex={0}
+                      aria-label={`${formatMonth(
+                        month.month,
+                      )}: ${numberFormatter.format(
+                        month.trophyCount,
+                      )} trophies, ${numberFormatter.format(
+                        month.points,
+                      )} points`}
+                    />
+                  </Tooltip>
+                );
+              })}
             </div>
 
             <div className="history-chart__range">

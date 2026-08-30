@@ -406,7 +406,6 @@ export class PlayStationTrophySyncService {
               UPDATE library_games
               SET
                 play_status = 'completed',
-                pursuit_status = 'finished',
                 updated_at = ?
               WHERE
                 id = ?

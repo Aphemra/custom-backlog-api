@@ -148,7 +148,7 @@ function readMetadataPayload(row: ExternalMetadataRow): PortableJsonValue {
   return addPortableIgdbDetails(payload, timeToBeat);
 }
 
-export function readPortableV3IntegrationData(
+export function readPortableIntegrationData(
   database: DatabaseSync,
 ): IntegrationData {
   const playstationRows = database
@@ -391,7 +391,7 @@ export function readPortableV3IntegrationData(
   };
 }
 
-export function deletePortableV3IntegrationData(database: DatabaseSync): void {
+export function deletePortableIntegrationData(database: DatabaseSync): void {
   database.exec(`
     DELETE FROM trophy_alerts;
     DELETE FROM trophy_snapshots;
@@ -404,7 +404,7 @@ export function deletePortableV3IntegrationData(database: DatabaseSync): void {
   `);
 }
 
-export function insertPortableV3IntegrationData(
+export function insertPortableIntegrationData(
   database: DatabaseSync,
   data: IntegrationData,
 ): void {

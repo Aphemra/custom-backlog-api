@@ -7,7 +7,6 @@ import {
   type PlayStationGameTrophyIntelligence,
 } from "../playstation/playStationTrophyIntelligence.js";
 import {
-  createCompatiblePursuitStatus,
   type CreateLibraryGameInput,
   type LibraryGame,
   type LibraryGameWithArtwork,
@@ -409,8 +408,6 @@ export class LibraryGameRepository {
 
     const playStatus = input.playStatus ?? "not_started";
 
-    const pursuitStatus = createCompatiblePursuitStatus(playStatus);
-
     this.database
       .prepare(
         `
@@ -419,14 +416,13 @@ export class LibraryGameRepository {
           title,
           sort_title,
           platform,
-          pursuit_status,
           play_status,
           is_unobtainable,
           priority_rank,
           notes,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       )
       .run(
@@ -434,7 +430,6 @@ export class LibraryGameRepository {
         input.title,
         createSortTitle(input.title),
         input.platform,
-        pursuitStatus,
         playStatus,
         input.isUnobtainable === true ? 1 : 0,
         priorityRank,
@@ -464,8 +459,6 @@ export class LibraryGameRepository {
 
     const playStatus = input.playStatus ?? currentGame.playStatus;
 
-    const pursuitStatus = createCompatiblePursuitStatus(playStatus);
-
     const isUnobtainable = input.isUnobtainable ?? currentGame.isUnobtainable;
 
     this.database
@@ -476,7 +469,6 @@ export class LibraryGameRepository {
           title = ?,
           sort_title = ?,
           platform = ?,
-          pursuit_status = ?,
           play_status = ?,
           is_unobtainable = ?,
           notes = ?,
@@ -488,7 +480,6 @@ export class LibraryGameRepository {
         title,
         createSortTitle(title),
         input.platform ?? currentGame.platform,
-        pursuitStatus,
         playStatus,
         isUnobtainable ? 1 : 0,
         notes,

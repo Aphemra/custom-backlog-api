@@ -5,13 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { openDatabase } from "../../database/database.js";
-import { HttpError } from "../../errors/httpError.js";
 import { CollectionRepository } from "../collections/collectionRepository.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
 import { GameResourceRepository } from "../resources/gameResourceRepository.js";
-import { createCompatiblePursuitStatus } from "../library/libraryGameTypes.js";
-import type { PortableLibraryGame } from "./portableDataTypes.js";
-import type { PortableLibraryGameV4 } from "./portableDataV4Types.js";
 import { SavedViewRepository } from "../savedViews/savedViewRepository.js";
 import {
   createPortableDataExport,
@@ -19,23 +15,6 @@ import {
   previewPortableImport,
 } from "./portableDataService.js";
 import { parsePortableDataExport } from "./portableDataValidation.js";
-
-function createLegacyPortableLibraryGames(
-  games: readonly PortableLibraryGameV4[],
-): readonly PortableLibraryGame[] {
-  return games.map((game) => ({
-    id: game.id,
-    title: game.title,
-    sortTitle: game.sortTitle,
-    platform: game.platform,
-    pursuitStatus: createCompatiblePursuitStatus(game.playStatus),
-    priorityRank: game.priorityRank,
-    notes: game.notes,
-    createdAt: game.createdAt,
-    updatedAt: game.updatedAt,
-    archivedAt: game.hiddenAt,
-  }));
-}
 
 test("exports, previews, backs up, and atomically replaces portable backlog data", async () => {
   const temporaryDirectory = await mkdtemp(
@@ -165,131 +144,5 @@ test("exports, previews, backs up, and atomically replaces portable backlog data
       recursive: true,
       force: true,
     });
-  }
-});
-
-test("refuses an older import that cannot preserve integration data", () => {
-  const database = openDatabase(":memory:");
-
-  const games = new LibraryGameRepository(database);
-
-  try {
-    const game = games.create({
-      title: "Returnal",
-      platform: "PS5",
-    });
-
-    database
-      .prepare(
-        `
-          INSERT INTO external_game_metadata (
-            id,
-            provider,
-            external_id,
-            title,
-            payload_json,
-            fetched_at
-          ) VALUES (?, ?, ?, ?, ?, ?)
-        `,
-      )
-      .run(
-        "metadata",
-        "test",
-        "external",
-        "Returnal",
-        "{}",
-        new Date().toISOString(),
-      );
-
-    database
-      .prepare(
-        `
-          INSERT INTO game_metadata_links (
-            game_id,
-            metadata_id,
-            linked_at
-          ) VALUES (?, ?, ?)
-        `,
-      )
-      .run(game.id, "metadata", new Date().toISOString());
-
-    const versionFour = createPortableDataExport(database);
-
-    const portableData = {
-      format: versionFour.format,
-      formatVersion: 2 as const,
-      exportedAt: versionFour.exportedAt,
-
-      data: {
-        libraryGames: createLegacyPortableLibraryGames(
-          versionFour.data.libraryGames,
-        ),
-        collections: versionFour.data.collections,
-        savedViews: versionFour.data.savedViews,
-      },
-    };
-
-    assert.throws(
-      () => previewPortableImport(database, portableData),
-      (error: unknown) =>
-        error instanceof Error &&
-        error.message.includes(
-          "cannot preserve existing PlayStation, metadata, trophy, alert, or image-cache records",
-        ),
-    );
-  } finally {
-    database.close();
-  }
-});
-
-test("refuses a version-one import that would break Collection saved views", () => {
-  const database = openDatabase(":memory:");
-
-  try {
-    const collections = new CollectionRepository(database);
-
-    const views = new SavedViewRepository(database);
-
-    const collection = collections.create({
-      name: "Favorites",
-    });
-
-    views.create({
-      name: "Favorite games",
-
-      filters: {
-        collectionIds: [collection.id],
-      },
-
-      sort: {
-        field: "priorityRank",
-        direction: "asc",
-      },
-    });
-
-    const versionTwo = createPortableDataExport(database);
-
-    const versionOne = {
-      format: versionTwo.format,
-      formatVersion: 1 as const,
-      exportedAt: versionTwo.exportedAt,
-
-      data: {
-        libraryGames: createLegacyPortableLibraryGames(
-          versionTwo.data.libraryGames,
-        ),
-        collections: versionTwo.data.collections,
-      },
-    };
-
-    assert.throws(
-      () => previewPortableImport(database, versionOne),
-
-      (error: unknown) =>
-        error instanceof HttpError &&
-        error.code === "portable_v1_cannot_preserve_collection_views",
-    );
-  } finally {
-    database.close();
   }
 });

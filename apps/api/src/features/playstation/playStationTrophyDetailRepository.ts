@@ -401,6 +401,55 @@ export class PlayStationTrophyDetailRepository {
         );
       }
 
+      const reconnectCachedArtwork = (
+        table: string,
+        iconUrlExpression: string,
+      ): void => {
+        const allowedTables = new Set([
+          "playstation_trophy_sets",
+          "playstation_trophy_groups",
+          "playstation_trophies",
+        ]);
+
+        if (!allowedTables.has(table)) {
+          throw new Error("Unsupported PlayStation artwork table.");
+        }
+
+        this.database
+          .prepare(
+            `
+              UPDATE ${table}
+              SET icon_image_id = (
+                SELECT cached_images.id
+                FROM cached_images
+                WHERE cached_images.provider = 'playstation'
+                  AND cached_images.source_url = ${iconUrlExpression}
+                  AND cached_images.file_name IS NOT NULL
+                ORDER BY cached_images.updated_at DESC
+                LIMIT 1
+              )
+              WHERE game_id = ?
+                AND icon_url IS NOT NULL
+            `,
+          )
+          .run(gameId);
+      };
+
+      reconnectCachedArtwork(
+        "playstation_trophy_sets",
+        "playstation_trophy_sets.icon_url",
+      );
+
+      reconnectCachedArtwork(
+        "playstation_trophy_groups",
+        "playstation_trophy_groups.icon_url",
+      );
+
+      reconnectCachedArtwork(
+        "playstation_trophies",
+        "playstation_trophies.icon_url",
+      );
+
       this.database.exec("COMMIT");
     } catch (error) {
       this.database.exec("ROLLBACK");

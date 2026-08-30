@@ -226,6 +226,99 @@ function createFullResult(
   };
 }
 
+test("reattaches existing cached artwork during full storage", () => {
+  const database = openDatabase(":memory:");
+
+  try {
+    seedLinkedGame(database);
+
+    const timestamp = FIRST_SYNC.toISOString();
+
+    const insertCachedImage = database.prepare(`
+      INSERT INTO cached_images (
+        id,
+        provider,
+        source_key,
+        source_url,
+        file_name,
+        content_type,
+        byte_size,
+        fetched_at,
+        created_at,
+        updated_at
+      ) VALUES (?, 'playstation', ?, ?, ?, 'image/png', 9, ?, ?, ?)
+    `);
+
+    const cachedArtwork = [
+      {
+        id: "cached-title",
+        sourceKey: "test:title",
+        sourceUrl: "https://example.com/title.png",
+        fileName: "cached-title.png",
+      },
+      {
+        id: "cached-default-group",
+        sourceKey: "test:default-group",
+        sourceUrl: "https://example.com/default.png",
+        fileName: "cached-default-group.png",
+      },
+      {
+        id: "cached-trophy-zero",
+        sourceKey: "test:trophy-zero",
+        sourceUrl: "https://example.com/trophy-0.png",
+        fileName: "cached-trophy-zero.png",
+      },
+    ];
+
+    for (const artwork of cachedArtwork) {
+      insertCachedImage.run(
+        artwork.id,
+        artwork.sourceKey,
+        artwork.sourceUrl,
+        artwork.fileName,
+        timestamp,
+        timestamp,
+        timestamp,
+      );
+    }
+
+    const repository = new PlayStationTrophyDetailRepository(
+      database,
+      () => FIRST_SYNC,
+    );
+
+    const firstStored = repository.storeFull(
+      "stored-detail-game",
+      "target-account",
+      createTitle("01.00", false),
+      createFullResult("01.00", false),
+    );
+
+    assert.equal(firstStored.titleIconImageId, "cached-title");
+    assert.equal(firstStored.groups[0]?.iconImageId, "cached-default-group");
+    assert.equal(
+      firstStored.groups[0]?.trophies[0]?.iconImageId,
+      "cached-trophy-zero",
+    );
+
+    const replaced = repository.storeFull(
+      "stored-detail-game",
+      "target-account",
+      createTitle("02.00", false),
+      createFullResult("02.00", false),
+    );
+
+    assert.equal(replaced.titleIconImageId, "cached-title");
+    assert.equal(replaced.groups[0]?.iconImageId, "cached-default-group");
+    assert.equal(
+      replaced.groups[0]?.trophies[0]?.iconImageId,
+      "cached-trophy-zero",
+    );
+  } finally {
+    database.close();
+  }
+});
+
 test("replaces stale trophy definitions and reconstructs them locally", () => {
   const database = openDatabase(":memory:");
   let currentTime = FIRST_SYNC;

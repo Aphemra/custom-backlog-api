@@ -1,202 +1,208 @@
-# Version 2 Implementation Roadmap
-
-This roadmap takes the current working baseline to the intended polished personal app. Checkpoints are ordered to settle data contracts and safety before visual consolidation. A checkpoint should be committed only after its migrations, tests, type-checking, and relevant manual checks pass.
-
-## 1. Re-baseline documentation
-
-**Purpose:** Make the repository describe the application that actually exists and the product now intended.
-
-- Replace the README and all version 2 product/API/safety documents.
-- Record implemented features, transitional terminology, non-goals, and the ordered roadmap.
-- Correct portable data from v2 to v3 and document existing PSN/IGDB/image behavior.
-
-**Done when:** Documentation contains no known claims that contradict the current routes, storage format, or agreed product direction.
-
-## 2. Replace Pursuit Status with Play Status
-
-**Purpose:** Fix the core vocabulary and data model before more features depend on it.
-
-- Migrate old values to `Unreleased`, `Not Started`, `Playing`, `On Hold`, `Waiting`, and `Completed`.
-- Store `Unobtainable` separately from play status.
-- Rename Archive language to Hide, Hidden Games, and Unhide while retaining safe storage behavior.
-- Auto-select `Unreleased` for newly added future releases.
-- Auto-select `Completed` when a linked game reaches 100%; do not auto-complete a platinum below 100%.
-
-**Done when:** API, database, exports, filters, tests, and UI use the new model without ambiguous legacy labels.
-
-## 3. Typed Settings and synchronization policy
-
-**Purpose:** Establish safety controls before adding the convenient Library sync.
-
-- Implement typed persisted settings.
-- Add a trophy-sync cooldown toggle and seconds value, defaulting to enabled at 300 seconds.
-- Add API-enforced cooldown checks and a single in-flight sync lock.
-- Add notification expiration settings for the future toast system.
-- Keep conservative provider request spacing and bounded retries.
-
-**Done when:** Double-clicks and multiple tabs cannot overlap syncs, and cooldown behavior is enforced server-side and covered by tests.
-
-## 4. Library `Sync Trophy Progress`
-
-**Purpose:** Make the common progress refresh fast and direct.
-
-- Add a Library action that updates only already-linked games and profile progression.
-- Exclude PSN import decisions, title matching, IGDB lookup, and Library creation.
-- Apply the 100%-to-Completed rule.
-- Make PSN Import default to `New`, fall back to `Missing IGDB`, then `All` when preceding queues are empty.
-
-**Done when:** One Library action safely refreshes front-facing progress and returns a clear summary without opening the import workflow.
-
-## 5. Complete PSN trophy ingestion
-
-**Purpose:** Store the raw detail required for exact alerts, timings, and game details.
-
-- Add normalized trophy groups and individual trophies.
-- Store provider IDs, descriptions, types, icons, secret state, earned state/timestamp, rarity, and PS5 progress where available.
-- Cache trophy and group artwork locally.
-- Fetch detailed trophies deliberately and incrementally rather than multiplying requests unnecessarily.
-
-**Done when:** A linked title can be reconstructed from local normalized records without another provider request.
-
-## 6. Trophy intelligence and profile progression
-
-**Purpose:** Turn stored trophy data into useful personal analytics.
-
-- Calculate trophy points and points remaining at game, Collection, and profile levels.
-- Prefer PSN's level/progress as server truth while validating calculations.
-- Calculate first-trophy, platinum, and 100% timestamps and elapsed durations.
-- Show duration on a compact game row only when reliable; explain missing timestamps only in details.
-- Produce exact new-trophy/group alerts and preserve historical snapshots.
-- Support marking known trophies or a game as unobtainable.
-
-**Done when:** Totals, points, timings, and alerts are deterministic from stored data and tested against edge cases.
-
-## 7. Rich IGDB metadata and artwork
-
-**Purpose:** Make IGDB the useful descriptive source of truth.
-
-- Import descriptions, cover/artwork/screenshots, platforms/releases, companies, genres, modes, franchises/collections, editions, and IGDB time-to-beat values when available.
-- Add platform and category refinements while preserving DLC/edition toggles and result ordering.
-- Formalize image refresh/staleness behavior.
-- Keep imported metadata usable offline.
-
-**Done when:** Game details can be built from stored IGDB data and cached images without live page dependencies.
-
-## 8. Game Resources
-
-**Purpose:** Make frequently used guides and maps one click away without scraping third parties.
-
-- Add ordered, labeled, multiple links per game.
-- Support exact PSNProfiles page plus a generated PSNProfiles search fallback.
-- Support PowerPyx, PSNProfiles, and other guides.
-- Support MapGenie and other interactive maps.
-- Derive source-aware icons from explicit resource type/provider, not fragile URL-only guesses.
-
-**Done when:** Resources can be edited safely and compact icons appear only when applicable.
-
-## 9. Shared visual foundation
-
-**Purpose:** Build reusable interaction primitives before redesigning every screen.
-
-- Bundle and use Open Sans.
-- Define spacing, color, type, status-tint, and responsive tokens for the vertical-monitor target.
-- Add accessible icon buttons, tooltips, dialogs, confirmations, and toast notifications.
-- Add one accessible drag-and-drop system with keyboard alternatives.
-
-**Done when:** Subsequent screens can use consistent primitives instead of one-off controls.
-
-## 10. Application shell and Settings
-
-**Purpose:** Reduce header/navigation weight and expose real configuration.
-
-- Shrink the title and emphasize profile trophy totals/progression.
-- Remove the `Local Database` badge and show restrained `Powered by IGDB` attribution.
-- Add clear navigation hover/focus states.
-- Rename PlayStation to `PSN Trophy Import`.
-- Remove Saved Views and Import/Export from primary navigation.
-- Build the Settings screen for sync safety, notification timing, and destructive maintenance.
-
-**Done when:** The shell is compact, keyboard-visible, descriptive, and focused on trophy information.
-
-## 11. Integrate Saved Views and filtering into Library
-
-**Purpose:** Make Saved Views behave as intended: reusable definitions of the backlog.
-
-- Add Library view selection and filter/sort controls.
-- Create/edit views in dialogs.
-- Include Hidden Games as a Library view/filter.
-- Allow manual drag ordering only for the complete manual-order result.
-- Establish the main toolbar: Search, Sync Trophy Progress, and Backup/Restore.
-
-**Done when:** The separate Saved Views screen is unnecessary and every view filters the same Library presentation.
-
-## 12. Unified Search and Game Details dialogs
-
-**Purpose:** Stop searches and details from pushing the Library around or producing inconsistent experiences.
-
-- Put IGDB search in a modal and rename it simply `Search`.
-- Remove Add Manually from the UI; non-PSN additions originate in IGDB.
-- Use the same rich details component for Library rows, IGDB results, and PSN metadata matching.
-- Include screenshots, metadata, time, trophy, and resource sections when data exists.
-
-**Done when:** Clicking any game-like result opens a consistent details experience and search no longer displaces the Library.
-
-## 13. Final game row and editor
-
-**Purpose:** Deliver the main at-a-glance experience.
-
-- Redesign rows with stable positions for platform, Play Status, completion state, trophy counts, points, progress, and artwork.
-- Use restrained status coloring that remains accessible and does not overpower the art.
-- Label platinum below full completion as `Platinum earned but not 100%`.
-- Show reliable elapsed completion time only when available.
-- Add compact resource icons and icon-only edit/hide/delete actions with tooltips.
-- Add Collection selection to the editor; append newly selected games to each Collection.
-- Keep Notes collapsed when empty, with add/edit/delete controls.
-
-**Done when:** Important state is readable at a glance on a vertical monitor without visual density or layout drift.
-
-## 14. Collections redesign and aggregates
-
-**Purpose:** Restore Collections to simple ordered personal groups while making their summaries valuable.
-
-- Add drag ordering for Collections and member games.
-- Show games completed/total, trophies earned/total, points earned/remaining, and time estimates with source coverage.
-- Reuse final game rows/details where appropriate.
-
-**Done when:** Collections are easy to curate and summarize without becoming another filtering system.
-
-## 15. PSN Import and Alerts polish
-
-**Purpose:** Make exception workflows focused and informative.
-
-- Use the `New` → `Missing IGDB` → `All` default rule.
-- Keep linked titles secondary and easy to filter.
-- Reuse unified matching search and game details.
-- Show exact new trophy/group changes and completion-loss context.
-- Add unread indicators and route transient success/failure feedback through toasts.
-
-**Done when:** Import is a queue of work that needs attention, not a wall of already-resolved games.
-
-## 16. Backup, restore, and Delete Entire Backlog
-
-**Purpose:** Finish local ownership and recovery before release.
-
-- Move portable export/import into a Library modal.
-- Extend the portable contract for all new settings, resources, metadata, trophies, profile snapshots, and ordering.
-- Preview replacements and create a SQLite backup before destructive changes.
-- Add `Delete Entire Backlog` in Settings, enabled only after typing the exact phrase.
-- Define deletion scope explicitly: backlog/integration/cache data is removed, credentials remain environment-owned, and required built-ins are restored.
-
-**Done when:** A user can recover, migrate, or deliberately reset all personal backlog data without ambiguity.
-
-## 17. Final hardening, accessibility, and release
-
-**Purpose:** Turn the feature-complete build into a dependable daily tool.
-
-- Test fresh install, migration, backup/restore, integration outages, expired credentials, interrupted sync, and missing image files.
-- Audit keyboard use, focus management, reduced motion, color contrast, tooltips, dialogs, and drag alternatives.
-- Tune vertical-monitor and narrow layouts.
-- Remove transitional routes/UI only after compatibility needs are settled.
-- Run type-check, tests, lint, and production build; update screenshots and all documentation.
-
-**Done when:** The app is recoverable, understandable, accessible, and stable enough to be considered the completed v2 baseline.
+# Version 2 Release Record and Future Work
+
+## Status
+
+Version 2 is feature complete for its intended personal use.
+
+The original V1 application is preserved separately. V2 is the current `main`-branch product and uses a consolidated current schema rather than the development-era sequence of database rewrites.
+
+This document is no longer an implementation checklist. It records what V2 delivered, what is intentionally outside scope, and how future changes should be introduced without destabilizing the finished application.
+
+## Delivered foundations
+
+### Local-first data model
+
+- Current SQLite schema baseline with future migration support.
+- Canonical Library records shared by Collections and Saved Views.
+- PS3, PS4, and PS5 domain constraints.
+- Play Status model: Unreleased, Not started, Playing, On hold, Waiting, Completed.
+- Hidden games separated from Play Status.
+- Individual trophy availability overrides and attainable-progress calculations.
+- Transactional ordering and mutation validation.
+
+### Library experience
+
+- IGDB-only ordinary game creation.
+- Provider search normalization and result-scope controls.
+- Persistent local metadata and artwork.
+- Compact sortable game rows designed for a vertical monitor.
+- Trophy grades, points, completion state, timing, and unobtainable presentation.
+- Saved Views integrated into Library tools.
+- Temporary filters and sort overrides.
+- Drag-and-drop ordering with keyboard alternatives.
+- Separate collapsible backlog and completed sections.
+- Pinned Collection progress summary.
+- Shared dialogs, custom dropdowns, tooltips, toasts, and icon actions.
+
+### Collections
+
+- Ordered Collections and ordered memberships.
+- Membership editing from game and Collection workflows.
+- Aggregate trophy counts, points, completion, attainable progress, and time estimates.
+- Single pinned Collection for current-focus visibility.
+
+### IGDB integration
+
+- Twitch credential configuration through a local `.env` file.
+- PS3/PS4/PS5 search with category scopes.
+- Add, enrich, and refresh workflows.
+- Normalized extended metadata, including screenshots and time estimates.
+- Persistent cover, artwork, and screenshot cache.
+- Individual and bulk-linked metadata refresh.
+- Visible IGDB attribution.
+
+### PlayStation integration
+
+- Dedicated-reader credential model.
+- Encrypted NPSSO storage and renewal reminders.
+- Connection testing and account validation.
+- Title preview, supported-platform filtering, and Library reconciliation.
+- Explicit title linking and import.
+- Full trophy groups, definitions, earnings, timestamps, and artwork.
+- Profile snapshots and calculated trophy points/level progression.
+- Linked-games progress sync and full import sync.
+- Safe request gate, bounded retries, one-at-a-time lock, cooldown, and visible progress.
+- Automatic Completed status at 100%.
+
+### Game intelligence
+
+- Detailed game dialog composed entirely from local records.
+- IGDB overview, collapsible story and screenshots, and image lightbox.
+- Full trophy list with collapsible groups and secret-trophy protection.
+- Trophy timeline and completion durations.
+- Per-game IGDB resync.
+- Useful trophy page, guide, and interactive-map resources.
+- Provider-specific row shortcuts.
+
+### Alerts and history
+
+- New-trophy-set and completion-lost alerts.
+- Exact changed-trophy/group details when available.
+- Unread badge and alert lifecycle.
+- Account trophy log reconstructed from achieved timestamps.
+- Calculated trophy-total, platinum-total, and level milestones.
+- Level history ranges and custom dates.
+- Aggregate trophy-grade/platform statistics and monthly activity.
+- Separate append-only backlog action history.
+
+### Settings and recovery
+
+- Sync cooldown and notification timing.
+- Configurable accent, status, and unobtainable colors.
+- Local PlayStation account and NPSSO management.
+- Exact-text Delete Entire Backlog confirmation and pre-delete backup.
+- Portable JSON format v5 with preview and transactional replacement.
+- Native SQLite safety backups.
+
+### Production and private access
+
+- One compiled Express process serving API and React assets.
+- Dedicated production port separate from development.
+- Hidden Windows Scheduled Task startup at logon.
+- Friendly `.localhost` address.
+- Rotating production logs.
+- Optional private HTTPS phone access through Tailscale Serve.
+
+## Release acceptance criteria
+
+V2 is considered healthy when:
+
+- type-checking and linting pass
+- the API test suite passes
+- production build completes
+- `/api/health` reports a healthy schema version 1 database
+- Windows production starts without a visible terminal
+- IGDB search works with configured credentials
+- the reader connection test succeeds
+- a linked-game progress sync completes without overlap or throttle errors
+- cached details, screenshots, and trophies remain readable after providers are unavailable
+- portable export and SQLite backup can be created
+- a complete cold recovery copy exists outside the runtime drive
+- private Tailscale access works only for intended tailnet devices, if enabled
+
+## Intentionally excluded
+
+The following are not unfinished V2 requirements:
+
+- PlatPrices integration
+- price tracking
+- HowLongToBeat scraping or unofficial API dependency
+- trophy rarity analytics
+- public deployment
+- user accounts or Supabase authentication
+- social features
+- arbitrary manual game creation
+- non-PlayStation platforms
+- trophyless games
+- PSNProfiles scraping as the synchronization source
+- hosting third-party guides or maps
+- automatic direct-link discovery through unsupported external scraping
+
+IGDB's stored time estimates satisfy the current time-to-beat use case. PSNProfiles, PowerPyx, and MapGenie are represented as user-managed external resources.
+
+## Deferred ideas
+
+These are optional future improvements, not release blockers:
+
+1. **More tolerant Library search.** Add a tokenized/fuzzy index beyond current case/symbol normalization.
+2. **Small visual refinements.** Replace any remaining generic secret-art placeholder and continue consistency checks for rare long-title or narrow-viewport cases.
+3. **More mobile adaptation.** Improve compact navigation and dialogs if phone use becomes frequent rather than occasional.
+4. **Richer portable recovery.** Add a new portable format version if settings, detailed trophy cache, profile snapshots, or backlog history must become transferable through JSON instead of cold backup.
+5. **Automated restore verification.** Add a non-destructive command that restores a backup into a temporary database and runs integrity checks.
+6. **Provider compatibility maintenance.** Update IGDB field mapping or `psn-api` parsing only when provider changes make it necessary.
+7. **Additional history views.** Add new graphs or comparisons only when they answer a concrete personal question rather than duplicating existing totals.
+
+## Rules for future schema work
+
+The current database baseline remains migration version 1. Do not rewrite it after V2 release for an existing installation.
+
+For a future schema change:
+
+1. Add a new numbered migration.
+2. Make it forward-only and transactional.
+3. Preserve existing local data.
+4. Add fresh-database and upgrade-path tests.
+5. Update database-status expectations.
+6. Decide explicitly whether portable format v5 can represent the change.
+7. If not, create a new portable format version rather than silently dropping data.
+8. Create and test a native backup before applying the production migration.
+
+## Rules for future provider work
+
+### PlayStation
+
+- Keep the dedicated-reader model.
+- Do not add write operations.
+- Keep the serialized one-second request gate unless evidence supports a safer slower value.
+- Do not raise retry budgets to mask provider failures.
+- Keep the overlap lock and default cooldown.
+- Preserve locally stored data when parsing fails.
+- Add tests from sanitized provider shapes; never commit credentials or raw private account payloads.
+
+### IGDB
+
+- Keep secrets server-side.
+- Continue storing normalized fields needed by the UI.
+- Cache all displayed provider images locally.
+- Preserve linked metadata during provider outages.
+- Make new result categories opt-in rather than allowing them to crowd ordinary game results.
+
+## Rules for future network access
+
+Loopback binding is part of the application security model.
+
+If access expands beyond the current private Tailscale setup, application authentication, authorization, CSRF protections, secure cookie/session handling, origin policy, and a threat review become prerequisites. Do not expose the present API publicly as a convenience shortcut.
+
+## Maintenance cadence
+
+Because this is a personal application, maintenance should remain event-driven:
+
+- renew NPSSO when warned or rejected
+- update dependencies deliberately, not automatically
+- run the full check suite after dependency or provider changes
+- create regular portable exports
+- refresh complete cold backups after meaningful backlog/history changes
+- review Tailscale access when devices or tailnet members change
+- inspect production logs only when diagnosing a symptom
+
+The correct default after V2 is stability, not continuous feature expansion.

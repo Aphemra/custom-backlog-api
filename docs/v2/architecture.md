@@ -2,111 +2,295 @@
 
 ## Overview
 
-Trophy Backlog is a local monorepo with two applications:
+Trophy Backlog is a local npm-workspace monorepo with an Express API, React web application, SQLite database, and persistent filesystem image cache.
+
+### Development topology
 
 ```text
-Browser (React/Vite, 127.0.0.1:5173)
-        |
-        | /api through the Vite development proxy
-        v
-Local API (Express, 127.0.0.1:3001)
-        |
-        +-- SQLite database
-        +-- local backups
-        +-- local image cache
-        +-- IGDB/Twitch API
-        +-- PlayStation API through psn-api
+Browser
+  |
+  | http://127.0.0.1:5173
+  | /api proxied by Vite
+  v
+React/Vite development server
+  |
+  | http://127.0.0.1:3001
+  v
+Express API
+  |
+  +-- SQLite
+  +-- image cache
+  +-- IGDB/Twitch
+  +-- PlayStation through psn-api
 ```
 
-The browser never receives IGDB secrets or the PlayStation NPSSO. External integration calls originate in the API.
-
-## Repository layout
+### Production topology
 
 ```text
-apps/
-  api/                 Express API, SQLite access, integrations, tests
-  web/                 React and Vite user interface
+Desktop browser                        Phone browser
+  |                                      |
+  | .localhost / 127.0.0.1               | private Tailscale HTTPS
+  v                                      v
+                 Express API on 127.0.0.1:47831
+                   |
+                   +-- serves apps/web/dist
+                   +-- mounts /api routes
+                   +-- SQLite and runtime files in LocalAppData
+                   +-- IGDB/Twitch
+                   +-- PlayStation through psn-api
+```
+
+Express serves hashed static assets and the Vite `index.html`. Non-API extensionless GET requests fall back to `index.html`. API paths never fall through to the web application.
+
+## Repository boundaries
+
+```text
+apps/api/src/
+  config/              local-only runtime configuration
+  database/            database lifecycle and migration engine
+  database/migrations/ current schema baseline and future migrations
+  errors/              stable HTTP errors
+  features/            domain repositories and integration services
+  routes/              HTTP validation and route composition
+
+apps/web/src/
+  app/                 application shell and primary navigation
+  components/          shared profile, sortable, toast, and UI foundations
+  domain/              browser-side API contracts
+  features/            page and feature components
+  services/api/        HTTP clients
+  styles/              global visual system
+
+scripts/               Windows production launch and Scheduled Task setup
 docs/v2/               product and engineering documentation
-package.json           workspace scripts
 ```
 
-Within `apps/api/src`, routes validate HTTP input and delegate to feature services or repositories. Database migrations own schema evolution. Integration clients are isolated behind services so stored records and Library behavior do not depend directly on live provider responses.
+Routes validate HTTP input and call feature repositories/services. Provider access, data parsing, persistence, and presentation mapping remain separate so the web UI does not depend directly on undocumented provider payloads.
 
-Within `apps/web/src`, feature-specific API clients and components support the current page-based interface. The roadmap consolidates Saved Views, search, import/export, and details into the Library while retaining feature boundaries underneath.
+## Local-only security boundary
 
-## Runtime boundaries
+`BACKLOG_HOST` accepts only `127.0.0.1` or `localhost`. Supplying another bind address fails startup.
 
-### API binding
+This is a security control: Trophy Backlog has no application login or authorization layer. Private remote access is provided by Tailscale Serve reverse-proxying the loopback service; the API itself does not bind to the LAN or tailnet interface.
 
-`BACKLOG_HOST` accepts only `127.0.0.1` or `localhost`. The default port is `3001`. This local-only check is an intentional security boundary, not merely a default.
+The API disables the Express `x-powered-by` header and limits JSON bodies to 25 MB.
 
-### Runtime storage
+## Runtime configuration
 
-`BACKLOG_DATA_DIRECTORY` defaults to `apps/api/runtime` and contains:
+The API loads `.env` through `dotenv`. Production explicitly points dotenv at `apps/api/.env` before starting the compiled API.
 
-- `trophy-backlog.sqlite`
-- `backups/`
-- `images/`
+Defaults:
 
-Database data is authoritative. Cached image files are replaceable provider cache entries.
+| Setting | Default |
+| --- | --- |
+| Host | `127.0.0.1` |
+| Development API port | `3001` |
+| Production port | `47831` from the Windows launcher |
+| Production web directory | `apps/web/dist` |
+| Windows data directory | `%LOCALAPPDATA%\TrophyBacklog` |
 
-### Credentials
+The default data directory is platform-aware:
 
-IGDB and PlayStation credentials are read from the API environment. They are not stored in portable exports, returned by status endpoints, or exposed to the browser.
+- Windows: `%LOCALAPPDATA%\TrophyBacklog`
+- macOS: `~/Library/Application Support/TrophyBacklog`
+- Linux: `$XDG_DATA_HOME/trophy-backlog` or `~/.local/share/trophy-backlog`
 
-## Data model
+Only the Windows production task is currently packaged and documented.
 
-The current schema contains these main domains:
+## Storage model
 
-- **Library:** games, platform, current Pursuit Status, manual priority, notes, and hidden/archive timestamp.
-- **Collections:** ordered Collections and ordered game membership.
-- **Saved Views:** built-in and custom filter/sort definitions.
-- **Metadata:** provider records and links from Library games to IGDB records.
-- **PlayStation links:** PSN service name and communication ID linked to a Library game.
-- **Trophy synchronization:** sync runs and title-level trophy snapshots.
-- **Alerts:** new-trophy and completion-lost records with lifecycle status.
-- **Images:** provider source records and ordered roles linked to Library games.
-- **Settings:** a schema location exists; typed user settings are scheduled for Checkpoint 3.
+SQLite is authoritative. The current database starts at schema version 1, named `current_schema_baseline`. It represents the complete V2 schema rather than replaying obsolete development-era schemas. The migration engine and numbered migration directory remain available for additive future changes.
 
-Checkpoint 2 migrates Pursuit Status to Play Status and separates `unobtainable` from play state. Later migrations add full trophy groups/trophies, profile snapshots, game resources, and richer normalized metadata where querying or durability requires it. Provider payloads may also be retained for forward compatibility, but user-visible behavior must not depend on undocumented JSON shapes alone.
+Major tables:
 
-## Integration design
+- `library_games`
+- `external_game_metadata`
+- `game_metadata_links`
+- `collections`
+- `collection_games`
+- `saved_views`
+- `trophy_sync_runs`
+- `trophy_snapshots`
+- `trophy_alerts`
+- `app_settings`
+- `playstation_game_links`
+- `cached_images`
+- `library_game_images`
+- `playstation_profile_snapshots`
+- `playstation_trophy_sets`
+- `playstation_trophy_groups`
+- `playstation_trophies`
+- `playstation_trophy_availability_overrides`
+- `igdb_game_details`
+- `igdb_metadata_images`
+- `game_resources`
+- `playstation_credential_settings`
+- `backlog_history_entries`
 
-### IGDB
+Foreign keys and strict tables enforce ownership and cascading behavior. Complete-order endpoints validate the full record set rather than accepting partial or duplicate orders.
 
-The API obtains an app access token from Twitch, searches IGDB, stores provider metadata, and caches selected images. Search normalization strips known noise before querying. DLC and edition inclusion are explicit options.
+## Library model
 
-IGDB is the source of truth for games added outside PSN import. A provider outage must not prevent already-imported Library games and cached art from loading.
+A Library game stores title, normalized sort title, PS3/PS4/PS5 platform, Play Status, priority, notes, and hidden timestamp.
 
-### PlayStation
+Supported Play Status values:
 
-The integration uses `psn-api` with a dedicated reader account's NPSSO. It resolves the reader and target identities, previews target trophy titles, reconciles them with the Library, and stores explicit links before synchronization.
+- `unreleased`
+- `not_started`
+- `playing`
+- `on_hold`
+- `waiting`
+- `completed`
 
-All PlayStation calls share a serialized request gate. Sync retries use a bounded budget. The future Library fast-sync path will operate only on existing links, enforce a configurable cooldown and in-flight lock, and avoid IGDB work or automatic Library creation.
+The game-level unobtainable flag is derived and maintained alongside individual trophy availability. Detailed availability calculations distinguish:
 
-### Image cache
+- original trophies and points
+- attainable trophies and points
+- unobtainable trophies and points
+- ordinary provider progress
+- progress against the attainable maximum
 
-Provider image references are stored in SQLite. Binary files are served by opaque image IDs through `/api/images/:imageId`. Missing local files are refreshed from the recorded provider URL where possible. Paths are resolved inside the configured cache directory to prevent traversal.
+Collections and Saved Views reference canonical Library records; they never duplicate game ownership.
 
-## API conventions
+## IGDB integration
 
-- JSON request bodies are limited to 25 MB.
-- Validation rejects unknown fields for important mutation contracts.
-- Errors use `{ "ok": false, "error": "stable_code", "message": "..." }` when a message is available.
-- Destructive replacement imports have a preview operation and create a SQLite backup before mutation.
-- External integration mutations require an explicit `x-trophy-backlog-action` header.
-- Ordering endpoints require a complete, duplicate-free set rather than silently accepting partial order changes.
+The API exchanges Twitch application credentials for IGDB access, normalizes searches, applies PlayStation platform and category scopes, and returns provider results with locally served cover references when available.
 
-See [api.md](api.md) for the current endpoint inventory.
+Adding a result:
 
-## Backup and portability
+1. Creates the canonical Library game.
+2. Stores the external metadata record and link.
+3. Stores normalized extended IGDB details.
+4. Registers cover, artwork, and screenshot image records.
+5. Caches selected image binaries locally.
 
-Portable format v3 includes Library games, Collections and memberships, Saved Views, PlayStation links, IGDB/provider metadata links, trophy snapshots, trophy alerts, cached-image records, and Library image links. Versions 1 through 3 can be read, with safety checks that reject an older import when it would discard newer integration data.
+Existing Library games can be enriched from a selected IGDB result. Linked IGDB metadata can be refreshed per game, and full PlayStation synchronization refreshes all currently linked IGDB metadata.
 
-Image binaries are not embedded in JSON. They can be refreshed using the exported cache records. A raw SQLite backup is created before portable import.
+Provider search normalization removes common symbols and trophy-list suffixes that otherwise reduce matching quality. Search options control platform and whether non-main-game result categories are eligible.
 
-## Planned interface architecture
+## PlayStation integration
 
-The final shell keeps Library, Collections, PSN Trophy Import, Alerts, and Settings as primary destinations. Saved Views become Library state. Search, details, backup/restore, and editing use shared accessible dialogs. Transient mutation feedback uses a central toast system. Reordering uses one accessible drag-and-drop foundation with keyboard alternatives.
+The integration uses a dedicated reader account's NPSSO through `psn-api`.
 
-The detailed implementation sequence is maintained in [roadmap.md](roadmap.md).
+The main pipeline is:
+
+```text
+credentials
+  -> authorization token session
+  -> reader and target identity resolution
+  -> target trophy-title preview
+  -> supported-platform selection
+  -> Library reconciliation and explicit links
+  -> detailed trophy definitions and earnings
+  -> local trophy artwork
+  -> title snapshots and alerts
+  -> profile snapshot and calculated progression
+  -> history queries
+```
+
+Two sync modes exist:
+
+- **Progress sync:** processes already linked Library games and skips import/reconciliation UI data.
+- **Full sync:** previews/reconciles titles, synchronizes linked detailed trophies and snapshots, updates alerts/profile data, and refreshes linked IGDB metadata.
+
+All provider calls share one serialized request gate with a minimum one-second interval. Authorization tokens are cached and refreshed. Sync retries are bounded. A single-process lock rejects overlap, and a database-backed user-configurable cooldown prevents accidental back-to-back sync starts.
+
+Synchronization progress is held in a process-local tracker and exposed to the UI. Restarting the API clears an abandoned in-memory running state.
+
+## Credential storage
+
+IGDB credentials remain in `apps/api/.env` and are never sent to the browser.
+
+PlayStation credentials should be saved through Settings:
+
+- Reader online ID and target online ID are stored locally in SQLite.
+- NPSSO is encrypted with AES-256-GCM before storage.
+- A random 32-byte key is created as `credentials.key` in the runtime directory.
+- The API returns only whether an NPSSO exists and its renewal timestamps, never the stored value.
+
+If no local PlayStation credential field has ever been configured, optional `PSN_*` environment variables act as a fallback. Once local configuration exists, the locally stored set is used as a unit.
+
+The SQLite database and `credentials.key` must remain paired for credential recovery.
+
+## Image cache
+
+Image records store provider, source URL/key, local filename state, validation timestamps, and refresh metadata. Binary files live under `images/` and are served through opaque `/api/images/:imageId` URLs.
+
+Provider hosts are allowlisted by provider type. File paths resolve inside the configured cache directory to prevent traversal.
+
+Serving behavior favors availability:
+
+- A valid local image is served immediately.
+- A stale local image is served while revalidation happens in the background.
+- A missing local file is refreshed from its recorded provider source where possible.
+- Concurrent requests for the same refresh are deduplicated.
+
+IGDB, PSN title, and trophy artwork all use the same persistent cache foundation.
+
+## Trophy intelligence and history
+
+Detailed trophy data stores groups, definitions, earnings, secret state, rarity fields received from PSN, timestamps, and artwork references. Rarity is retained as provider data but is not a product-facing statistic.
+
+Point values are calculated consistently from trophy grade. Trophy timing derives first-trophy, platinum, and 100% milestones only when the required earned timestamps exist.
+
+Account history has two intentionally separate domains:
+
+- **Trophy history** is reconstructed from timestamped earned trophies and includes cumulative counts, points, calculated level, monthly activity, and milestones.
+- **Backlog history** is append-only activity produced by local mutations and imports, such as status changes, reordering, hiding, Collection changes, and unobtainable overrides.
+
+Profile snapshots compare PSN totals with locally stored/timestamped trophy coverage so the UI can disclose incomplete historical coverage.
+
+## Alerts
+
+Each synchronization stores title-level trophy snapshots. Comparing successive snapshots can produce:
+
+- `new_trophies` when the provider's defined trophy set expands
+- `completion_lost` when a previously 100% title falls below 100%
+
+When detailed definitions are available, set-change analysis records exact added trophies and affected groups. Otherwise the alert remains summary-only.
+
+Alert state is independent of the underlying game and snapshot: unread, read, resolved, or dismissed.
+
+## Web application architecture
+
+The React shell owns primary navigation, the profile trophy summary, the global Backup / Restore dialog, toast notifications, unread-alert count, and animated page transitions.
+
+Primary pages:
+
+- Library
+- Collections
+- PSN Trophy Import
+- Alerts
+- History
+- Settings
+
+Shared UI primitives provide accessible dialogs, confirmation dialogs, dropdowns, icon buttons, custom portaled tooltips, image lightboxes, sortable lists, and toasts.
+
+The Library loads the canonical game list once and applies Saved Views and temporary refinements in the browser. This avoids refetching the entire Library for ordinary view changes.
+
+## Backup and replacement
+
+Portable format v5 is the only accepted JSON import format. It intentionally covers transferable backlog/integration records rather than every internal table or binary file.
+
+Portable import:
+
+1. Validates the complete document and rejects unknown/inconsistent references.
+2. Shows a count comparison without mutation.
+3. Requires explicit user acknowledgement.
+4. Creates a native SQLite backup.
+5. Replaces portable records inside a database transaction.
+6. Rolls back on any write failure.
+
+Delete Entire Backlog also creates a SQLite backup first. It removes user backlog content while preserving application settings, built-in views, reusable cached metadata/artwork, and profile history as defined by the maintenance service.
+
+See [Production and recovery](production.md) for the limits of each backup type.
+
+## Failure behavior
+
+- External failures return stable JSON error codes and human-readable messages.
+- Existing local data remains readable when IGDB or PSN is down.
+- Throttling errors stop rather than escalating retries.
+- Overlapping sync attempts return conflict without consuming another cooldown.
+- Unsupported or malformed portable data is rejected before replacement.
+- Missing cached images are refreshed when possible and fail as images rather than corrupting Library data.
+- The production launcher records startup and process failures in rotating local logs.

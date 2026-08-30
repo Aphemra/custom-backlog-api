@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { BacklogActivityRecorder } from "../history/backlogActivityRecorder.js";
+import type { PlayStatus } from "../library/libraryGameTypes.js";
 import type {
   PlayStationSyncResult,
   PlayStationTrophyCounts,
@@ -25,6 +27,11 @@ interface PreviousSnapshotRow {
   platinum_earned: number;
   progress_percent: number;
   is_100_percent: number;
+}
+
+interface GameStatusHistoryRow {
+  title: string;
+  play_status: PlayStatus;
 }
 
 type Clock = () => Date;
@@ -58,6 +65,7 @@ function readPreviousCounts(
 
 export class PlayStationTrophySyncService {
   private readonly trophySetChangeService: PlayStationTrophySetChangeService;
+  private readonly activity: BacklogActivityRecorder;
 
   constructor(
     private readonly database: DatabaseSync,
@@ -66,6 +74,8 @@ export class PlayStationTrophySyncService {
     this.trophySetChangeService = new PlayStationTrophySetChangeService(
       database,
     );
+
+    this.activity = new BacklogActivityRecorder(database, "playstation_sync");
   }
 
   synchronize(preview: PlayStationTrophySyncPreview): PlayStationSyncResult {
@@ -380,7 +390,17 @@ export class PlayStationTrophySyncService {
         }
 
         if (is100Percent) {
-          this.database
+          const previousGameStatus = this.database
+            .prepare(
+              `
+                SELECT title, play_status
+                FROM library_games
+                WHERE id = ?
+              `,
+            )
+            .get(gameId) as unknown as GameStatusHistoryRow | undefined;
+
+          const completionUpdate = this.database
             .prepare(
               `
               UPDATE library_games
@@ -394,6 +414,19 @@ export class PlayStationTrophySyncService {
             `,
             )
             .run(capturedAt, gameId);
+
+          if (
+            completionUpdate.changes === 1 &&
+            previousGameStatus !== undefined
+          ) {
+            this.activity.recordPlayStatusChanged(
+              gameId,
+              previousGameStatus.title,
+              previousGameStatus.play_status,
+              "completed",
+              capturedAt,
+            );
+          }
 
           this.database
             .prepare(

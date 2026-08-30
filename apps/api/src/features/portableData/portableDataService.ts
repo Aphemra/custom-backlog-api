@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
+import { BacklogActivityRecorder } from "../history/backlogActivityRecorder.js";
 import {
   createDatabaseBackup,
   type DatabaseBackupResult,
@@ -662,6 +663,15 @@ export async function importPortableData(
         );
       }
     }
+
+    new BacklogActivityRecorder(
+      database,
+      "portable_import",
+    ).recordBacklogImported({
+      libraryGames: preview.incoming.libraryGames,
+      collections: preview.incoming.collections,
+      savedViews: preview.incoming.savedViews,
+    });
 
     database.exec("COMMIT");
   } catch (error) {

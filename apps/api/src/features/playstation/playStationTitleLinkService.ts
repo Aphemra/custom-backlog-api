@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
+import { BacklogActivityRecorder } from "../history/backlogActivityRecorder.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
 import type {
   LibraryGame,
@@ -78,8 +79,11 @@ function mapLink(row: LinkRow): PlayStationGameLink {
 
 export class PlayStationTitleLinkService {
   private previewTitles = new Map<string, PlayStationTrophyTitlePreview>();
+  private readonly activity: BacklogActivityRecorder;
 
-  constructor(private readonly database: DatabaseSync) {}
+  constructor(private readonly database: DatabaseSync) {
+    this.activity = new BacklogActivityRecorder(database);
+  }
 
   rememberPreview(preview: ReconciledPlayStationTitlePreviewResult): void {
     this.previewTitles = new Map(
@@ -152,6 +156,8 @@ export class PlayStationTitleLinkService {
         title.npCommunicationId,
         "sync_created",
       );
+
+      this.activity.recordGameAdded(game);
 
       this.database.exec("COMMIT");
 

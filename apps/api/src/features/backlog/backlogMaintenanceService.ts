@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
+import { BacklogActivityRecorder } from "../history/backlogActivityRecorder.js";
 import {
   createDatabaseBackup,
   type DatabaseBackupResult,
@@ -79,6 +80,7 @@ export async function deleteEntireBacklog(
   requireDeletionConfirmation(input);
 
   const deleted = readDeletionCounts(database);
+  const deletedAt = new Date().toISOString();
 
   const backup = await createDatabaseBackup(database, backupDirectory);
 
@@ -94,6 +96,11 @@ export async function deleteEntireBacklog(
       DELETE FROM library_games;
     `);
 
+    new BacklogActivityRecorder(database).recordBacklogDeleted(
+      deleted,
+      deletedAt,
+    );
+
     database.exec("COMMIT");
   } catch (error) {
     database.exec("ROLLBACK");
@@ -102,7 +109,7 @@ export async function deleteEntireBacklog(
   }
 
   return {
-    deletedAt: new Date().toISOString(),
+    deletedAt,
     deleted,
     backup,
   };

@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
 import { ImageCacheService } from "../imageCache/imageCacheService.js";
+import { BacklogActivityRecorder } from "../history/backlogActivityRecorder.js";
 import { LibraryGameRepository } from "../library/libraryGameRepository.js";
 import type { LibraryGame } from "../library/libraryGameTypes.js";
 import { IgdbClient } from "./igdbClient.js";
@@ -16,6 +17,7 @@ export class IgdbImportService {
   private readonly libraryRepository: LibraryGameRepository;
   private readonly metadataRepository: IgdbMetadataRepository;
   private readonly imageRegistration: IgdbImageRegistrationService;
+  private readonly activity: BacklogActivityRecorder;
 
   constructor(
     private readonly database: DatabaseSync,
@@ -24,6 +26,7 @@ export class IgdbImportService {
   ) {
     this.libraryRepository = new LibraryGameRepository(database);
     this.metadataRepository = new IgdbMetadataRepository(database);
+    this.activity = new BacklogActivityRecorder(database);
     this.imageRegistration = new IgdbImageRegistrationService(
       database,
       imageCache,
@@ -122,6 +125,8 @@ export class IgdbImportService {
         igdbGame,
         timestamp,
       );
+
+      this.activity.recordGameAdded(libraryGame, timestamp);
 
       this.database.exec("COMMIT");
 

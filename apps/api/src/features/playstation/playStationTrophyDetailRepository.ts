@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { HttpError } from "../../errors/httpError.js";
+import { BacklogActivityRecorder } from "../history/backlogActivityRecorder.js";
 import type {
   PlayStationTrophyCounts,
   PlayStationTrophyDefinition,
@@ -17,6 +18,15 @@ type Clock = () => Date;
 interface LinkRow {
   np_communication_id: string;
   np_service_name: "trophy" | "trophy2";
+}
+
+interface TrophyAvailabilityHistoryRow {
+  trophy_id: number;
+  trophy_type: PlayStationTrophyType;
+  name: string | null;
+  game_title: string;
+  was_unobtainable: number;
+  previous_reason: string | null;
 }
 
 interface StoredTrophySetRow {
@@ -207,6 +217,7 @@ export class PlayStationTrophyDetailRepository {
   constructor(
     private readonly database: DatabaseSync,
     private readonly clock: Clock = () => new Date(),
+    private readonly activity?: BacklogActivityRecorder,
   ) {}
 
   storeFull(
@@ -740,12 +751,30 @@ export class PlayStationTrophyDetailRepository {
     const trophy = this.database
       .prepare(
         `
-          SELECT trophy_id
-          FROM playstation_trophies
-          WHERE game_id = ? AND trophy_id = ?
+          SELECT
+            trophies.trophy_id,
+            trophies.trophy_type,
+            trophies.name,
+            games.title AS game_title,
+            CASE
+              WHEN availability.trophy_id IS NULL THEN 0
+              ELSE 1
+            END AS was_unobtainable,
+            availability.reason AS previous_reason
+          FROM playstation_trophies trophies
+          INNER JOIN library_games games
+            ON games.id = trophies.game_id
+          LEFT JOIN playstation_trophy_availability_overrides availability
+            ON availability.game_id = trophies.game_id
+            AND availability.trophy_id = trophies.trophy_id
+          WHERE
+            trophies.game_id = ?
+            AND trophies.trophy_id = ?
         `,
       )
-      .get(gameId, trophyId);
+      .get(gameId, trophyId) as unknown as
+      | TrophyAvailabilityHistoryRow
+      | undefined;
 
     if (trophy === undefined) {
       return null;
@@ -802,6 +831,24 @@ export class PlayStationTrophyDetailRepository {
           `,
         )
         .run(gameId, timestamp, gameId);
+
+      const availabilityChanged =
+        (trophy.was_unobtainable === 1) !== input.unobtainable;
+
+      if (availabilityChanged) {
+        this.activity?.recordTrophyAvailabilityChanged(
+          {
+            gameId,
+            gameTitle: trophy.game_title,
+            trophyId: trophy.trophy_id,
+            trophyName: trophy.name,
+            trophyType: trophy.trophy_type,
+            unobtainable: input.unobtainable,
+            reason: input.unobtainable ? input.reason : trophy.previous_reason,
+          },
+          timestamp,
+        );
+      }
 
       this.database.exec("COMMIT");
     } catch (error) {

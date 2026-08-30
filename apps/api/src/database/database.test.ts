@@ -23,8 +23,8 @@ test("opens the database, applies all migrations, and seeds built-in views", () 
   try {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 16,
-      availableMigrationCount: 16,
+      schemaVersion: 17,
+      availableMigrationCount: 17,
     });
 
     const row = database
@@ -667,15 +667,15 @@ test("upgrades an existing version-one database without replacing it", () => {
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
       schemaVersion: 1,
-      availableMigrationCount: 16,
+      availableMigrationCount: 17,
     });
 
     runMigrations(database);
 
     assert.deepEqual(getDatabaseStatus(database), {
       ok: true,
-      schemaVersion: 16,
-      availableMigrationCount: 16,
+      schemaVersion: 17,
+      availableMigrationCount: 17,
     });
 
     const row = database
@@ -692,13 +692,14 @@ test("upgrades an existing version-one database without replacing it", () => {
               'playstation_trophy_sets',
               'playstation_trophy_groups',
               'playstation_trophies',
-              'game_resources'
+              'game_resources',
+              'backlog_history_entries'
             )
         `,
       )
       .get() as unknown as CountRow;
 
-    assert.equal(row.count, 8);
+    assert.equal(row.count, 9);
   } finally {
     database.close();
   }
@@ -1131,7 +1132,7 @@ test("creates a restorable SQLite backup", async () => {
         )
         .get() as unknown as CountRow;
 
-      assert.equal(row.count, 16);
+      assert.equal(row.count, 17);
     } finally {
       restoredDatabase.close();
     }

@@ -15,6 +15,7 @@ import { createCollectionRoutes } from "./routes/collectionRoutes.js";
 import { createDataRoutes } from "./routes/dataRoutes.js";
 import { createDatabaseRoutes } from "./routes/databaseRoutes.js";
 import { createHealthRoutes } from "./routes/healthRoutes.js";
+import { createHistoryRoutes } from "./routes/historyRoutes.js";
 import { createImageRoutes } from "./routes/imageRoutes.js";
 import { createIgdbRoutes } from "./routes/igdbRoutes.js";
 import { createLibraryRoutes } from "./routes/libraryRoutes.js";
@@ -123,6 +124,8 @@ export function createApp(
   app.use("/api/settings", createSettingsRoutes(database, credentialKeyPath));
 
   app.use("/api/trophy-alerts", createTrophyAlertRoutes(database));
+
+  app.use("/api/history", createHistoryRoutes(database));
 
   app.use(
     "/api/data",

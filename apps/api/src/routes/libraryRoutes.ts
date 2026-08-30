@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
+import { BacklogActivityRecorder } from "../features/history/backlogActivityRecorder.js";
 import { LibraryGameDetailsRepository } from "../features/library/libraryGameDetailsRepository.js";
 import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 import { LibraryGameViewDataRepository } from "../features/library/libraryGameViewDataRepository.js";
@@ -83,6 +84,7 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
   const libraryRoutes = Router();
 
   const repository = new LibraryGameRepository(database);
+  const activity = new BacklogActivityRecorder(database);
   const detailsRepository = new LibraryGameDetailsRepository(database);
   const resourceRepository = new GameResourceRepository(database);
   const viewDataRepository = new LibraryGameViewDataRepository(database);
@@ -115,6 +117,8 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
         "orderedGameIds must contain every visible library game exactly once.",
       );
     }
+
+    activity.recordLibraryReordered(orderedGameIds.length);
 
     const games = repository.list();
     const viewDataByGameId = viewDataRepository.findAll();
@@ -230,33 +234,53 @@ export function createLibraryRoutes(database: DatabaseSync): Router {
   );
 
   libraryRoutes.patch("/games/:gameId", (request, response) => {
+    const gameId = readGameId(request);
     const input = parseUpdateLibraryGameInput(request.body);
+    const previousGame = requireGame(repository.findById(gameId));
+    const game = requireGame(repository.update(gameId, input));
 
-    const game = requireGame(repository.update(readGameId(request), input));
+    activity.recordGameChanged(previousGame, game);
 
     response.json({ game });
   });
 
   libraryRoutes.post("/games/:gameId/hide", (request, response) => {
-    const game = requireGame(repository.hide(readGameId(request)));
+    const gameId = readGameId(request);
+    const previousGame = requireGame(repository.findById(gameId));
+    const game = requireGame(repository.hide(gameId));
+
+    if (previousGame.hiddenAt === null && game.hiddenAt !== null) {
+      activity.recordGameHidden(game);
+    }
 
     response.json({ game });
   });
 
   libraryRoutes.post("/games/:gameId/unhide", (request, response) => {
-    const game = requireGame(repository.unhide(readGameId(request)));
+    const gameId = readGameId(request);
+    const previousGame = requireGame(repository.findById(gameId));
+    const game = requireGame(repository.unhide(gameId));
+
+    if (previousGame.hiddenAt !== null && game.hiddenAt === null) {
+      activity.recordGameUnhidden(game);
+    }
 
     response.json({ game });
   });
 
   libraryRoutes.delete("/games/:gameId", (request, response) => {
-    if (!repository.deletePermanently(readGameId(request))) {
+    const gameId = readGameId(request);
+    const game = requireGame(repository.findById(gameId));
+
+    if (!repository.deletePermanently(gameId)) {
       throw new HttpError(
         404,
         "game_not_found",
         "The requested library game was not found.",
       );
     }
+
+    activity.recordGameDeleted(game);
 
     response.status(204).send();
   });

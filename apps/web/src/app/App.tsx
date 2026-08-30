@@ -7,6 +7,7 @@ import { IconButton } from "../components/ui/IconButton";
 import { BackupRestoreIcon } from "../components/ui/icons";
 import { TrophyAlertsPage } from "../features/alerts/pages/TrophyAlertsPage";
 import { CollectionsPage } from "../features/collections/pages/CollectionsPage";
+import { HistoryPage } from "../features/history/pages/HistoryPage";
 import { LibraryPage } from "../features/library/pages/LibraryPage";
 import { PlayStationPage } from "../features/playstation/pages/PlayStationPage";
 import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
@@ -30,6 +31,10 @@ const navigationItems = [
   {
     id: "alerts",
     label: "Alerts",
+  },
+  {
+    id: "history",
+    label: "History",
   },
   {
     id: "settings",
@@ -177,6 +182,8 @@ export function App() {
           onUnreadCountChanged={setUnreadAlertCount}
         />
       ) : null}
+
+      {activePage === "history" ? <HistoryPage key={dataRevision} /> : null}
 
       {activePage === "settings" ? (
         <SettingsPage

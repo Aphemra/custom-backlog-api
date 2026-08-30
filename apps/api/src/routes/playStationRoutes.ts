@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { Router, type Request } from "express";
 import { HttpError } from "../errors/httpError.js";
+import { BacklogActivityRecorder } from "../features/history/backlogActivityRecorder.js";
 import { IgdbClient, type IgdbFetch } from "../features/igdb/igdbClient.js";
 import { IgdbEnrichmentService } from "../features/igdb/igdbEnrichmentService.js";
 import { IgdbMetadataRefreshService } from "../features/igdb/igdbMetadataRefreshService.js";
@@ -240,6 +241,8 @@ export function createPlayStationRoutes(
 
   const trophyDetailRepository = new PlayStationTrophyDetailRepository(
     options.database,
+    undefined,
+    new BacklogActivityRecorder(options.database),
   );
 
   const trophyDetailSyncService = new PlayStationTrophyDetailSyncService(

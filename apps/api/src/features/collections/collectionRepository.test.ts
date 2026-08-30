@@ -206,6 +206,26 @@ test("creates, edits, orders, fills, and deletes collections", () => {
         total: 435,
         remaining: 300,
       },
+      availability: {
+        attainableTrophies: {
+          bronze: 3,
+          silver: 0,
+          gold: 1,
+          platinum: 1,
+        },
+        unobtainableTrophies: {
+          bronze: 0,
+          silver: 0,
+          gold: 0,
+          platinum: 0,
+        },
+        attainablePoints: 435,
+        unobtainablePoints: 0,
+        attainableProgressPercent: 100,
+        earnedProgressSharePercent: 100,
+        unobtainableProgressSharePercent: 0,
+        isMaxAttainable: false,
+      },
     });
 
     assert.deepEqual(populated?.timeEstimateSummary, {

@@ -21,6 +21,11 @@ interface IgdbMetadataOverviewProps {
   readonly showTitle?: boolean;
 }
 
+interface TimeEstimate {
+  readonly label: string;
+  readonly value: string;
+}
+
 function formatReleaseDate(value: string | null): string {
   if (value === null) {
     return "Release date unknown";
@@ -38,8 +43,19 @@ function formatTimeEstimate(seconds: number | null): string | null {
   }
 
   const hours = seconds / 3600;
+  const formattedHours =
+    hours < 10 ? hours.toFixed(1) : Math.round(hours).toString();
 
-  return `${hours < 10 ? hours.toFixed(1) : Math.round(hours)} hours`;
+  return `${formattedHours}h`;
+}
+
+function createTimeEstimate(
+  label: string,
+  seconds: number | null,
+): readonly TimeEstimate[] {
+  const value = formatTimeEstimate(seconds);
+
+  return value === null ? [] : [{ label, value }];
 }
 
 function formatRating(value: number | null): string | null {
@@ -60,6 +76,26 @@ function joinNames(
   }
 
   return values.map((value) => value.name).join(", ");
+}
+
+function uniqueNames(
+  values: readonly {
+    readonly name: string;
+  }[],
+): readonly string[] {
+  const seenNames = new Set<string>();
+
+  return values.flatMap((value) => {
+    const normalizedName = value.name.trim().toLocaleLowerCase("en-US");
+
+    if (normalizedName.length === 0 || seenNames.has(normalizedName)) {
+      return [];
+    }
+
+    seenNames.add(normalizedName);
+
+    return [value.name.trim()];
+  });
 }
 
 function metadataCover(metadata: IgdbMetadata | null): OverviewImage | null {
@@ -150,6 +186,28 @@ export function IgdbMetadataOverview({
 
   const screenshots = metadata === null ? [] : metadataScreenshots(metadata);
 
+  const genreNames = metadata === null ? [] : uniqueNames(metadata.genres);
+
+  const seriesNames =
+    metadata === null
+      ? []
+      : uniqueNames([...metadata.collections, ...metadata.franchises]);
+
+  const timeToBeat = metadata?.timeToBeat ?? null;
+
+  const timeEstimates =
+    timeToBeat === null
+      ? []
+      : [
+          ...createTimeEstimate("Rushed", timeToBeat.hastilySeconds),
+          ...createTimeEstimate("Main", timeToBeat.normallySeconds),
+          ...createTimeEstimate("Completionist", timeToBeat.completelySeconds),
+        ];
+
+  const hasClassification = genreNames.length > 0 || seriesNames.length > 0;
+
+  const hasQuickFacts = hasClassification || timeEstimates.length > 0;
+
   return (
     <>
       <section className="game-details__hero">
@@ -204,135 +262,105 @@ export function IgdbMetadataOverview({
                   value={joinNames(metadata.gameModes)}
                 />
               </dl>
+
+              {hasQuickFacts ? (
+                <div className="game-details__quick-facts">
+                  {hasClassification ? (
+                    <div className="game-details__quick-fact-group">
+                      <span className="game-details__quick-fact-label">
+                        Classification
+                      </span>
+
+                      <dl className="game-details__classification">
+                        {genreNames.length === 0 ? null : (
+                          <div>
+                            <dt>Genres</dt>
+                            <dd>{genreNames.join(", ")}</dd>
+                          </div>
+                        )}
+
+                        {seriesNames.length === 0 ? null : (
+                          <div>
+                            <dt>Series</dt>
+                            <dd>{seriesNames.join(", ")}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                  ) : null}
+
+                  {timeEstimates.length === 0 ? null : (
+                    <div className="game-details__quick-fact-group">
+                      <span className="game-details__quick-fact-label">
+                        Time to beat
+                      </span>
+
+                      <div className="game-details__time-estimates">
+                        {timeEstimates.map((estimate) => (
+                          <span key={estimate.label}>
+                            <strong>{estimate.value}</strong>
+                            <small>{estimate.label}</small>
+                          </span>
+                        ))}
+                      </div>
+
+                      {timeToBeat !== null && timeToBeat.submissionCount > 0 ? (
+                        <p className="game-details__source-note">
+                          Based on {timeToBeat.submissionCount.toLocaleString()}{" "}
+                          IGDB submissions.
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </>
           )}
         </div>
       </section>
 
-      {metadata === null ? null : (
-        <>
-          {metadata.genres.length === 0 &&
-          metadata.collections.length === 0 &&
-          metadata.franchises.length === 0 ? null : (
-            <section className="game-details__section">
-              <div className="game-details__section-heading">
-                <div>
-                  <p className="eyebrow">Classification</p>
-                  <h3>Genres and series</h3>
-                </div>
-              </div>
+      {metadata?.storyline === null ||
+      metadata?.storyline === undefined ? null : (
+        <details className="game-details__disclosure">
+          <summary>
+            <span>
+              <strong>Storyline</strong>
+              <small>May contain spoilers</small>
+            </span>
+          </summary>
 
-              <div className="game-details__tags">
-                {metadata.genres.map((genre) => (
-                  <span key={`genre:${genre.externalId}`}>{genre.name}</span>
-                ))}
+          <div className="game-details__disclosure-body">
+            <p className="game-details__long-copy">{metadata.storyline}</p>
+          </div>
+        </details>
+      )}
 
-                {metadata.collections.map((collection) => (
-                  <span key={`collection:${collection.externalId}`}>
-                    {collection.name}
-                  </span>
-                ))}
+      {screenshots.length === 0 ? null : (
+        <details className="game-details__disclosure">
+          <summary>
+            <span>
+              <strong>Screenshots</strong>
+              <small>
+                {screenshots.length} locally cached{" "}
+                {screenshots.length === 1 ? "image" : "images"}
+              </small>
+            </span>
+          </summary>
 
-                {metadata.franchises.map((franchise) => (
-                  <span key={`franchise:${franchise.externalId}`}>
-                    {franchise.name}
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {metadata.timeToBeat === null ? null : (
-            <section className="game-details__section">
-              <div className="game-details__section-heading">
-                <div>
-                  <p className="eyebrow">IGDB estimates</p>
-                  <h3>Time to beat</h3>
-                </div>
-              </div>
-
-              <div className="game-details__time-grid">
-                {formatTimeEstimate(metadata.timeToBeat.hastilySeconds) ===
-                null ? null : (
-                  <div>
-                    <strong>
-                      {formatTimeEstimate(metadata.timeToBeat.hastilySeconds)}
-                    </strong>
-                    <span>Rushed</span>
-                  </div>
-                )}
-
-                {formatTimeEstimate(metadata.timeToBeat.normallySeconds) ===
-                null ? null : (
-                  <div>
-                    <strong>
-                      {formatTimeEstimate(metadata.timeToBeat.normallySeconds)}
-                    </strong>
-                    <span>Main experience</span>
-                  </div>
-                )}
-
-                {formatTimeEstimate(metadata.timeToBeat.completelySeconds) ===
-                null ? null : (
-                  <div>
-                    <strong>
-                      {formatTimeEstimate(
-                        metadata.timeToBeat.completelySeconds,
-                      )}
-                    </strong>
-                    <span>Completionist</span>
-                  </div>
-                )}
-              </div>
-
-              {metadata.timeToBeat.submissionCount > 0 ? (
-                <p className="game-details__source-note">
-                  Based on{" "}
-                  {metadata.timeToBeat.submissionCount.toLocaleString()} IGDB
-                  submissions.
-                </p>
-              ) : null}
-            </section>
-          )}
-
-          {metadata.storyline === null ? null : (
-            <section className="game-details__section">
-              <div className="game-details__section-heading">
-                <div>
-                  <p className="eyebrow">Story</p>
-                  <h3>Storyline</h3>
-                </div>
-              </div>
-
-              <p className="game-details__long-copy">{metadata.storyline}</p>
-            </section>
-          )}
-
-          {screenshots.length === 0 ? null : (
-            <section className="game-details__section">
-              <div className="game-details__section-heading">
-                <div>
-                  <p className="eyebrow">Cached media</p>
-                  <h3>Screenshots</h3>
-                </div>
-
-                <span>{screenshots.length}</span>
-              </div>
-
-              <div className="game-details__gallery">
-                {screenshots.map((screenshot, index) => (
-                  <img
-                    key={screenshot.imageId}
-                    src={screenshot.url}
-                    alt={`${title} screenshot ${index + 1}`}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-        </>
+          <div className="game-details__disclosure-body">
+            <div className="game-details__gallery">
+              {screenshots.map((screenshot, index) => (
+                <img
+                  key={screenshot.imageId}
+                  src={screenshot.url}
+                  alt={`${title} screenshot ${index + 1}`}
+                  loading="lazy"
+                  decoding="async"
+                />
+              ))}
+            </div>
+          </div>
+        </details>
       )}
     </>
   );

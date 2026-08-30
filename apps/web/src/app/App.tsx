@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ProfileTrophySummary } from "../components/profile/ProfileTrophySummary";
 import { useProfileProgression } from "../components/profile/useProfileProgression";
 import { useToast } from "../components/toast/useToast";
@@ -12,6 +12,7 @@ import { PlayStationPage } from "../features/playstation/pages/PlayStationPage";
 import { PortableDataPage } from "../features/portableData/pages/PortableDataPage";
 import { SettingsPage } from "../features/settings/pages/SettingsPage";
 import { settingsNavigationEvent } from "../features/settings/settingsNavigation";
+import { trophyAlertApi } from "../services/api/trophyAlertApi";
 
 const navigationItems = [
   {
@@ -46,6 +47,7 @@ export function App() {
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
   const [portableDataBusy, setPortableDataBusy] = useState(false);
   const [dataRevision, setDataRevision] = useState(0);
+  const [unreadAlertCount, setUnreadAlertCount] = useState(0);
 
   useEffect(() => {
     function openSettings(): void {
@@ -59,10 +61,36 @@ export function App() {
     };
   }, []);
 
+  const refreshUnreadAlertCount = useCallback(async (): Promise<void> => {
+    const counts = await trophyAlertApi.getCounts().catch(() => null);
+
+    if (counts !== null) {
+      setUnreadAlertCount(counts.unread);
+    }
+  }, []);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    void trophyAlertApi
+      .getCounts(abortController.signal)
+      .then((counts) => {
+        if (!abortController.signal.aborted) {
+          setUnreadAlertCount(counts.unread);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => abortController.abort();
+  }, []);
+
   async function handlePortableDataImported(): Promise<void> {
     setDataRevision((currentRevision) => currentRevision + 1);
 
-    await refreshProfileProgression().catch(() => undefined);
+    await Promise.all([
+      refreshProfileProgression().catch(() => undefined),
+      refreshUnreadAlertCount(),
+    ]);
 
     showToast({
       tone: "success",
@@ -85,6 +113,11 @@ export function App() {
       <nav className="primary-nav" aria-label="Primary navigation">
         {navigationItems.map((item) => {
           const isActive = activePage === item.id;
+          const itemAlertCount = item.id === "alerts" ? unreadAlertCount : 0;
+          const accessibleLabel =
+            itemAlertCount > 0
+              ? `${item.label}, ${itemAlertCount} unread`
+              : item.label;
 
           return (
             <button
@@ -93,10 +126,17 @@ export function App() {
                 isActive ? " primary-nav__item--active" : ""
               }`}
               type="button"
+              aria-label={accessibleLabel}
               aria-current={isActive ? "page" : undefined}
               onClick={() => setActivePage(item.id)}
             >
-              {item.label}
+              <span>{item.label}</span>
+
+              {itemAlertCount > 0 ? (
+                <span className="primary-nav__alert-count" aria-hidden="true">
+                  {itemAlertCount > 99 ? "99+" : itemAlertCount}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -113,22 +153,38 @@ export function App() {
         </div>
       </nav>
 
-      {activePage === "library" ? <LibraryPage key={dataRevision} /> : null}
+      {activePage === "library" ? (
+        <LibraryPage
+          key={dataRevision}
+          onAlertsChanged={refreshUnreadAlertCount}
+        />
+      ) : null}
 
       {activePage === "collections" ? (
         <CollectionsPage key={dataRevision} />
       ) : null}
 
       {activePage === "playstation" ? (
-        <PlayStationPage key={dataRevision} />
+        <PlayStationPage
+          key={dataRevision}
+          onAlertsChanged={refreshUnreadAlertCount}
+        />
       ) : null}
 
-      {activePage === "alerts" ? <TrophyAlertsPage key={dataRevision} /> : null}
+      {activePage === "alerts" ? (
+        <TrophyAlertsPage
+          key={dataRevision}
+          onUnreadCountChanged={setUnreadAlertCount}
+        />
+      ) : null}
 
       {activePage === "settings" ? (
         <SettingsPage
           key={dataRevision}
-          onBacklogDeleted={() => setActivePage("library")}
+          onBacklogDeleted={() => {
+            setUnreadAlertCount(0);
+            setActivePage("library");
+          }}
         />
       ) : null}
 

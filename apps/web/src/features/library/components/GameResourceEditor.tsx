@@ -180,245 +180,241 @@ export function GameResourceEditor({ gameId }: GameResourceEditorProps) {
   const isBusy = isSaving || busyResourceId !== null;
 
   return (
-    <section
-      className="resource-editor"
-      aria-labelledby={`game-resources-${gameId}`}
-    >
-      <div className="resource-editor__heading">
-        <div>
-          <h3 id={`game-resources-${gameId}`}>Useful links</h3>
-          <p>
-            Add trophy pages, guides, or interactive maps. Known providers are
-            detected automatically from the address.
+    <details className="resource-editor">
+      <summary>
+        <span>
+          <strong>Useful links</strong>
+          <small>Add trophy pages, guides, or interactive maps.</small>
+        </span>
+
+        <span className="resource-editor__count">{resources.length}</span>
+      </summary>
+
+      <div className="resource-editor__body">
+        {loadState === "loading" ? (
+          <p className="resource-editor__message" role="status">
+            Loading links…
           </p>
-        </div>
+        ) : null}
 
-        <span>{resources.length}</span>
-      </div>
+        {loadState === "error" ? (
+          <p className="resource-editor__message">
+            Existing links could not be loaded.
+          </p>
+        ) : null}
 
-      {loadState === "loading" ? (
-        <p className="resource-editor__message" role="status">
-          Loading links…
-        </p>
-      ) : null}
+        {loadState === "ready" && resources.length === 0 ? (
+          <p className="resource-editor__message">
+            No trophy pages, guides, or maps have been added.
+          </p>
+        ) : null}
 
-      {loadState === "error" ? (
-        <p className="resource-editor__message">
-          Existing links could not be loaded.
-        </p>
-      ) : null}
-
-      {loadState === "ready" && resources.length === 0 ? (
-        <p className="resource-editor__message">
-          No trophy pages, guides, or maps have been added.
-        </p>
-      ) : null}
-
-      {resources.length === 0 ? null : (
-        <SortableList
-          items={resources}
-          disabled={isBusy}
-          ariaLabel="Useful links"
-          getItemLabel={(resource) =>
-            resource.label ??
-            `${gameResourceProviderLabels[resource.provider]} ${
-              gameResourceTypeLabels[resource.resourceType]
-            }`
-          }
-          onReorder={(reorderedResources) =>
-            void reorderResources(reorderedResources)
-          }
-          renderItem={(resource, controls) => {
-            const resourceIsBusy = busyResourceId === resource.id;
-            const displayName =
+        {resources.length === 0 ? null : (
+          <SortableList
+            items={resources}
+            disabled={isBusy}
+            ariaLabel="Useful links"
+            getItemLabel={(resource) =>
               resource.label ??
               `${gameResourceProviderLabels[resource.provider]} ${
                 gameResourceTypeLabels[resource.resourceType]
-              }`;
-
-            return (
-              <div className="resource-item">
-                <div className="resource-item__order">
-                  {controls.dragHandle}
-
-                  <button
-                    className="order-button"
-                    type="button"
-                    disabled={!controls.canMoveUp}
-                    onClick={controls.moveUp}
-                    aria-label={`Move ${displayName} up`}
-                  >
-                    ↑
-                  </button>
-
-                  <span className="order-number">{controls.position}</span>
-
-                  <button
-                    className="order-button"
-                    type="button"
-                    disabled={!controls.canMoveDown}
-                    onClick={controls.moveDown}
-                    aria-label={`Move ${displayName} down`}
-                  >
-                    ↓
-                  </button>
-                </div>
-
-                <div className="resource-item__identity">
-                  <a href={resource.url} target="_blank" rel="noreferrer">
-                    {displayName}
-                  </a>
-
-                  <span>
-                    {gameResourceTypeLabels[resource.resourceType]} ·{" "}
-                    {gameResourceProviderLabels[resource.provider]}
-                  </span>
-                </div>
-
-                <div className="resource-item__actions">
-                  <button
-                    className="text-button"
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => beginEditing(resource)}
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    className="text-button text-button--danger"
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => setResourcePendingDeletion(resource)}
-                  >
-                    {resourceIsBusy ? "Deleting…" : "Delete"}
-                  </button>
-                </div>
-              </div>
-            );
-          }}
-        />
-      )}
-
-      <div className="resource-editor__fields">
-        <label className="field">
-          <span>Link type</span>
-          <select
-            value={draft.resourceType}
-            disabled={isBusy}
-            onChange={(event) =>
-              setDraft((currentDraft) => ({
-                ...currentDraft,
-                resourceType: event.target.value as GameResourceType,
-              }))
+              }`
             }
-          >
-            {gameResourceTypes.map((resourceType) => (
-              <option key={resourceType} value={resourceType}>
-                {gameResourceTypeLabels[resourceType]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Label</span>
-          <input
-            maxLength={100}
-            value={draft.label}
-            disabled={isBusy}
-            onChange={(event) =>
-              setDraft((currentDraft) => ({
-                ...currentDraft,
-                label: event.target.value,
-              }))
+            onReorder={(reorderedResources) =>
+              void reorderResources(reorderedResources)
             }
-            placeholder="Optional custom name"
+            renderItem={(resource, controls) => {
+              const resourceIsBusy = busyResourceId === resource.id;
+              const displayName =
+                resource.label ??
+                `${gameResourceProviderLabels[resource.provider]} ${
+                  gameResourceTypeLabels[resource.resourceType]
+                }`;
+
+              return (
+                <div className="resource-item">
+                  <div className="resource-item__order">
+                    {controls.dragHandle}
+
+                    <button
+                      className="order-button"
+                      type="button"
+                      disabled={!controls.canMoveUp}
+                      onClick={controls.moveUp}
+                      aria-label={`Move ${displayName} up`}
+                    >
+                      ↑
+                    </button>
+
+                    <span className="order-number">{controls.position}</span>
+
+                    <button
+                      className="order-button"
+                      type="button"
+                      disabled={!controls.canMoveDown}
+                      onClick={controls.moveDown}
+                      aria-label={`Move ${displayName} down`}
+                    >
+                      ↓
+                    </button>
+                  </div>
+
+                  <div className="resource-item__identity">
+                    <a href={resource.url} target="_blank" rel="noreferrer">
+                      {displayName}
+                    </a>
+
+                    <span>
+                      {gameResourceTypeLabels[resource.resourceType]} ·{" "}
+                      {gameResourceProviderLabels[resource.provider]}
+                    </span>
+                  </div>
+
+                  <div className="resource-item__actions">
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => beginEditing(resource)}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      className="text-button text-button--danger"
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => setResourcePendingDeletion(resource)}
+                    >
+                      {resourceIsBusy ? "Deleting…" : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              );
+            }}
           />
-        </label>
-
-        <label className="field field--wide resource-editor__url">
-          <span>HTTPS address</span>
-          <input
-            type="url"
-            maxLength={2048}
-            value={draft.url}
-            disabled={isBusy}
-            onChange={(event) =>
-              setDraft((currentDraft) => ({
-                ...currentDraft,
-                url: event.target.value,
-              }))
-            }
-            placeholder="https://…"
-          />
-        </label>
-      </div>
-
-      {errorMessage === null ? null : (
-        <div className="notice notice--error" role="alert">
-          {errorMessage}
-        </div>
-      )}
-
-      <ConfirmDialog
-        open={resourcePendingDeletion !== null}
-        title="Delete useful link?"
-        description={
-          <p>
-            Delete{" "}
-            <strong>
-              {resourcePendingDeletion?.label ??
-                (resourcePendingDeletion === null
-                  ? "this link"
-                  : `${
-                      gameResourceProviderLabels[
-                        resourcePendingDeletion.provider
-                      ]
-                    } ${
-                      gameResourceTypeLabels[
-                        resourcePendingDeletion.resourceType
-                      ]
-                    }`)}
-            </strong>
-            ? The game itself will not be changed.
-          </p>
-        }
-        confirmLabel="Delete link"
-        busy={busyResourceId === resourcePendingDeletion?.id}
-        onCancel={() => setResourcePendingDeletion(null)}
-        onConfirm={() => {
-          if (resourcePendingDeletion !== null) {
-            void deleteResource(resourcePendingDeletion);
-          }
-        }}
-      />
-
-      <div className="resource-editor__form-actions">
-        {editingResourceId === null ? null : (
-          <button
-            className="button button--quiet"
-            type="button"
-            disabled={isSaving}
-            onClick={resetDraft}
-          >
-            Cancel edit
-          </button>
         )}
 
-        <button
-          className="button button--primary"
-          type="button"
-          disabled={isBusy || draft.url.trim().length === 0}
-          onClick={() => void saveResource()}
-        >
-          {isSaving
-            ? "Saving…"
-            : editingResourceId === null
-              ? "Add link"
-              : "Save link"}
-        </button>
+        <div className="resource-editor__fields">
+          <label className="field">
+            <span>Link type</span>
+            <select
+              value={draft.resourceType}
+              disabled={isBusy}
+              onChange={(event) =>
+                setDraft((currentDraft) => ({
+                  ...currentDraft,
+                  resourceType: event.target.value as GameResourceType,
+                }))
+              }
+            >
+              {gameResourceTypes.map((resourceType) => (
+                <option key={resourceType} value={resourceType}>
+                  {gameResourceTypeLabels[resourceType]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Label</span>
+            <input
+              maxLength={100}
+              value={draft.label}
+              disabled={isBusy}
+              onChange={(event) =>
+                setDraft((currentDraft) => ({
+                  ...currentDraft,
+                  label: event.target.value,
+                }))
+              }
+              placeholder="Optional custom name"
+            />
+          </label>
+
+          <label className="field field--wide resource-editor__url">
+            <span>HTTPS address</span>
+            <input
+              type="url"
+              maxLength={2048}
+              value={draft.url}
+              disabled={isBusy}
+              onChange={(event) =>
+                setDraft((currentDraft) => ({
+                  ...currentDraft,
+                  url: event.target.value,
+                }))
+              }
+              placeholder="https://…"
+            />
+          </label>
+        </div>
+
+        {errorMessage === null ? null : (
+          <div className="notice notice--error" role="alert">
+            {errorMessage}
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={resourcePendingDeletion !== null}
+          title="Delete useful link?"
+          description={
+            <p>
+              Delete{" "}
+              <strong>
+                {resourcePendingDeletion?.label ??
+                  (resourcePendingDeletion === null
+                    ? "this link"
+                    : `${
+                        gameResourceProviderLabels[
+                          resourcePendingDeletion.provider
+                        ]
+                      } ${
+                        gameResourceTypeLabels[
+                          resourcePendingDeletion.resourceType
+                        ]
+                      }`)}
+              </strong>
+              ? The game itself will not be changed.
+            </p>
+          }
+          confirmLabel="Delete link"
+          busy={busyResourceId === resourcePendingDeletion?.id}
+          onCancel={() => setResourcePendingDeletion(null)}
+          onConfirm={() => {
+            if (resourcePendingDeletion !== null) {
+              void deleteResource(resourcePendingDeletion);
+            }
+          }}
+        />
+
+        <div className="resource-editor__form-actions">
+          {editingResourceId === null ? null : (
+            <button
+              className="button button--quiet"
+              type="button"
+              disabled={isSaving}
+              onClick={resetDraft}
+            >
+              Cancel edit
+            </button>
+          )}
+
+          <button
+            className="button button--primary"
+            type="button"
+            disabled={isBusy || draft.url.trim().length === 0}
+            onClick={() => void saveResource()}
+          >
+            {isSaving
+              ? "Saving…"
+              : editingResourceId === null
+                ? "Add link"
+                : "Save link"}
+          </button>
+        </div>
       </div>
-    </section>
+    </details>
   );
 }

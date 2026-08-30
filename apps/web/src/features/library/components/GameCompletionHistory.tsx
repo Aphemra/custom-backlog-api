@@ -122,7 +122,7 @@ export function GameCompletionHistory({
   const significantSnapshots = meaningfulHistory(history).toReversed();
 
   return (
-    <section className="game-details__section">
+    <div className="game-details__completion-history">
       <div className="game-details__section-heading">
         <div>
           <p className="eyebrow">Trophy timeline</p>
@@ -209,6 +209,6 @@ export function GameCompletionHistory({
           </ol>
         </details>
       )}
-    </section>
+    </div>
   );
 }

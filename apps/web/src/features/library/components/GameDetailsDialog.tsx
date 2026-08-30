@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../../../components/toast/useToast";
 import { Dialog } from "../../../components/ui/Dialog";
-import { TrophyGradeIcon } from "../../../components/ui/icons";
+import { IconButton } from "../../../components/ui/IconButton";
+import { SyncIcon, TrophyGradeIcon } from "../../../components/ui/icons";
 import {
   playStatusLabels,
   type LibraryGameListItem,
@@ -42,12 +43,24 @@ function totalTrophies(counts: LibraryTrophyCounts): number {
   return counts.bronze + counts.silver + counts.gold + counts.platinum;
 }
 
+function formatTrophyGradeProgress(
+  earned: number,
+  attainable: number,
+  total: number,
+): string {
+  if (attainable === total) {
+    return `${earned} / ${total}`;
+  }
+
+  return `${earned} / ${attainable} (${total})`;
+}
+
 function TrophyOverview({ details }: { readonly details: LibraryGameDetails }) {
   const summary = details.game.trophySummary;
 
   if (summary === null) {
     return (
-      <section className="game-details__section">
+      <div className="game-details__trophy-overview">
         <div className="game-details__section-heading">
           <div>
             <p className="eyebrow">PlayStation trophies</p>
@@ -58,41 +71,154 @@ function TrophyOverview({ details }: { readonly details: LibraryGameDetails }) {
         <p className="game-details__empty-copy">
           No locally synchronized trophy data is connected to this game.
         </p>
-      </section>
+      </div>
     );
   }
 
   const earnedCount = totalTrophies(summary.earnedTrophies);
-  const availableCount = totalTrophies(summary.totalTrophies);
+  const totalCount = totalTrophies(summary.totalTrophies);
+  const attainableCount = totalTrophies(
+    summary.availability.attainableTrophies,
+  );
+  const unobtainableCount = totalTrophies(
+    summary.availability.unobtainableTrophies,
+  );
+  const hasUnobtainableTrophies = unobtainableCount > 0;
+
+  const displayedProgressPercent = hasUnobtainableTrophies
+    ? summary.availability.attainableProgressPercent
+    : summary.progressPercent;
+
+  const earnedProgressSharePercent = hasUnobtainableTrophies
+    ? summary.availability.earnedProgressSharePercent
+    : summary.progressPercent;
+
+  const unobtainableProgressSharePercent = hasUnobtainableTrophies
+    ? summary.availability.unobtainableProgressSharePercent
+    : 0;
+
+  const attainablePointsRemaining = Math.max(
+    0,
+    summary.availability.attainablePoints - summary.points.earned,
+  );
 
   return (
-    <section className="game-details__section">
+    <div className="game-details__trophy-overview">
       <div className="game-details__section-heading">
         <div>
           <p className="eyebrow">PlayStation trophies</p>
-          <h3>Trophy progress</h3>
+
+          <div className="game-details__trophy-title-line">
+            <h3>Trophy progress</h3>
+
+            {hasUnobtainableTrophies ? (
+              <span className="game-details__availability-summary">
+                {unobtainableCount.toLocaleString()} unobtainable {"("}
+                {summary.availability.unobtainablePoints.toLocaleString()}{" "}
+                points{")"}
+              </span>
+            ) : null}
+          </div>
         </div>
 
         <strong className="game-details__progress-value">
-          {summary.progressPercent}%
+          {displayedProgressPercent}%
         </strong>
       </div>
 
-      <div
-        className="game-details__progress-track"
-        role="progressbar"
-        aria-label="Trophy completion"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={summary.progressPercent}
-      >
-        <span style={{ width: `${summary.progressPercent}%` }} />
+      <div className="game-details__trophy-layout">
+        <div className="game-details__trophy-progress">
+          <div
+            className={`game-details__progress-track${
+              hasUnobtainableTrophies
+                ? " game-details__progress-track--unobtainable"
+                : ""
+            }`}
+            role="progressbar"
+            aria-label={
+              hasUnobtainableTrophies
+                ? "Attainable trophy completion"
+                : "Trophy completion"
+            }
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={displayedProgressPercent}
+          >
+            <span
+              className="game-details__progress-earned"
+              style={{ width: `${earnedProgressSharePercent}%` }}
+            />
+
+            {hasUnobtainableTrophies ? (
+              <span
+                className="game-details__progress-unobtainable"
+                style={{ width: `${unobtainableProgressSharePercent}%` }}
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <div
+          className="game-details__trophy-counts"
+          aria-label="Trophy counts by type"
+        >
+          <span className="game-details__trophy-count game-details__trophy-count--bronze">
+            <TrophyGradeIcon grade="bronze" />
+
+            <strong>
+              {formatTrophyGradeProgress(
+                summary.earnedTrophies.bronze,
+                summary.availability.attainableTrophies.bronze,
+                summary.totalTrophies.bronze,
+              )}
+            </strong>
+          </span>
+
+          <span className="game-details__trophy-count game-details__trophy-count--silver">
+            <TrophyGradeIcon grade="silver" />
+
+            <strong>
+              {formatTrophyGradeProgress(
+                summary.earnedTrophies.silver,
+                summary.availability.attainableTrophies.silver,
+                summary.totalTrophies.silver,
+              )}
+            </strong>
+          </span>
+
+          <span className="game-details__trophy-count game-details__trophy-count--gold">
+            <TrophyGradeIcon grade="gold" />
+
+            <strong>
+              {formatTrophyGradeProgress(
+                summary.earnedTrophies.gold,
+                summary.availability.attainableTrophies.gold,
+                summary.totalTrophies.gold,
+              )}
+            </strong>
+          </span>
+
+          {summary.totalTrophies.platinum > 0 ? (
+            <span className="game-details__trophy-count game-details__trophy-count--platinum">
+              <TrophyGradeIcon grade="platinum" />
+
+              <strong>
+                {formatTrophyGradeProgress(
+                  summary.earnedTrophies.platinum,
+                  summary.availability.attainableTrophies.platinum,
+                  summary.totalTrophies.platinum,
+                )}
+              </strong>
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="game-details__trophy-summary">
         <div>
           <strong>
-            {earnedCount} / {availableCount}
+            {earnedCount} / {attainableCount}
+            {hasUnobtainableTrophies ? ` (${totalCount})` : ""}
           </strong>
           <span>Trophies</span>
         </div>
@@ -100,69 +226,50 @@ function TrophyOverview({ details }: { readonly details: LibraryGameDetails }) {
         <div>
           <strong>
             {summary.points.earned.toLocaleString()} /{" "}
-            {summary.points.total.toLocaleString()}
+            {summary.availability.attainablePoints.toLocaleString()}
+            {hasUnobtainableTrophies
+              ? ` (${summary.points.total.toLocaleString()})`
+              : ""}
           </strong>
           <span>Trophy points</span>
         </div>
 
         <div>
-          <strong>{summary.points.remaining.toLocaleString()}</strong>
-          <span>Points remaining</span>
+          <strong>
+            {(hasUnobtainableTrophies
+              ? attainablePointsRemaining
+              : summary.points.remaining
+            ).toLocaleString()}
+          </strong>
+          <span>
+            {hasUnobtainableTrophies
+              ? "Attainable points remaining"
+              : "Points remaining"}
+          </span>
         </div>
       </div>
-
-      <div
-        className="game-details__trophy-counts"
-        aria-label="Trophy counts by type"
-      >
-        <span className="game-details__trophy-count game-details__trophy-count--bronze">
-          <TrophyGradeIcon grade="bronze" />
-
-          <strong>
-            {summary.earnedTrophies.bronze} / {summary.totalTrophies.bronze}
-          </strong>
-        </span>
-
-        <span className="game-details__trophy-count game-details__trophy-count--silver">
-          <TrophyGradeIcon grade="silver" />
-
-          <strong>
-            {summary.earnedTrophies.silver} / {summary.totalTrophies.silver}
-          </strong>
-        </span>
-
-        <span className="game-details__trophy-count game-details__trophy-count--gold">
-          <TrophyGradeIcon grade="gold" />
-
-          <strong>
-            {summary.earnedTrophies.gold} / {summary.totalTrophies.gold}
-          </strong>
-        </span>
-
-        {summary.totalTrophies.platinum > 0 ? (
-          <span className="game-details__trophy-count game-details__trophy-count--platinum">
-            <TrophyGradeIcon grade="platinum" />
-
-            <strong>
-              {summary.earnedTrophies.platinum} /{" "}
-              {summary.totalTrophies.platinum}
-            </strong>
-          </span>
-        ) : null}
-      </div>
-
-      {summary.platinumEarned && !summary.is100Percent ? (
-        <p className="game-details__completion-note">
-          Platinum earned but not 100%
-        </p>
-      ) : null}
 
       {summary.is100Percent ? (
         <p className="game-details__completion-note">
           100% completion achieved
         </p>
       ) : null}
-    </section>
+
+      {!summary.is100Percent && summary.availability.isMaxAttainable ? (
+        <p className="game-details__completion-note">
+          Maximum attainable completion achieved
+          {summary.platinumEarned ? " with Platinum earned" : ""}
+        </p>
+      ) : null}
+
+      {summary.platinumEarned &&
+      !summary.is100Percent &&
+      !summary.availability.isMaxAttainable ? (
+        <p className="game-details__completion-note">
+          Platinum earned but not 100%
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -188,6 +295,13 @@ function GameDetailsContent({
         metadata={details.igdb}
         fallbackCover={fallbackCover}
         showTitle={false}
+        actions={
+          <GameDetailsResources
+            gameTitle={sourceGame.title}
+            resources={sourceGame.resources}
+            igdbUrl={details.igdb?.igdbUrl ?? null}
+          />
+        }
         badges={
           <>
             <span className="platform-badge">{details.game.platform}</span>
@@ -207,23 +321,19 @@ function GameDetailsContent({
         }
       />
 
-      <TrophyOverview details={details} />
+      <section className="game-details__section game-details__trophy-workspace">
+        <TrophyOverview details={details} />
 
-      <GameCompletionHistory
-        summary={details.game.trophySummary}
-        history={details.trophyHistory}
-      />
+        <GameCompletionHistory
+          summary={details.game.trophySummary}
+          history={details.trophyHistory}
+        />
 
-      <GameDetailsResources
-        gameTitle={sourceGame.title}
-        resources={sourceGame.resources}
-        igdbUrl={details.igdb?.igdbUrl ?? null}
-      />
-
-      <GameTrophyList
-        gameId={details.game.id}
-        hasPlayStationLink={details.playStation !== null}
-      />
+        <GameTrophyList
+          gameId={details.game.id}
+          hasPlayStationLink={details.playStation !== null}
+        />
+      </section>
     </div>
   );
 }
@@ -295,6 +405,31 @@ function OpenGameDetailsDialog({
       open
       title={game.title}
       description="Game metadata, trophy progress, cached media, and resources."
+      headerActions={
+        details?.igdb === null || details?.igdb === undefined ? undefined : (
+          <IconButton
+            className={`dialog__metadata-sync${
+              refreshingMetadata ? " dialog__metadata-sync--active" : ""
+            }`}
+            label={
+              refreshingMetadata
+                ? "Resyncing IGDB metadata"
+                : "Resync IGDB metadata"
+            }
+            tooltip={
+              refreshingMetadata
+                ? "Refreshing metadata and cached artwork from IGDB."
+                : "Refresh metadata and cached artwork from IGDB."
+            }
+            icon={<SyncIcon />}
+            disabled={refreshingMetadata}
+            aria-busy={refreshingMetadata}
+            tooltipPlacement="bottom"
+            tooltipAlignment="end"
+            onClick={() => void handleRefreshMetadata()}
+          />
+        )
+      }
       size="large"
       onClose={onClose}
     >
@@ -311,29 +446,7 @@ function OpenGameDetailsDialog({
       ) : null}
 
       {loadState === "ready" && details !== null ? (
-        <>
-          {details.igdb === null ? null : (
-            <div className="game-details__toolbar">
-              <span>
-                IGDB metadata stored{" "}
-                {new Date(details.igdb.storedAt).toLocaleString()}
-              </span>
-
-              <button
-                className="button button--quiet"
-                type="button"
-                disabled={refreshingMetadata}
-                onClick={() => void handleRefreshMetadata()}
-              >
-                {refreshingMetadata
-                  ? "Resyncing IGDB…"
-                  : "Resync IGDB Metadata"}
-              </button>
-            </div>
-          )}
-
-          <GameDetailsContent details={details} sourceGame={game} />
-        </>
+        <GameDetailsContent details={details} sourceGame={game} />
       ) : null}
     </Dialog>
   );

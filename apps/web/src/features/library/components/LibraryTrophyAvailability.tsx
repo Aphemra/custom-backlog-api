@@ -9,6 +9,7 @@ import { TrophyGradeIcon } from "../../../components/ui/icons";
 
 interface LibraryTrophyAvailabilityProps {
   readonly gameId: string;
+  readonly onAvailabilityChanged?: () => Promise<void>;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -25,6 +26,7 @@ function trophyIconUrl(trophy: StoredPlayStationTrophy): string | null {
 
 export function LibraryTrophyAvailability({
   gameId,
+  onAvailabilityChanged,
 }: LibraryTrophyAvailabilityProps) {
   const [trophySet, setTrophySet] = useState<StoredPlayStationTrophySet | null>(
     null,
@@ -85,14 +87,15 @@ export function LibraryTrophyAvailability({
     setErrorMessage(null);
 
     try {
-      setTrophySet(
-        await playStationApi.updateTrophyAvailability(
-          gameId,
-          trophy.trophyId,
-          unobtainable,
-          reason,
-        ),
+      const updatedTrophySet = await playStationApi.updateTrophyAvailability(
+        gameId,
+        trophy.trophyId,
+        unobtainable,
+        reason,
       );
+
+      setTrophySet(updatedTrophySet);
+      await onAvailabilityChanged?.();
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -108,17 +111,22 @@ export function LibraryTrophyAvailability({
     return null;
   }
 
+  const unobtainableCount =
+    trophySet?.groups
+      .flatMap((group) => group.trophies)
+      .filter((trophy) => trophy.unobtainable).length ?? 0;
+
   return (
     <details className="trophy-availability">
       <summary>
-        Trophy availability
-        {trophySet === null
-          ? null
-          : ` · ${
-              trophySet.groups
-                .flatMap((group) => group.trophies)
-                .filter((trophy) => trophy.unobtainable).length
-            } marked`}
+        <span>
+          <strong>Trophy availability</strong>
+          <small>
+            {unobtainableCount}{" "}
+            {unobtainableCount === 1 ? "trophy" : "trophies"} marked
+            unobtainable.
+          </small>
+        </span>
       </summary>
 
       {errorMessage === null ? null : (
@@ -127,9 +135,20 @@ export function LibraryTrophyAvailability({
         </p>
       )}
 
-      {trophySet?.groups.map((group) => (
-        <section key={group.trophyGroupId}>
-          <h3>{group.name}</h3>
+      {trophySet?.groups.map((group, groupIndex) => (
+        <details
+          className="trophy-availability__group"
+          key={group.trophyGroupId}
+          open={groupIndex === 0}
+        >
+          <summary className="trophy-availability__group-heading">
+            <strong>{group.name}</strong>
+
+            <span>
+              {group.trophies.filter((trophy) => trophy.unobtainable).length} /{" "}
+              {group.trophies.length} unavailable
+            </span>
+          </summary>
 
           <ul>
             {group.trophies.map((trophy) => {
@@ -138,10 +157,21 @@ export function LibraryTrophyAvailability({
               const reason = reasons[trophy.trophyId] ?? "";
 
               return (
-                <li key={trophy.trophyId}>
-                  {imageUrl === null ? null : (
-                    <img src={imageUrl} alt="" loading="lazy" />
-                  )}
+                <li
+                  className={
+                    trophy.unobtainable
+                      ? "trophy-availability__item trophy-availability__item--unobtainable"
+                      : "trophy-availability__item"
+                  }
+                  key={trophy.trophyId}
+                >
+                  <span className="trophy-availability__art">
+                    {imageUrl === null ? (
+                      <TrophyGradeIcon grade={trophy.trophyType} />
+                    ) : (
+                      <img src={imageUrl} alt="" loading="lazy" />
+                    )}
+                  </span>
 
                   <div className="trophy-availability__body">
                     <div className="trophy-availability__title">
@@ -149,63 +179,75 @@ export function LibraryTrophyAvailability({
                         {trophy.name ?? `Hidden trophy #${trophy.trophyId}`}
                       </strong>
 
-                      <TrophyGradeIcon grade={trophy.trophyType} />
+                      {trophy.earned ? (
+                        <span className="trophy-availability__earned">
+                          Earned
+                        </span>
+                      ) : null}
 
-                      {trophy.earned ? <span>Earned</span> : null}
+                      <TrophyGradeIcon grade={trophy.trophyType} />
                     </div>
 
-                    <label className="checkbox-control">
-                      <input
-                        type="checkbox"
-                        checked={trophy.unobtainable}
-                        disabled={busy}
-                        onChange={(event) =>
-                          void updateAvailability(
-                            trophy,
-                            event.target.checked,
-                            event.target.checked && reason.trim() !== ""
-                              ? reason.trim()
-                              : null,
-                          )
-                        }
-                      />
-
-                      <span>Unobtainable</span>
-                    </label>
-
-                    {trophy.unobtainable ? (
-                      <input
-                        maxLength={500}
-                        value={reason}
-                        disabled={busy}
-                        aria-label={`Reason ${trophy.name ?? trophy.trophyId}`}
-                        placeholder="Optional reason, such as closed servers"
-                        onChange={(event) =>
-                          setReasons((current) => ({
-                            ...current,
-                            [trophy.trophyId]: event.target.value,
-                          }))
-                        }
-                        onBlur={() => {
-                          const normalizedReason =
-                            reason.trim() === "" ? null : reason.trim();
-
-                          if (normalizedReason !== trophy.unobtainableReason) {
+                    <div className="trophy-availability__controls">
+                      <label className="trophy-availability__toggle">
+                        <input
+                          type="checkbox"
+                          checked={trophy.unobtainable}
+                          disabled={busy}
+                          onChange={(event) =>
                             void updateAvailability(
                               trophy,
-                              true,
-                              normalizedReason,
-                            );
+                              event.target.checked,
+                              event.target.checked && reason.trim() !== ""
+                                ? reason.trim()
+                                : null,
+                            )
                           }
-                        }}
-                      />
-                    ) : null}
+                        />
+
+                        <span>Unobtainable</span>
+                      </label>
+
+                      {trophy.unobtainable ? (
+                        <input
+                          className="trophy-availability__reason"
+                          type="text"
+                          maxLength={500}
+                          value={reason}
+                          disabled={busy}
+                          aria-label={`Reason ${
+                            trophy.name ?? trophy.trophyId
+                          }`}
+                          placeholder="Optional reason, such as closed servers"
+                          onChange={(event) =>
+                            setReasons((current) => ({
+                              ...current,
+                              [trophy.trophyId]: event.target.value,
+                            }))
+                          }
+                          onBlur={() => {
+                            const normalizedReason =
+                              reason.trim() === "" ? null : reason.trim();
+
+                            if (
+                              normalizedReason !== trophy.unobtainableReason
+                            ) {
+                              void updateAvailability(
+                                trophy,
+                                true,
+                                normalizedReason,
+                              );
+                            }
+                          }}
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </li>
               );
             })}
           </ul>
-        </section>
+        </details>
       ))}
     </details>
   );

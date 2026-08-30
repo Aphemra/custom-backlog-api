@@ -1,4 +1,7 @@
-import type { LibraryGame } from "../library/libraryGameTypes.js";
+import type {
+  LibraryGame,
+  LibraryTrophyAvailabilitySummary,
+} from "../library/libraryGameTypes.js";
 import type { PlayStationTrophyCounts } from "../playstation/playStationTypes.js";
 
 export interface CollectionTimeEstimateTotal {
@@ -24,6 +27,7 @@ export interface CollectionTrophySummary {
     readonly total: number;
     readonly remaining: number;
   };
+  readonly availability: LibraryTrophyAvailabilitySummary;
 }
 
 export interface CollectionSummary {

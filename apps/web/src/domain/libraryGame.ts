@@ -45,6 +45,17 @@ export interface LibraryTrophyCounts {
   readonly platinum: number;
 }
 
+export interface LibraryTrophyAvailabilitySummary {
+  readonly attainableTrophies: LibraryTrophyCounts;
+  readonly unobtainableTrophies: LibraryTrophyCounts;
+  readonly attainablePoints: number;
+  readonly unobtainablePoints: number;
+  readonly attainableProgressPercent: number;
+  readonly earnedProgressSharePercent: number;
+  readonly unobtainableProgressSharePercent: number;
+  readonly isMaxAttainable: boolean;
+}
+
 export interface LibraryTrophySummary {
   readonly progressPercent: number;
   readonly earnedTrophies: LibraryTrophyCounts;
@@ -54,6 +65,7 @@ export interface LibraryTrophySummary {
     readonly total: number;
     readonly remaining: number;
   };
+  readonly availability: LibraryTrophyAvailabilitySummary;
   readonly timing: {
     readonly firstTrophy: {
       readonly earnedAt: string | null;
@@ -121,6 +133,5 @@ export interface UpdateLibraryGameInput {
   readonly title: string;
   readonly platform: PlayStationPlatform;
   readonly playStatus: PlayStatus;
-  readonly isUnobtainable: boolean;
   readonly notes: string | null;
 }

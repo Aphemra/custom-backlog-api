@@ -486,7 +486,11 @@ function TrophyTitleRow({
   );
 }
 
-export function PlayStationPage() {
+interface PlayStationPageProps {
+  readonly onAlertsChanged: () => void | Promise<void>;
+}
+
+export function PlayStationPage({ onAlertsChanged }: PlayStationPageProps) {
   const { refreshProfileProgression } = useProfileProgression();
   const { showToast } = useToast();
 
@@ -721,7 +725,7 @@ export function PlayStationPage() {
       setLastDetailSynchronization(result.detailSynchronization);
       setLastMetadataRefresh(result.metadataRefresh);
 
-      await refreshProfileProgression();
+      await Promise.all([refreshProfileProgression(), onAlertsChanged()]);
 
       if (result.synchronization.status === "succeeded") {
         setNotice(

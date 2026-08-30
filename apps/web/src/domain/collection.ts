@@ -1,4 +1,7 @@
-import type { LibraryGame } from "./libraryGame";
+import type {
+  LibraryGame,
+  LibraryTrophyAvailabilitySummary,
+} from "./libraryGame";
 import type { PlayStationTrophyCounts } from "./playStation";
 
 export interface CollectionTimeEstimateTotal {
@@ -24,6 +27,7 @@ export interface CollectionTrophySummary {
     readonly total: number;
     readonly remaining: number;
   };
+  readonly availability: LibraryTrophyAvailabilitySummary;
 }
 
 export interface CollectionSummary {

@@ -23,6 +23,7 @@ interface LibraryGameFormProps {
     collectionIds: readonly string[],
   ) => Promise<void>;
   readonly onCancel: () => void;
+  readonly onAvailabilityChanged: () => Promise<void>;
 }
 
 export function LibraryGameForm({
@@ -31,6 +32,7 @@ export function LibraryGameForm({
   initialCollectionIds,
   onSubmit,
   onCancel,
+  onAvailabilityChanged,
 }: LibraryGameFormProps) {
   const [title, setTitle] = useState(initialGame.title);
 
@@ -40,10 +42,6 @@ export function LibraryGameForm({
 
   const [playStatus, setPlayStatus] = useState<PlayStatus>(
     initialGame.playStatus,
-  );
-
-  const [isUnobtainable, setIsUnobtainable] = useState(
-    initialGame.isUnobtainable,
   );
 
   const [selectedCollectionIds, setSelectedCollectionIds] =
@@ -71,7 +69,6 @@ export function LibraryGameForm({
           title: title.trim(),
           platform,
           playStatus,
-          isUnobtainable,
           notes: notes.trim().length === 0 ? null : notes.trim(),
         },
         selectedCollectionIds,
@@ -85,101 +82,125 @@ export function LibraryGameForm({
 
   return (
     <form className="game-form" onSubmit={handleSubmit}>
-      <label className="field field--wide">
-        <span>Title</span>
-        <input
-          data-dialog-initial-focus
-          required
-          maxLength={200}
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Game title"
-        />
-      </label>
-
-      <div className="field-grid">
-        <label className="field">
-          <span>Platform</span>
-          <select
-            value={platform}
-            onChange={(event) =>
-              setPlatform(event.target.value as PlayStationPlatform)
-            }
-          >
-            {playStationPlatforms.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
+      <section className="game-form__primary" aria-label="Library entry">
+        <label className="field field--wide">
+          <span>Title</span>
+          <input
+            data-dialog-initial-focus
+            required
+            maxLength={200}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Game title"
+          />
         </label>
 
-        <label className="field">
-          <span>Play status</span>
-          <select
-            value={playStatus}
-            onChange={(event) =>
-              setPlayStatus(event.target.value as PlayStatus)
-            }
-          >
-            {playStatuses.map((value) => (
-              <option key={value} value={value}>
-                {playStatusLabels[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+        <div className="game-form__choice-grid">
+          <fieldset className="game-form__choice-field" disabled={isSubmitting}>
+            <legend>Platform</legend>
 
-      <label className="checkbox-control">
-        <input
-          type="checkbox"
-          checked={isUnobtainable}
-          onChange={(event) => setIsUnobtainable(event.target.checked)}
-        />
+            <div className="game-form__choice-options game-form__choice-options--platform">
+              {playStationPlatforms.map((value) => (
+                <label className="game-form__choice-option" key={value}>
+                  <input
+                    className="visually-hidden"
+                    type="radio"
+                    name={`platform-${initialGame.id}`}
+                    value={value}
+                    checked={platform === value}
+                    onChange={() => setPlatform(value)}
+                  />
 
-        <span>Unobtainable — one or more trophies can no longer be earned</span>
-      </label>
+                  <span>{value}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-      <fieldset className="game-form__collections" disabled={isSubmitting}>
-        <legend>Collections</legend>
+          <fieldset className="game-form__choice-field" disabled={isSubmitting}>
+            <legend>Play status</legend>
 
-        <p>
-          Select every Collection that should contain this game. New memberships
-          are added to the end and can be reordered later.
-        </p>
+            <div className="game-form__choice-options game-form__choice-options--status">
+              {playStatuses.map((value) => (
+                <label
+                  className={`game-form__choice-option game-form__choice-option--${value.replaceAll(
+                    "_",
+                    "-",
+                  )}`}
+                  key={value}
+                >
+                  <input
+                    className="visually-hidden"
+                    type="radio"
+                    name={`play-status-${initialGame.id}`}
+                    value={value}
+                    checked={playStatus === value}
+                    onChange={() => setPlayStatus(value)}
+                  />
 
-        {collections.length === 0 ? (
-          <span className="game-form__collections-empty">
-            No Collections have been created yet.
+                  <span>{playStatusLabels[value]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+      </section>
+
+      <details className="game-form__disclosure">
+        <summary>
+          <span>
+            <strong>Collections</strong>
+            <small>Choose which Collections contain this game.</small>
           </span>
-        ) : (
-          <div className="game-form__collection-options">
-            {collections.map((collection) => (
-              <label
-                className="game-form__collection-option"
-                key={collection.id}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedCollectionIds.includes(collection.id)}
-                  onChange={() => toggleCollection(collection.id)}
-                />
 
-                <span>
-                  <strong>{collection.name}</strong>
-                  <small>
-                    {collection.gameCount}{" "}
-                    {collection.gameCount === 1 ? "game" : "games"}
-                  </small>
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
-      </fieldset>
+          <span className="game-form__disclosure-count">
+            {selectedCollectionIds.length}
+          </span>
+        </summary>
 
-      <LibraryTrophyAvailability gameId={initialGame.id} />
+        <fieldset className="game-form__collections" disabled={isSubmitting}>
+          <legend className="visually-hidden">Collection membership</legend>
+
+          <p>
+            New memberships are added to the end of each Collection and can be
+            reordered later.
+          </p>
+
+          {collections.length === 0 ? (
+            <span className="game-form__collections-empty">
+              No Collections have been created yet.
+            </span>
+          ) : (
+            <div className="game-form__collection-options">
+              {collections.map((collection) => (
+                <label
+                  className="game-form__collection-option"
+                  key={collection.id}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCollectionIds.includes(collection.id)}
+                    onChange={() => toggleCollection(collection.id)}
+                  />
+
+                  <span>
+                    <strong>{collection.name}</strong>
+                    <small>
+                      {collection.gameCount}{" "}
+                      {collection.gameCount === 1 ? "game" : "games"}
+                    </small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </fieldset>
+      </details>
+
+      <LibraryTrophyAvailability
+        gameId={initialGame.id}
+        onAvailabilityChanged={onAvailabilityChanged}
+      />
       <GameResourceEditor gameId={initialGame.id} />
 
       <section

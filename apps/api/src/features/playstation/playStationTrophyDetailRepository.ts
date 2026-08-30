@@ -751,31 +751,62 @@ export class PlayStationTrophyDetailRepository {
       return null;
     }
 
-    if (input.unobtainable) {
+    const timestamp = this.clock().toISOString();
+
+    this.database.exec("BEGIN IMMEDIATE");
+
+    try {
+      if (input.unobtainable) {
+        this.database
+          .prepare(
+            `
+              INSERT INTO playstation_trophy_availability_overrides (
+                game_id,
+                trophy_id,
+                reason,
+                updated_at
+              ) VALUES (?, ?, ?, ?)
+              ON CONFLICT (game_id, trophy_id) DO UPDATE SET
+                reason = excluded.reason,
+                updated_at = excluded.updated_at
+            `,
+          )
+          .run(gameId, trophyId, input.reason, timestamp);
+      } else {
+        this.database
+          .prepare(
+            `
+              DELETE FROM playstation_trophy_availability_overrides
+              WHERE game_id = ? AND trophy_id = ?
+            `,
+          )
+          .run(gameId, trophyId);
+      }
+
       this.database
         .prepare(
           `
-            INSERT INTO playstation_trophy_availability_overrides (
-              game_id,
-              trophy_id,
-              reason,
-              updated_at
-            ) VALUES (?, ?, ?, ?)
-            ON CONFLICT (game_id, trophy_id) DO UPDATE SET
-              reason = excluded.reason,
-              updated_at = excluded.updated_at
+            UPDATE library_games
+            SET
+              is_unobtainable = CASE
+                WHEN EXISTS (
+                  SELECT 1
+                  FROM playstation_trophy_availability_overrides availability
+                  WHERE availability.game_id = ?
+                )
+                THEN 1
+                ELSE 0
+              END,
+              updated_at = ?
+            WHERE id = ?
           `,
         )
-        .run(gameId, trophyId, input.reason, this.clock().toISOString());
-    } else {
-      this.database
-        .prepare(
-          `
-            DELETE FROM playstation_trophy_availability_overrides
-            WHERE game_id = ? AND trophy_id = ?
-          `,
-        )
-        .run(gameId, trophyId);
+        .run(gameId, timestamp, gameId);
+
+      this.database.exec("COMMIT");
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
     }
 
     return this.findByGameId(gameId);

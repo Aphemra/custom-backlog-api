@@ -28,6 +28,7 @@
   --color-border: rgba(148, 163, 184, 0.2);
   --color-border-hover: rgba(var(--color-accent-bright-rgb), 0.4);
   --color-border-strong: rgba(var(--color-accent-bright-rgb), 0.55);
+  --color-progress-track: rgba(148, 163, 184, 0.2);
 
   --color-text: #f8fafc;
   --color-text-soft: #cbd5e1;
@@ -441,9 +442,13 @@ textarea:focus-visible {
 }
 
 .primary-nav__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
   border: 0;
   border-radius: var(--radius-pill);
   padding: 0.55rem 0.8rem;
+  white-space: nowrap;
   background: transparent;
   color: var(--color-text-muted);
   font-size: 0.86rem;
@@ -467,6 +472,22 @@ textarea:focus-visible {
 .primary-nav__item--active:hover {
   background: var(--color-accent-soft);
   color: var(--color-text);
+}
+
+.primary-nav__alert-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding-inline: 0.25rem;
+  border: 1px solid #fb7185;
+  border-radius: 0.35rem;
+  background: #b91c1c;
+  color: #ffffff;
+  font-size: 0.64rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
 }
 
 .app-footer {
@@ -1542,7 +1563,13 @@ textarea:focus-visible {
 
 .backlog-disclosure::details-content,
 .game-trophy-disclosure::details-content,
-.game-trophy-group::details-content {
+.game-trophy-group::details-content,
+.game-details__disclosure::details-content,
+.game-progress-history::details-content,
+.game-form__disclosure::details-content,
+.resource-editor::details-content,
+.trophy-availability::details-content,
+.trophy-availability__group::details-content {
   block-size: 0;
   overflow: hidden;
   opacity: 0;
@@ -1555,7 +1582,13 @@ textarea:focus-visible {
 
 .backlog-disclosure[open]::details-content,
 .game-trophy-disclosure[open]::details-content,
-.game-trophy-group[open]::details-content {
+.game-trophy-group[open]::details-content,
+.game-details__disclosure[open]::details-content,
+.game-progress-history[open]::details-content,
+.game-form__disclosure[open]::details-content,
+.resource-editor[open]::details-content,
+.trophy-availability[open]::details-content,
+.trophy-availability__group[open]::details-content {
   block-size: auto;
   opacity: 1;
 }
@@ -1846,42 +1879,63 @@ textarea:focus-visible {
 }
 
 .game-row__progress-track {
+  position: relative;
   height: 0.45rem;
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: rgba(148, 163, 184, 0.14);
 }
 
-.game-row__progress-track > span {
+.game-row__progress-earned,
+.game-row__progress-unobtainable {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   display: block;
   width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-text-subtle);
   transition: width 180ms ease;
 }
 
-.game-row--status-not-started .game-row__progress-track > span {
+.game-row__progress-earned {
+  left: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-subtle);
+}
+
+.game-row__progress-unobtainable {
+  right: 0;
+  border-left: 1px solid rgba(203, 213, 225, 0.5);
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.55) 0,
+    rgba(148, 163, 184, 0.55) 0.18rem,
+    rgba(100, 116, 139, 0.4) 0.18rem,
+    rgba(100, 116, 139, 0.4) 0.36rem
+  );
+}
+
+.game-row--status-not-started .game-row__progress-earned {
   background: var(--status-not-started-color);
 }
 
-.game-row--status-playing .game-row__progress-track > span {
+.game-row--status-playing .game-row__progress-earned {
   background: var(--status-playing-color);
 }
 
-.game-row--status-on-hold .game-row__progress-track > span {
+.game-row--status-on-hold .game-row__progress-earned {
   background: var(--status-on-hold-color);
 }
 
-.game-row--status-waiting .game-row__progress-track > span {
+.game-row--status-waiting .game-row__progress-earned {
   background: var(--status-waiting-color);
 }
 
-.game-row--status-completed .game-row__progress-track > span {
+.game-row--status-completed .game-row__progress-earned {
   background: var(--status-completed-color);
 }
 
-.game-row--status-unreleased .game-row__progress-track > span {
+.game-row--status-unreleased .game-row__progress-earned {
   background: var(--status-unreleased-color);
 }
 
@@ -2037,15 +2091,13 @@ textarea:focus-visible {
   transition:
     border-color 120ms ease,
     background 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
+    color 120ms ease;
 }
 
 .game-resource-link:hover {
   border-color: rgba(var(--color-accent-bright-rgb), 0.55);
   background: var(--color-accent-soft);
   color: #ffffff;
-  transform: translateY(-1px);
 }
 
 .game-resource-link:focus-visible {
@@ -2311,13 +2363,71 @@ textarea:focus-visible {
   margin-right: var(--space-2);
 }
 
+.collection-card__progress {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.65rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.6rem;
+}
+
+.collection-card__progress-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.collection-card__progress-heading strong {
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.collection-card__availability-summary {
+  color: rgba(var(--status-unobtainable-rgb), 0.72);
+  font-weight: var(--font-weight-bold);
+}
+
+.collection-card__progress-track {
+  position: relative;
+  overflow: hidden;
+  height: 0.4rem;
+  border-radius: var(--radius-small);
+  background: var(--color-progress-track);
+}
+
+.collection-card__progress-track > span {
+  position: absolute;
+  inset-block: 0;
+  display: block;
+}
+
+.collection-card__progress-earned {
+  left: 0;
+  background: var(--color-accent);
+  transition: width var(--transition-medium);
+}
+
+.collection-card__progress-unobtainable {
+  right: 0;
+  border-left: 1px solid rgba(203, 213, 225, 0.42);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.58) 0,
+    rgba(148, 163, 184, 0.58) 0.25rem,
+    rgba(71, 85, 105, 0.72) 0.25rem,
+    rgba(71, 85, 105, 0.72) 0.5rem
+  );
+}
+
 .collection-card__metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
-  margin-top: 0.65rem;
-  border-top: 1px solid var(--color-border);
-  padding-top: 0.6rem;
+  margin-top: 0.55rem;
 }
 
 .collection-card__metric {
@@ -2856,79 +2966,229 @@ textarea:focus-visible {
   cursor: pointer;
   padding: 0.8rem;
   color: var(--color-text);
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-heavy);
 }
 
-.trophy-availability section {
+.trophy-availability__group {
+  min-width: 0;
   border-top: 1px solid var(--color-border);
+  padding: 0 var(--space-2);
 }
 
-.trophy-availability h3 {
-  margin: 0;
-  padding: 0.65rem 0.8rem;
-  color: var(--color-text-muted);
-  font-size: 0.72rem;
-}
-
-.trophy-availability ul {
+.trophy-availability__group-heading {
   display: grid;
-  margin: 0;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.trophy-availability__group-heading::-webkit-details-marker {
+  display: none;
+}
+
+.trophy-availability__group-heading::after {
+  width: 1rem;
+  content: "+";
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  text-align: center;
+}
+
+.trophy-availability__group[open] > .trophy-availability__group-heading::after {
+  content: "−";
+}
+
+.trophy-availability__group-heading strong {
+  overflow: hidden;
+  font-size: var(--font-size-caption);
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+
+.trophy-availability__group-heading:hover strong {
+  color: var(--color-accent-bright);
+}
+
+.trophy-availability__group-heading > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.trophy-availability__group ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
   padding: 0;
   list-style: none;
 }
 
-.trophy-availability li {
+.trophy-availability__item {
   display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr);
-  gap: 0.75rem;
-  padding: 0.7rem 0.8rem;
+  grid-template-columns: 3.75rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(8, 11, 18, 0.42);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
 }
 
-.trophy-availability li + li {
-  border-top: 1px solid var(--color-border);
+.trophy-availability__item:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
 }
 
-.trophy-availability img {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.35rem;
+.trophy-availability__item--unobtainable {
+  border-color: rgba(var(--status-unobtainable-rgb), 0.5);
+  background: var(--status-unobtainable-background);
+  box-shadow: inset 3px 0 0 var(--status-unobtainable-color);
+}
+
+.trophy-availability__item--unobtainable:hover {
+  border-color: rgba(var(--status-unobtainable-rgb), 0.72);
+  background: rgba(var(--status-unobtainable-rgb), 0.17);
+}
+
+.trophy-availability__art {
+  display: grid;
+  width: 3.75rem;
+  height: 3.75rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-raised);
+}
+
+.trophy-availability__art img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+}
+
+.trophy-availability__art .trophy-grade-icon {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .trophy-availability__body {
   display: grid;
   min-width: 0;
-  gap: 0.45rem;
+  min-height: 3.75rem;
+  align-content: space-between;
+  gap: var(--space-2);
 }
 
 .trophy-availability__title {
   display: flex;
+  min-width: 0;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  font-size: 0.72rem;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
 }
 
-.trophy-availability__title > span:last-child {
+.trophy-availability__title strong {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trophy-availability__title > .trophy-grade-icon,
+.trophy-availability__earned {
+  flex: 0 0 auto;
+}
+
+.trophy-availability__earned {
   color: var(--color-success);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
-.trophy-availability__body .checkbox-control {
-  padding: 0;
-  font-size: 0.7rem;
+.trophy-availability__controls {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.trophy-availability__body input[type="text"],
-.trophy-availability__body input:not([type]) {
+.trophy-availability__toggle {
+  display: inline-flex;
+  width: max-content;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  padding: 0.35rem 0.55rem;
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.trophy-availability__toggle:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.trophy-availability__toggle:has(input:checked) {
+  border-color: rgba(var(--status-unobtainable-rgb), 0.55);
+  background: var(--status-unobtainable-background);
+  color: var(--status-unobtainable-text);
+}
+
+.trophy-availability__toggle input {
+  margin: 0;
+  accent-color: var(--status-unobtainable-color);
+}
+
+.trophy-availability__reason {
   width: 100%;
+  height: 2rem;
+  border-color: rgba(var(--status-unobtainable-rgb), 0.4);
+  border-radius: var(--radius-medium);
+  padding: 0.4rem 0.65rem;
+  background: rgba(8, 11, 18, 0.62);
+}
+
+@media (max-width: 620px) {
+  .trophy-availability__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .trophy-availability__toggle {
+    width: max-content;
+  }
 }
 
 .trophy-availability__status,
 .trophy-availability__error {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--font-size-caption);
 }
 
 .trophy-availability__status {
@@ -2936,8 +3196,8 @@ textarea:focus-visible {
 }
 
 .trophy-availability__error {
-  padding: 0 0.8rem 0.8rem;
-  color: #fda4af;
+  padding: 0 var(--space-2) var(--space-3);
+  color: var(--color-danger);
 }
 
 .trophy-alert-card__actions {
@@ -3194,26 +3454,6 @@ textarea:focus-visible {
   min-width: 0;
 }
 
-.game-details__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.game-details__toolbar > span {
-  margin-right: auto;
-  color: var(--color-text-muted);
-  font-size: 0.7rem;
-}
-
-.game-details__toolbar .button {
-  min-height: 2.3rem;
-  padding-block: 0.45rem;
-  white-space: nowrap;
-}
-
 .game-details__loading {
   display: grid;
   min-height: 16rem;
@@ -3224,7 +3464,7 @@ textarea:focus-visible {
 
 .game-details__hero {
   display: grid;
-  grid-template-columns: minmax(8rem, 10rem) minmax(0, 1fr);
+  grid-template-columns: minmax(9rem, 11.25rem) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -3305,12 +3545,118 @@ textarea:focus-visible {
   line-height: 1.4;
 }
 
+.game-details__quick-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  border-block: 1px solid var(--color-border);
+  padding-block: var(--space-3);
+}
+
+.game-details__quick-fact-group {
+  min-width: 0;
+}
+
+.game-details__quick-fact-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.game-details__classification {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.game-details__classification > div {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.game-details__classification dt {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.game-details__classification dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.game-details__time-estimates {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-border);
+}
+
+.game-details__time-estimates > span {
+  display: grid;
+  min-width: 5rem;
+  flex: 1 1 5rem;
+  gap: 0.05rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(8, 11, 18, 0.72);
+}
+
+.game-details__time-estimates strong {
+  color: var(--color-text);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-details__time-estimates small {
+  color: var(--color-text-muted);
+  font-size: 0.6rem;
+}
+
+.game-details__quick-fact-group .game-details__source-note {
+  margin-top: 0.4rem;
+}
+
 .game-details__section {
   min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-medium);
   padding: var(--space-4);
   background: rgba(17, 22, 34, 0.72);
+}
+
+.game-details__trophy-workspace {
+  overflow: hidden;
+  padding: 0;
+}
+
+.game-details__trophy-overview {
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+.game-details__completion-history {
+  min-width: 0;
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-4);
+}
+
+.game-details__trophy-workspace > .game-trophy-disclosure {
+  margin: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
 }
 
 .game-details__section-heading {
@@ -3338,6 +3684,7 @@ textarea:focus-visible {
 }
 
 .game-details__progress-track {
+  position: relative;
   overflow: hidden;
   height: 0.55rem;
   border-radius: var(--radius-pill);
@@ -3345,10 +3692,39 @@ textarea:focus-visible {
 }
 
 .game-details__progress-track > span {
+  position: absolute;
+  inset-block: 0;
   display: block;
-  height: 100%;
+}
+
+.game-details__progress-earned {
+  left: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, #7c3aed, #a78bfa);
+}
+
+.game-details__progress-unobtainable {
+  right: 0;
+  border-left: 1px solid rgba(203, 213, 225, 0.42);
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.58) 0,
+    rgba(148, 163, 184, 0.58) 0.25rem,
+    rgba(71, 85, 105, 0.72) 0.25rem,
+    rgba(71, 85, 105, 0.72) 0.5rem
+  );
+}
+
+.game-details__trophy-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.game-details__trophy-progress {
+  min-width: 0;
 }
 
 .game-details__trophy-summary,
@@ -3380,7 +3756,14 @@ textarea:focus-visible {
   font-size: 0.66rem;
 }
 
-.game-details__trophy-counts,
+.game-details__trophy-counts {
+  display: grid;
+  grid-auto-columns: minmax(4.6rem, auto);
+  grid-auto-flow: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
 .game-details__tags {
   display: flex;
   flex-wrap: wrap;
@@ -3401,7 +3784,9 @@ textarea:focus-visible {
 .game-details__trophy-count {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: space-between;
+  gap: 0.55rem;
+  min-width: 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3421,6 +3806,24 @@ textarea:focus-visible {
   color: var(--trophy-platinum);
 }
 
+.game-details__trophy-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.game-details__availability-summary {
+  color: rgba(var(--status-unobtainable-rgb), 0.48);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+}
+
+.game-details__availability-summary::before {
+  margin-right: 0.4rem;
+  color: rgba(var(--status-unobtainable-rgb), 0.48);
+}
+
 .game-details__completion-note {
   margin: var(--space-3) 0 0;
   color: var(--color-accent-text);
@@ -3434,10 +3837,67 @@ textarea:focus-visible {
   font-size: 0.66rem;
 }
 
+.game-details__disclosure {
+  min-width: 0;
+  border-block: 1px solid var(--color-border);
+}
+
+.game-details__disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 3.25rem;
+  padding: 0.65rem var(--space-2);
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.game-details__disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-details__disclosure > summary:hover {
+  background: var(--color-surface-hover);
+}
+
+.game-details__disclosure > summary > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.game-details__disclosure > summary strong {
+  font-size: 0.82rem;
+}
+
+.game-details__disclosure > summary small {
+  color: var(--color-text-muted);
+  font-size: 0.64rem;
+}
+
+.game-details__disclosure > summary::after {
+  flex: 0 0 auto;
+  content: "+";
+  color: var(--color-accent-bright);
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.game-details__disclosure[open] > summary::after {
+  content: "−";
+}
+
+.game-details__disclosure-body {
+  padding: var(--space-3) var(--space-2);
+}
+
 .game-details__gallery {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
 }
 
 .game-details__gallery img {
@@ -3725,12 +4185,36 @@ textarea:focus-visible {
 .game-trophy-disclosure > summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-3);
   padding: var(--space-4);
   color: var(--color-text);
   cursor: pointer;
   list-style: none;
+  user-select: none;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.game-trophy-disclosure > summary:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-accent-text);
+}
+
+.game-trophy-disclosure > summary::after {
+  width: 1rem;
+  flex: 0 0 auto;
+  content: "+";
+  color: var(--color-accent-bright);
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  text-align: center;
+}
+
+.game-trophy-disclosure[open] > summary::after {
+  content: "−";
 }
 
 .game-trophy-disclosure > summary::-webkit-details-marker {
@@ -3754,6 +4238,7 @@ textarea:focus-visible {
 
 .game-trophy-disclosure__count {
   flex: 0 0 auto;
+  margin-left: auto;
   color: var(--color-accent-bright);
   font-size: 0.7rem;
   font-weight: 800;
@@ -3811,23 +4296,56 @@ textarea:focus-visible {
 
 .game-progress-history > summary {
   display: flex;
-  justify-content: space-between;
-  padding: var(--space-3) 0 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  border-radius: var(--radius-small);
+  padding: var(--space-3) var(--space-2);
   color: var(--color-text);
   cursor: pointer;
   font-size: 0.74rem;
   font-weight: 800;
+  list-style: none;
+  user-select: none;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.game-progress-history > summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-progress-history > summary:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-accent-text);
+}
+
+.game-progress-history > summary::after {
+  width: 1rem;
+  flex: 0 0 auto;
+  content: "+";
+  color: var(--color-accent-bright);
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  text-align: center;
+}
+
+.game-progress-history[open] > summary::after {
+  content: "−";
 }
 
 .game-progress-history > summary strong {
+  margin-left: auto;
   color: var(--color-text-muted);
 }
 
 .game-progress-history ol {
   display: grid;
   gap: var(--space-2);
-  margin: var(--space-3) 0 0;
-  padding: 0;
+  margin: 0;
+  padding: var(--space-3) 0 0;
   list-style: none;
 }
 
@@ -3869,49 +4387,87 @@ textarea:focus-visible {
   font-weight: 800;
 }
 
-.game-details-resources {
+.game-details-resource-bar {
   display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.game-details-resources li {
-  display: flex;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
-  border-radius: var(--radius-small);
-  padding: var(--space-3);
-  background: rgba(8, 11, 18, 0.42);
+  border-block: 1px solid var(--color-border);
+  padding-block: 0.6rem;
 }
 
-.game-details-resources li > div {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.game-details-resources strong {
-  font-size: 0.74rem;
-}
-
-.game-details-resources span {
+.game-details-resource-bar__label {
   color: var(--color-text-muted);
   font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.game-details-resources a {
-  flex: 0 0 auto;
-  color: var(--color-accent-bright);
-  font-size: 0.7rem;
-  font-weight: 800;
+.game-details-resource-bar__links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.game-details-resource-bar__link {
+  display: inline-flex;
+  max-width: 14rem;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  padding: 0.35rem 0.55rem;
+  background: transparent;
+  color: var(--color-text-soft);
+  font-size: 0.68rem;
+  font-weight: var(--font-weight-bold);
   text-decoration: none;
 }
 
-.game-details-resources a:hover {
-  color: var(--color-accent-text);
-  text-decoration: underline;
+.game-details-resource-bar__link:hover {
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.game-details-resource-bar__link svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.game-details-resource-bar__link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-details__cover-column .game-details-resource-bar {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 0.45rem;
+  border-block: 0;
+  border-top: 1px solid var(--color-border);
+  padding: 0.65rem 0 0;
+}
+
+.game-details__cover-column .game-details-resource-bar__links {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.game-details__cover-column .game-details-resource-bar__link {
+  width: 100%;
+  max-width: none;
+  justify-content: flex-start;
 }
 
 .igdb-search {
@@ -4184,6 +4740,38 @@ textarea:focus-visible {
 .status-pill--warning {
   background: rgba(251, 191, 36, 0.13);
   color: #fde68a;
+}
+
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-block: var(--space-4);
+  border-block: 1px solid var(--color-border);
+}
+
+.stats-strip > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
+}
+
+.stats-strip > div + div {
+  border-left: 1px solid var(--color-border);
+}
+
+.stats-strip strong {
+  color: var(--color-text);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.stats-strip span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 
 .psn-stats {
@@ -5081,8 +5669,21 @@ textarea:focus-visible {
     justify-self: start;
   }
 
+  .stats-strip,
   .psn-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-strip > div + div {
+    border-left: 0;
+  }
+
+  .stats-strip > div:nth-child(even) {
+    border-left: 1px solid var(--color-border);
+  }
+
+  .stats-strip > div:nth-child(n + 3) {
+    border-top: 1px solid var(--color-border);
   }
 
   .psn-preview-controls {
@@ -5102,6 +5703,19 @@ textarea:focus-visible {
 
   .psn-connection-card .status-pill {
     grid-column: auto;
+  }
+
+  .stats-strip,
+  .psn-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-strip > div:nth-child(even) {
+    border-left: 0;
+  }
+
+  .stats-strip > div:nth-child(n + 2) {
+    border-top: 1px solid var(--color-border);
   }
 
   .psn-title-row {
@@ -5292,10 +5906,25 @@ textarea:focus-visible {
   }
 
   .game-details__hero {
-    grid-template-columns: 6rem minmax(0, 1fr);
+    grid-template-columns: 6.75rem minmax(0, 1fr);
   }
 
-  .game-details__trophy-summary,
+  .game-details__quick-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .game-details-resource-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .game-details__trophy-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .game-details__trophy-counts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .game-details__time-grid {
     grid-template-columns: 1fr;
   }
@@ -5396,15 +6025,25 @@ textarea:focus-visible {
 }
 
 .dialog {
+  position: fixed;
+  inset: 0;
   width: 100%;
   max-width: none;
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   max-height: none;
+  overflow: hidden;
   margin: 0;
   border: 0;
   padding: var(--layout-page-gutter);
   background: transparent;
   color: var(--color-text);
+  overscroll-behavior: contain;
+}
+
+.dialog[open] {
+  display: grid;
+  place-items: center;
 }
 
 .dialog::backdrop {
@@ -5472,10 +6111,13 @@ textarea:focus-visible {
 }
 
 .dialog__panel {
+  display: flex;
   width: min(100%, 36rem);
-  max-height: calc(100vh - (var(--layout-page-gutter) * 2));
-  margin: max(2rem, 8vh) auto 0;
-  overflow: auto;
+  min-height: 0;
+  max-height: 100%;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-large);
   background: var(--color-surface);
@@ -5499,16 +6141,15 @@ textarea:focus-visible {
 }
 
 .dialog__header {
-  position: sticky;
   z-index: 2;
-  top: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex: 0 0 auto;
   gap: var(--space-4);
   border-bottom: 1px solid var(--color-border);
   padding: var(--space-5);
-  background: rgba(17, 22, 34, 0.97);
+  background: var(--color-surface);
 }
 
 .dialog__header h2 {
@@ -5524,8 +6165,24 @@ textarea:focus-visible {
   line-height: 1.5;
 }
 
+.dialog__header-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
+.dialog__metadata-sync--active svg {
+  animation: library-sync-spin 900ms linear infinite;
+}
+
 .dialog__body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: var(--space-5);
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 .confirmation-dialog__message {
@@ -5551,8 +6208,9 @@ textarea:focus-visible {
   .dialog--large .dialog__panel,
   .dialog--xlarge .dialog__panel {
     width: 100%;
-    min-height: 100%;
-    max-height: 100vh;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
     margin: 0;
     border: 0;
     border-radius: 0;
@@ -6271,20 +6929,19 @@ textarea:focus-visible {
   }
 
   .game-details__cover-column {
-    width: min(9rem, 46vw);
+    width: min(10rem, 50vw);
   }
 
   .game-details__metadata-grid {
     grid-template-columns: 1fr;
   }
 
-  .game-details__toolbar {
-    align-items: stretch;
-    flex-direction: column;
+  .game-details__trophy-summary {
+    grid-template-columns: 1fr;
   }
 
-  .game-details__toolbar .button {
-    width: 100%;
+  .game-details__trophy-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .game-trophy,
@@ -6362,17 +7019,35 @@ textarea:focus-visible {
 }
 
 .pinned-collection-summary__track {
-  height: 0.4rem;
+  position: relative;
   overflow: hidden;
+  height: 0.4rem;
   border-radius: var(--radius-small);
   background: var(--color-progress-track);
 }
 
 .pinned-collection-summary__track > span {
+  position: absolute;
+  inset-block: 0;
   display: block;
-  height: 100%;
+}
+
+.pinned-collection-summary__progress-earned {
+  left: 0;
   background: var(--color-accent);
   transition: width var(--transition-medium);
+}
+
+.pinned-collection-summary__progress-unobtainable {
+  right: 0;
+  border-left: 1px solid rgba(203, 213, 225, 0.42);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.58) 0,
+    rgba(148, 163, 184, 0.58) 0.25rem,
+    rgba(71, 85, 105, 0.72) 0.25rem,
+    rgba(71, 85, 105, 0.72) 0.5rem
+  );
 }
 
 .pinned-collection-summary__totals {
@@ -6403,4 +7078,321 @@ textarea:focus-visible {
     grid-template-columns: auto 1fr;
     min-width: 0;
   }
+}
+
+/* Compact game-edit workspace */
+
+.game-form {
+  display: grid;
+  gap: 0;
+}
+
+.game-form__primary {
+  display: grid;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-2) var(--space-4);
+}
+
+.game-form__choice-grid {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.7fr) minmax(24rem, 1.3fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.game-form__choice-field {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.game-form__choice-field legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  color: var(--color-text-soft);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-heavy);
+}
+
+.game-form__choice-options {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.game-form__choice-options--platform {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.game-form__choice-options--status {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.game-form__choice-option {
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.game-form__choice-option > span {
+  display: flex;
+  min-height: var(--control-height-compact);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  padding: 0.45rem 0.55rem;
+  background: var(--color-background-raised);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.game-form__choice-option:hover > span {
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.game-form__choice-option input:focus-visible + span {
+  outline: 2px solid var(--color-accent-bright);
+  outline-offset: 2px;
+}
+
+.game-form__choice-option input:checked + span {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.game-form__choice-option input:disabled + span {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.game-form__choice-option--not-started input:checked + span {
+  border-color: rgba(var(--status-not-started-rgb), 0.65);
+  background: var(--status-not-started-background);
+  color: var(--status-not-started-text);
+}
+
+.game-form__choice-option--playing input:checked + span {
+  border-color: rgba(var(--status-playing-rgb), 0.65);
+  background: var(--status-playing-background);
+  color: var(--status-playing-text);
+}
+
+.game-form__choice-option--on-hold input:checked + span {
+  border-color: rgba(var(--status-on-hold-rgb), 0.65);
+  background: var(--status-on-hold-background);
+  color: var(--status-on-hold-text);
+}
+
+.game-form__choice-option--waiting input:checked + span {
+  border-color: rgba(var(--status-waiting-rgb), 0.65);
+  background: var(--status-waiting-background);
+  color: var(--status-waiting-text);
+}
+
+.game-form__choice-option--completed input:checked + span {
+  border-color: rgba(var(--status-completed-rgb), 0.65);
+  background: var(--status-completed-background);
+  color: var(--status-completed-text);
+}
+
+.game-form__choice-option--unreleased input:checked + span {
+  border-color: rgba(var(--status-unreleased-rgb), 0.65);
+  background: var(--status-unreleased-background);
+  color: var(--status-unreleased-text);
+}
+
+.game-form__disclosure,
+.resource-editor,
+.trophy-availability {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.game-form__disclosure > summary,
+.resource-editor > summary,
+.trophy-availability > summary {
+  display: flex;
+  min-height: 3.5rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2);
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.game-form__disclosure > summary::-webkit-details-marker,
+.resource-editor > summary::-webkit-details-marker,
+.trophy-availability > summary::-webkit-details-marker {
+  display: none;
+}
+
+.game-form__disclosure > summary:hover,
+.resource-editor > summary:hover,
+.trophy-availability > summary:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-accent-text);
+}
+
+.game-form__disclosure > summary > span:first-child,
+.resource-editor > summary > span:first-child,
+.trophy-availability > summary > span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.game-form__disclosure > summary strong,
+.resource-editor > summary strong,
+.trophy-availability > summary strong {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+}
+
+.trophy-availability > summary {
+  font-size: inherit;
+  font-weight: var(--font-weight-normal);
+}
+
+.game-form__disclosure > summary small,
+.resource-editor > summary small,
+.trophy-availability > summary small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-normal);
+}
+
+.game-form__disclosure-count,
+.resource-editor__count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--color-accent-bright);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-heavy);
+}
+
+.game-form__disclosure > summary::after,
+.resource-editor > summary::after,
+.trophy-availability > summary::after {
+  width: 1rem;
+  flex: 0 0 auto;
+  content: "+";
+  color: var(--color-accent-bright);
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  text-align: center;
+}
+
+.game-form__disclosure[open] > summary::after,
+.resource-editor[open] > summary::after,
+.trophy-availability[open] > summary::after {
+  content: "−";
+}
+
+.trophy-availability > summary::after {
+  margin-left: auto;
+}
+
+.game-form__collections {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: var(--space-3) var(--space-2);
+  background: transparent;
+}
+
+.resource-editor__body {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-2);
+}
+
+.game-form__notes {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: 0 var(--space-2);
+  background: transparent;
+}
+
+.game-form__notes-heading {
+  min-height: 3.5rem;
+}
+
+.game-form__notes-input {
+  margin: 0 0 var(--space-3);
+  border-radius: var(--radius-medium);
+}
+
+.game-form__notes-preview {
+  margin: 0 0 var(--space-3);
+}
+
+.game-form > .form-actions {
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 760px) {
+  .game-form__choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .game-form__choice-options--status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.game-row.game-row--unobtainable {
+  border-color: rgba(var(--status-unobtainable-rgb), 0.5);
+  background: var(--status-unobtainable-background);
+  box-shadow: inset 3px 0 0 var(--status-unobtainable-color);
+}
+
+.game-row.game-row--unobtainable:hover,
+.game-row.game-row--unobtainable:has(.game-row__details-surface:focus-visible) {
+  border-color: rgba(var(--status-unobtainable-rgb), 0.75);
+  background: var(--status-unobtainable-background);
+}
+
+.game-row--unobtainable .game-row__progress-track {
+  box-shadow: 0 0 0 1px rgba(var(--status-unobtainable-rgb), 0.65);
+}
+
+.game-row--unobtainable .game-row__progress-earned {
+  background: var(--status-unobtainable-color);
+}
+
+.game-row--unobtainable.game-row--trophies-complete .game-row__completion-text {
+  color: var(--trophy-gold);
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { calculateTrophyPointSummary } from "../playstation/playStationTrophyPoints.js";
+import { calculateLibraryTrophyAvailability } from "./libraryTrophyAvailability.js";
 import {
   PlayStationTrophyIntelligenceService,
   type PlayStationGameTrophyIntelligence,
@@ -10,6 +11,7 @@ import {
   type CreateLibraryGameInput,
   type LibraryGame,
   type LibraryGameWithArtwork,
+  type LibraryTrophyCounts,
   type PlayStationPlatform,
   type PlayStatus,
   type UpdateLibraryGameInput,
@@ -43,6 +45,21 @@ interface LibraryGameRow {
   artwork_role: "cover" | "icon" | "background" | null;
 }
 
+interface UnobtainableTrophyCountRow {
+  game_id: string;
+  bronze: number;
+  silver: number;
+  gold: number;
+  platinum: number;
+}
+
+const noUnobtainableTrophies: LibraryTrophyCounts = {
+  bronze: 0,
+  silver: 0,
+  gold: 0,
+  platinum: 0,
+};
+
 interface PriorityRankRow {
   priority_rank: number | null;
 }
@@ -54,6 +71,7 @@ interface GameIdRow {
 function mapLibraryGame(
   row: LibraryGameRow,
   intelligence: PlayStationGameTrophyIntelligence | null,
+  unobtainableTrophies: LibraryTrophyCounts,
 ): LibraryGameWithArtwork {
   const earnedTrophies = {
     bronze: row.bronze_earned ?? 0,
@@ -71,6 +89,11 @@ function mapLibraryGame(
     earnedTrophies,
     totalTrophies,
   );
+  const availability = calculateLibraryTrophyAvailability(
+    earnedTrophies,
+    totalTrophies,
+    unobtainableTrophies,
+  );
   const trophySummary =
     row.captured_at === null
       ? null
@@ -83,6 +106,7 @@ function mapLibraryGame(
             total: pointSummary.totalPoints,
             remaining: pointSummary.remainingPoints,
           },
+          availability,
           timing: intelligence?.timing ?? null,
           hasPlatinum: row.has_platinum === 1,
           platinumEarned: (row.platinum_earned ?? 0) > 0,
@@ -132,6 +156,50 @@ export class LibraryGameRepository {
   constructor(private readonly database: DatabaseSync) {
     this.trophyIntelligence = new PlayStationTrophyIntelligenceService(
       database,
+    );
+  }
+
+  private findUnobtainableTrophyCounts(): ReadonlyMap<
+    string,
+    LibraryTrophyCounts
+  > {
+    const rows = this.database
+      .prepare(
+        `
+        SELECT
+          trophies.game_id,
+          SUM(
+            CASE WHEN trophies.trophy_type = 'bronze' THEN 1 ELSE 0 END
+          ) AS bronze,
+          SUM(
+            CASE WHEN trophies.trophy_type = 'silver' THEN 1 ELSE 0 END
+          ) AS silver,
+          SUM(
+            CASE WHEN trophies.trophy_type = 'gold' THEN 1 ELSE 0 END
+          ) AS gold,
+          SUM(
+            CASE WHEN trophies.trophy_type = 'platinum' THEN 1 ELSE 0 END
+          ) AS platinum
+        FROM playstation_trophies trophies
+        INNER JOIN playstation_trophy_availability_overrides availability
+          ON availability.game_id = trophies.game_id
+          AND availability.trophy_id = trophies.trophy_id
+        WHERE trophies.is_earned = 0
+        GROUP BY trophies.game_id
+      `,
+      )
+      .all() as unknown as UnobtainableTrophyCountRow[];
+
+    return new Map(
+      rows.map((row) => [
+        row.game_id,
+        {
+          bronze: row.bronze,
+          silver: row.silver,
+          gold: row.gold,
+          platinum: row.platinum,
+        },
+      ]),
     );
   }
 
@@ -226,9 +294,14 @@ export class LibraryGameRepository {
       .all(includeHidden ? 1 : 0) as unknown as LibraryGameRow[];
 
     const intelligenceByGameId = this.trophyIntelligence.findAll();
+    const unobtainableTrophiesByGameId = this.findUnobtainableTrophyCounts();
 
     return rows.map((row) =>
-      mapLibraryGame(row, intelligenceByGameId.get(row.id) ?? null),
+      mapLibraryGame(
+        row,
+        intelligenceByGameId.get(row.id) ?? null,
+        unobtainableTrophiesByGameId.get(row.id) ?? noUnobtainableTrophies,
+      ),
     );
   }
 
@@ -315,9 +388,18 @@ export class LibraryGameRepository {
       )
       .get(gameId) as unknown as LibraryGameRow | undefined;
 
-    return row === undefined
-      ? null
-      : mapLibraryGame(row, this.trophyIntelligence.findByGameId(gameId));
+    if (row === undefined) {
+      return null;
+    }
+
+    const unobtainableTrophies =
+      this.findUnobtainableTrophyCounts().get(gameId) ?? noUnobtainableTrophies;
+
+    return mapLibraryGame(
+      row,
+      this.trophyIntelligence.findByGameId(gameId),
+      unobtainableTrophies,
+    );
   }
 
   create(input: CreateLibraryGameInput): LibraryGameWithArtwork {

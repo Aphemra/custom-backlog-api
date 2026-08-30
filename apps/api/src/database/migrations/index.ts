@@ -14,6 +14,7 @@ import { gameResourcesMigration } from "./012GameResources.js";
 import { hiddenGamesSavedViewMigration } from "./013HiddenGamesSavedView.js";
 import { pinnedCollectionMigration } from "./014PinnedCollection.js";
 import { playStationCredentialSettingsMigration } from "./015PlayStationCredentialSettings.js";
+import { derivedUnobtainableStateMigration } from "./016DerivedUnobtainableState.js";
 
 export const migrations: readonly Migration[] = [
   initialSchemaMigration,
@@ -31,4 +32,5 @@ export const migrations: readonly Migration[] = [
   hiddenGamesSavedViewMigration,
   pinnedCollectionMigration,
   playStationCredentialSettingsMigration,
+  derivedUnobtainableStateMigration,
 ];

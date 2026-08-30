@@ -4,6 +4,7 @@ import type {
   PlayStationPlatform,
   PlayStatus,
 } from "../library/libraryGameTypes.js";
+import { calculateLibraryTrophyAvailability } from "../library/libraryTrophyAvailability.js";
 import { calculateTrophyPointSummary } from "../playstation/playStationTrophyPoints.js";
 import type { PlayStationTrophyCounts } from "../playstation/playStationTypes.js";
 import type {
@@ -33,6 +34,10 @@ interface CollectionRow {
   silver_total: number;
   gold_total: number;
   platinum_total: number;
+  unobtainable_bronze: number;
+  unobtainable_silver: number;
+  unobtainable_gold: number;
+  unobtainable_platinum: number;
   time_game_count: number;
   time_hastily_game_count: number;
   time_normally_game_count: number;
@@ -110,6 +115,14 @@ const COLLECTION_SELECT = `
     COALESCE(SUM(ts.silver_total), 0) AS silver_total,
     COALESCE(SUM(ts.gold_total), 0) AS gold_total,
     COALESCE(SUM(ts.platinum_total), 0) AS platinum_total,
+    COALESCE(SUM(trophy_availability.bronze), 0)
+      AS unobtainable_bronze,
+    COALESCE(SUM(trophy_availability.silver), 0)
+      AS unobtainable_silver,
+    COALESCE(SUM(trophy_availability.gold), 0)
+      AS unobtainable_gold,
+    COALESCE(SUM(trophy_availability.platinum), 0)
+      AS unobtainable_platinum,
     COALESCE(SUM(
       CASE
         WHEN
@@ -158,6 +171,29 @@ const COLLECTION_SELECT = `
     ORDER BY latest.captured_at DESC, latest.id DESC
     LIMIT 1
   )
+  LEFT JOIN (
+    SELECT
+      trophies.game_id,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'bronze' THEN 1 ELSE 0 END
+      ) AS bronze,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'silver' THEN 1 ELSE 0 END
+      ) AS silver,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'gold' THEN 1 ELSE 0 END
+      ) AS gold,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'platinum' THEN 1 ELSE 0 END
+      ) AS platinum
+    FROM playstation_trophies trophies
+    INNER JOIN playstation_trophy_availability_overrides availability
+      ON availability.game_id = trophies.game_id
+      AND availability.trophy_id = trophies.trophy_id
+    WHERE trophies.is_earned = 0
+    GROUP BY trophies.game_id
+  ) trophy_availability
+    ON trophy_availability.game_id = lg.id
   LEFT JOIN game_metadata_links gml ON gml.game_id = lg.id
   LEFT JOIN external_game_metadata metadata ON
     metadata.id = gml.metadata_id AND
@@ -183,6 +219,17 @@ function mapCollection(row: CollectionRow): CollectionSummary {
     earnedTrophies,
     totalTrophies,
   );
+  const unobtainableTrophies: PlayStationTrophyCounts = {
+    bronze: row.unobtainable_bronze,
+    silver: row.unobtainable_silver,
+    gold: row.unobtainable_gold,
+    platinum: row.unobtainable_platinum,
+  };
+  const availability = calculateLibraryTrophyAvailability(
+    earnedTrophies,
+    totalTrophies,
+    unobtainableTrophies,
+  );
 
   return {
     id: row.id,
@@ -206,6 +253,7 @@ function mapCollection(row: CollectionRow): CollectionSummary {
               total: pointSummary.totalPoints,
               remaining: pointSummary.remainingPoints,
             },
+            availability,
           },
     timeEstimateSummary:
       row.time_game_count === 0

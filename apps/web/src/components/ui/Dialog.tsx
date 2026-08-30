@@ -16,6 +16,7 @@ interface DialogProps {
   readonly open: boolean;
   readonly title: string;
   readonly description?: string;
+  readonly headerActions?: ReactNode;
   readonly children: ReactNode;
   readonly size?: DialogSize;
   readonly dismissible?: boolean;
@@ -27,6 +28,7 @@ type OpenDialogProps = Omit<DialogProps, "open">;
 function OpenDialog({
   title,
   description,
+  headerActions,
   children,
   size = "medium",
   dismissible = true,
@@ -41,12 +43,14 @@ function OpenDialog({
   useEffect(() => {
     const dialog = dialogRef.current;
     const previouslyFocusedElement = document.activeElement;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
     const previousBodyOverflow = document.body.style.overflow;
 
     if (dialog === null) {
       return;
     }
 
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
 
     if (!dialog.open) {
@@ -67,6 +71,7 @@ function OpenDialog({
         window.clearTimeout(closeTimerRef.current);
       }
 
+      document.documentElement.style.overflow = previousDocumentOverflow;
       document.body.style.overflow = previousBodyOverflow;
 
       if (dialog.open) {
@@ -133,15 +138,21 @@ function OpenDialog({
             )}
           </div>
 
-          {dismissible ? (
-            <IconButton
-              label={`Close ${title}`}
-              icon={<CloseIcon />}
-              tooltipPlacement="bottom"
-              tooltipAlignment="end"
-              onClick={requestClose}
-            />
-          ) : null}
+          {headerActions === undefined && !dismissible ? null : (
+            <div className="dialog__header-actions">
+              {headerActions}
+
+              {dismissible ? (
+                <IconButton
+                  label={`Close ${title}`}
+                  icon={<CloseIcon />}
+                  tooltipPlacement="bottom"
+                  tooltipAlignment="end"
+                  onClick={requestClose}
+                />
+              ) : null}
+            </div>
+          )}
         </header>
 
         <div className="dialog__body">{children}</div>

@@ -164,7 +164,13 @@ function actionNotice(alert: TrophyAlert, status: TrophyAlertStatus): string {
   return `${alert.game.title} was reopened.`;
 }
 
-export function TrophyAlertsPage() {
+interface TrophyAlertsPageProps {
+  readonly onUnreadCountChanged: (count: number) => void;
+}
+
+export function TrophyAlertsPage({
+  onUnreadCountChanged,
+}: TrophyAlertsPageProps) {
   const [alerts, setAlerts] = useState<readonly TrophyAlert[]>([]);
   const [counts, setCounts] = useState<TrophyAlertCounts>(emptyCounts);
   const [activeView, setActiveView] = useState<AlertView>("unread");
@@ -195,6 +201,7 @@ export function TrophyAlertsPage() {
 
         setAlerts(loadedAlerts);
         setCounts(loadedCounts);
+        onUnreadCountChanged(loadedCounts.unread);
         setLoadState("ready");
       } catch (error) {
         if (!abortController.signal.aborted) {
@@ -207,7 +214,7 @@ export function TrophyAlertsPage() {
     void loadPage();
 
     return () => abortController.abort();
-  }, [activeView]);
+  }, [activeView, onUnreadCountChanged]);
 
   async function refreshAlerts(): Promise<void> {
     const [loadedAlerts, loadedCounts] = await Promise.all([
@@ -217,6 +224,7 @@ export function TrophyAlertsPage() {
 
     setAlerts(loadedAlerts);
     setCounts(loadedCounts);
+    onUnreadCountChanged(loadedCounts.unread);
   }
 
   async function changeStatus(

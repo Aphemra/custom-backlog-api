@@ -258,7 +258,7 @@ export function GameTrophyList({
 
   return (
     <details
-      className="game-details__section game-trophy-disclosure"
+      className="game-trophy-disclosure"
       open={expanded}
       onToggle={(event) => setExpanded(event.currentTarget.open)}
     >

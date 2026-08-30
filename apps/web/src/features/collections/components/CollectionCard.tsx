@@ -63,6 +63,27 @@ export function CollectionCard({
   const totalTrophyCount =
     trophySummary === null ? 0 : totalTrophies(trophySummary.totalTrophies);
 
+  const attainableTrophyCount =
+    trophySummary === null
+      ? 0
+      : totalTrophies(trophySummary.availability.attainableTrophies);
+
+  const unobtainableTrophyCount =
+    trophySummary === null
+      ? 0
+      : totalTrophies(trophySummary.availability.unobtainableTrophies);
+
+  const hasUnobtainableTrophies = unobtainableTrophyCount > 0;
+
+  const attainablePointsRemaining =
+    trophySummary === null
+      ? 0
+      : Math.max(
+          0,
+          trophySummary.availability.attainablePoints -
+            trophySummary.points.earned,
+        );
+
   const hasCompletionistEstimate =
     completionistEstimate !== null && completionistEstimate.gameCount > 0;
 
@@ -109,6 +130,57 @@ export function CollectionCard({
           )}
         </div>
 
+        {trophySummary === null ? null : (
+          <div className="collection-card__progress">
+            <div className="collection-card__progress-heading">
+              <strong>
+                {trophySummary.availability.attainableProgressPercent}%
+              </strong>
+
+              <span
+                className={
+                  hasUnobtainableTrophies
+                    ? "collection-card__availability-summary"
+                    : undefined
+                }
+              >
+                {trophySummary.availability.isMaxAttainable
+                  ? "Maximum attainable"
+                  : hasUnobtainableTrophies
+                    ? `${formatNumber(unobtainableTrophyCount)} unobtainable`
+                    : "Combined trophy progress"}
+              </span>
+            </div>
+
+            <div
+              className="collection-card__progress-track"
+              role="progressbar"
+              aria-label={`${collection.name} attainable trophy progress`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={
+                trophySummary.availability.attainableProgressPercent
+              }
+            >
+              <span
+                className="collection-card__progress-earned"
+                style={{
+                  width: `${trophySummary.availability.earnedProgressSharePercent}%`,
+                }}
+              />
+
+              {hasUnobtainableTrophies ? (
+                <span
+                  className="collection-card__progress-unobtainable"
+                  style={{
+                    width: `${trophySummary.availability.unobtainableProgressSharePercent}%`,
+                  }}
+                />
+              ) : null}
+            </div>
+          </div>
+        )}
+
         <div className="collection-card__metrics">
           {trophySummary === null ? (
             <div className="collection-card__metric">
@@ -123,7 +195,10 @@ export function CollectionCard({
 
                   <span>
                     {formatNumber(earnedTrophyCount)} /{" "}
-                    {formatNumber(totalTrophyCount)}
+                    {formatNumber(attainableTrophyCount)}
+                    {hasUnobtainableTrophies
+                      ? ` (${formatNumber(totalTrophyCount)})`
+                      : ""}
                   </span>
                 </strong>
 
@@ -140,9 +215,13 @@ export function CollectionCard({
               </div>
 
               <div className="collection-card__metric">
-                <strong>{formatNumber(trophySummary.points.remaining)}</strong>
+                <strong>{formatNumber(attainablePointsRemaining)}</strong>
 
-                <span>Points remaining</span>
+                <span>
+                  {hasUnobtainableTrophies
+                    ? "Attainable points remaining"
+                    : "Points remaining"}
+                </span>
               </div>
             </>
           )}

@@ -238,6 +238,22 @@ test("replaces stale trophy definitions and reconstructs them locally", () => {
       () => currentTime,
     );
 
+    const readLibraryUnobtainable = (): number => {
+      const row = database
+        .prepare(
+          `
+            SELECT is_unobtainable
+            FROM library_games
+            WHERE id = ?
+          `,
+        )
+        .get("stored-detail-game") as unknown as {
+        is_unobtainable: number;
+      };
+
+      return row.is_unobtainable;
+    };
+
     const original = repository.storeFull(
       "stored-detail-game",
       "target-account",
@@ -266,6 +282,7 @@ test("replaces stale trophy definitions and reconstructs them locally", () => {
       markedUnobtainable?.groups[0]?.trophies[0]?.unobtainableReason,
       "Online servers closed.",
     );
+    assert.equal(readLibraryUnobtainable(), 1);
 
     currentTime = SECOND_SYNC;
 
@@ -303,6 +320,7 @@ test("replaces stale trophy definitions and reconstructs them locally", () => {
     );
 
     assert.equal(availableAgain?.groups[0]?.trophies[0]?.unobtainable, false);
+    assert.equal(readLibraryUnobtainable(), 0);
 
     const staleGroupCount = database
       .prepare(

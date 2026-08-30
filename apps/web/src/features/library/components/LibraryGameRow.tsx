@@ -74,15 +74,43 @@ function completionStateLabel(
   }
 
   if (summary.is100Percent && summary.platinumEarned) {
-    return "Platinum earned · 100% complete";
+    return "Platinum earned\n100% complete";
   }
 
   if (summary.is100Percent) {
     return "100% complete";
   }
 
+  if (summary.availability.isMaxAttainable) {
+    return summary.platinumEarned
+      ? "Platinum earned\nMaximum attainable completion reached"
+      : "Maximum attainable completion reached";
+  }
+
   if (summary.platinumEarned) {
-    return "Platinum earned · Not 100% complete";
+    return "Platinum earned\nNot 100% complete";
+  }
+
+  return null;
+}
+
+function completionDisplayLabel(
+  summary: LibraryTrophySummary | null,
+): string | null {
+  if (summary === null) {
+    return null;
+  }
+
+  if (summary.is100Percent) {
+    return "100%";
+  }
+
+  if (summary.availability.isMaxAttainable) {
+    return "Max attainable";
+  }
+
+  if (summary.platinumEarned) {
+    return "Platinum";
   }
 
   return null;
@@ -167,10 +195,40 @@ export function LibraryGameRow({
   const earnedTrophyCount =
     trophySummary === null ? 0 : totalTrophies(trophySummary.earnedTrophies);
 
-  const availableTrophyCount =
+  const totalTrophyCount =
     trophySummary === null ? 0 : totalTrophies(trophySummary.totalTrophies);
 
+  const attainableTrophyCount =
+    trophySummary === null
+      ? 0
+      : totalTrophies(trophySummary.availability.attainableTrophies);
+
+  const unobtainableTrophyCount =
+    trophySummary === null
+      ? 0
+      : totalTrophies(trophySummary.availability.unobtainableTrophies);
+
+  const hasUnobtainableTrophies = unobtainableTrophyCount > 0;
+
+  const displayedProgressPercent =
+    trophySummary === null
+      ? 0
+      : hasUnobtainableTrophies
+        ? trophySummary.availability.attainableProgressPercent
+        : trophySummary.progressPercent;
+
+  const earnedProgressSharePercent =
+    trophySummary === null
+      ? 0
+      : hasUnobtainableTrophies
+        ? trophySummary.availability.earnedProgressSharePercent
+        : trophySummary.progressPercent;
+
+  const unobtainableProgressSharePercent =
+    trophySummary?.availability.unobtainableProgressSharePercent ?? 0;
+
   const completionState = completionStateLabel(trophySummary);
+  const completionDisplay = completionDisplayLabel(trophySummary);
   const completionTiming = completionTimingLabel(trophySummary);
   const compactCompletionTiming = compactCompletionTimingLabel(trophySummary);
 
@@ -184,7 +242,7 @@ export function LibraryGameRow({
         game.playStatus,
       )} ${trophyStateClassName(trophySummary)}${
         isHidden ? " game-row--hidden" : ""
-      }`}
+      }${game.isUnobtainable ? " game-row--unobtainable" : ""}`}
     >
       <button
         className="game-row__details-surface"
@@ -262,21 +320,49 @@ export function LibraryGameRow({
         ) : (
           <>
             <div className="game-row__progress-copy">
-              <strong>{trophySummary.progressPercent}%</strong>
-              <span>
-                {earnedTrophyCount} / {availableTrophyCount} trophies
+              <strong>{displayedProgressPercent}%</strong>
+
+              <span
+                title={
+                  hasUnobtainableTrophies
+                    ? `${earnedTrophyCount} earned, ${attainableTrophyCount} attainable, ${totalTrophyCount} total trophies`
+                    : `${earnedTrophyCount} earned of ${totalTrophyCount} total trophies`
+                }
+              >
+                {earnedTrophyCount} /{" "}
+                {hasUnobtainableTrophies
+                  ? attainableTrophyCount
+                  : totalTrophyCount}
+                {hasUnobtainableTrophies ? ` (${totalTrophyCount})` : ""}{" "}
+                trophies
               </span>
             </div>
 
             <div
               className="game-row__progress-track"
               role="progressbar"
-              aria-label={`${game.title} trophy completion`}
+              aria-label={
+                hasUnobtainableTrophies
+                  ? `${game.title} attainable trophy completion`
+                  : `${game.title} trophy completion`
+              }
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={trophySummary.progressPercent}
+              aria-valuenow={displayedProgressPercent}
             >
-              <span style={{ width: `${trophySummary.progressPercent}%` }} />
+              <span
+                className="game-row__progress-earned"
+                style={{ width: `${earnedProgressSharePercent}%` }}
+              />
+
+              {hasUnobtainableTrophies ? (
+                <span
+                  className="game-row__progress-unobtainable"
+                  style={{
+                    width: `${unobtainableProgressSharePercent}%`,
+                  }}
+                />
+              ) : null}
             </div>
 
             <div
@@ -350,15 +436,30 @@ export function LibraryGameRow({
             </div>
 
             <div className="game-row__metadata-rail">
-              <div className="game-row__points">
+              <div
+                className="game-row__points"
+                title={
+                  hasUnobtainableTrophies
+                    ? `${trophySummary.points.earned.toLocaleString()} earned, ${trophySummary.availability.attainablePoints.toLocaleString()} attainable, ${trophySummary.points.total.toLocaleString()} total points`
+                    : `${trophySummary.points.earned.toLocaleString()} earned of ${trophySummary.points.total.toLocaleString()} total points`
+                }
+              >
                 <strong>{trophySummary.points.earned.toLocaleString()}</strong>
+
                 <span>
                   {" "}
-                  / {trophySummary.points.total.toLocaleString()} points
+                  /{" "}
+                  {hasUnobtainableTrophies
+                    ? trophySummary.availability.attainablePoints.toLocaleString()
+                    : trophySummary.points.total.toLocaleString()}
+                  {hasUnobtainableTrophies
+                    ? ` (${trophySummary.points.total.toLocaleString()})`
+                    : ""}{" "}
+                  points
                 </span>
               </div>
 
-              {completionState === null ? null : (
+              {completionState === null || completionDisplay === null ? null : (
                 <Tooltip
                   content={completionTooltip}
                   placement="top"
@@ -373,12 +474,13 @@ export function LibraryGameRow({
                       className="game-row__completion-icon"
                       aria-hidden="true"
                     >
-                      {trophySummary.is100Percent ? "✓ " : "◆ "}
+                      {trophySummary.is100Percent ||
+                      trophySummary.availability.isMaxAttainable
+                        ? "✓ "
+                        : "◆ "}
                     </span>
 
-                    <span>
-                      {trophySummary.is100Percent ? "100%" : "Platinum"}
-                    </span>
+                    <span>{completionDisplay}</span>
 
                     {compactCompletionTiming === null ? null : (
                       <span> in {compactCompletionTiming}</span>

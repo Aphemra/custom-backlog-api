@@ -91,7 +91,11 @@ function isCompleteManualOrderView(view: SavedView): boolean {
   );
 }
 
-export function LibraryPage() {
+interface LibraryPageProps {
+  readonly onAlertsChanged: () => void | Promise<void>;
+}
+
+export function LibraryPage({ onAlertsChanged }: LibraryPageProps) {
   const { showToast } = useToast();
   const { refreshProfileProgression } = useProfileProgression();
 
@@ -217,10 +221,35 @@ export function LibraryPage() {
       ? 0
       : countTrophies(pinnedTrophySummary.totalTrophies);
 
-  const pinnedProgressPercent =
-    pinnedTotalTrophies === 0
+  const pinnedAttainableTrophies =
+    pinnedTrophySummary === null
       ? 0
-      : Math.round((pinnedEarnedTrophies / pinnedTotalTrophies) * 100);
+      : countTrophies(pinnedTrophySummary.availability.attainableTrophies);
+
+  const pinnedUnobtainableTrophies =
+    pinnedTrophySummary === null
+      ? 0
+      : countTrophies(pinnedTrophySummary.availability.unobtainableTrophies);
+
+  const pinnedHasUnobtainableTrophies = pinnedUnobtainableTrophies > 0;
+
+  const pinnedProgressPercent =
+    pinnedTrophySummary?.availability.attainableProgressPercent ?? 0;
+
+  const pinnedEarnedProgressShare =
+    pinnedTrophySummary?.availability.earnedProgressSharePercent ?? 0;
+
+  const pinnedUnobtainableProgressShare =
+    pinnedTrophySummary?.availability.unobtainableProgressSharePercent ?? 0;
+
+  const pinnedAttainablePointsRemaining =
+    pinnedTrophySummary === null
+      ? 0
+      : Math.max(
+          0,
+          pinnedTrophySummary.availability.attainablePoints -
+            pinnedTrophySummary.points.earned,
+        );
 
   const refreshGames = useCallback(async (): Promise<void> => {
     setGames(await libraryApi.list());
@@ -408,10 +437,17 @@ export function LibraryPage() {
 
     handledSyncFinishedAtRef.current = finishedAt;
 
-    void refreshGames().catch((error: unknown) => {
-      setErrorMessage(getErrorMessage(error));
-    });
-  }, [refreshGames, syncProgress?.finishedAt, syncProgress?.status]);
+    void Promise.all([refreshGames(), onAlertsChanged()]).catch(
+      (error: unknown) => {
+        setErrorMessage(getErrorMessage(error));
+      },
+    );
+  }, [
+    onAlertsChanged,
+    refreshGames,
+    syncProgress?.finishedAt,
+    syncProgress?.status,
+  ]);
 
   const orderedVisibleGames = useMemo(
     () => games.filter((game) => game.hiddenAt === null),
@@ -508,7 +544,11 @@ export function LibraryPage() {
 
       setLastProgressSync(result);
 
-      await Promise.all([refreshGames(), refreshProfileProgression()]);
+      await Promise.all([
+        refreshGames(),
+        refreshProfileProgression(),
+        onAlertsChanged(),
+      ]);
     } catch (error) {
       if (
         error instanceof ApiError &&
@@ -848,18 +888,33 @@ export function LibraryPage() {
               <span>
                 {pinnedTrophySummary?.completedGameCount ?? 0} of{" "}
                 {pinnedCollection.gameCount} games at 100%
+                {pinnedHasUnobtainableTrophies
+                  ? ` · ${pinnedUnobtainableTrophies.toLocaleString()} unobtainable`
+                  : ""}
               </span>
             </div>
 
             <div
               className="pinned-collection-summary__track"
               role="progressbar"
-              aria-label={`${pinnedCollection.name} trophy progress`}
+              aria-label={`${pinnedCollection.name} attainable trophy progress`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={pinnedProgressPercent}
             >
-              <span style={{ width: `${pinnedProgressPercent}%` }} />
+              <span
+                className="pinned-collection-summary__progress-earned"
+                style={{ width: `${pinnedEarnedProgressShare}%` }}
+              />
+
+              {pinnedHasUnobtainableTrophies ? (
+                <span
+                  className="pinned-collection-summary__progress-unobtainable"
+                  style={{
+                    width: `${pinnedUnobtainableProgressShare}%`,
+                  }}
+                />
+              ) : null}
             </div>
           </div>
 
@@ -870,16 +925,23 @@ export function LibraryPage() {
               <>
                 <strong>
                   {pinnedEarnedTrophies.toLocaleString()} /{" "}
-                  {pinnedTotalTrophies.toLocaleString()}
+                  {pinnedAttainableTrophies.toLocaleString()}
+                  {pinnedHasUnobtainableTrophies
+                    ? ` (${pinnedTotalTrophies.toLocaleString()})`
+                    : ""}
                 </strong>
 
                 <span>Trophies earned</span>
 
                 <strong>
-                  {pinnedTrophySummary.points.remaining.toLocaleString()}
+                  {pinnedAttainablePointsRemaining.toLocaleString()}
                 </strong>
 
-                <span>Points remaining</span>
+                <span>
+                  {pinnedHasUnobtainableTrophies
+                    ? "Attainable points remaining"
+                    : "Points remaining"}
+                </span>
               </>
             )}
           </div>
@@ -1103,6 +1165,7 @@ export function LibraryPage() {
             initialCollectionIds={editingGame.viewData.collectionIds}
             onSubmit={handleUpdate}
             onCancel={closeForm}
+            onAvailabilityChanged={refreshGames}
           />
         )}
       </Dialog>

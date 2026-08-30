@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useToast } from "../../../components/toast/useToast";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { ExternalLinkIcon } from "../../../components/ui/icons";
+import { AccountLoginIcon, KeyIcon } from "../../../components/ui/icons";
 import { Tooltip } from "../../../components/ui/Tooltip";
 import {
   deleteEntireBacklogConfirmation,
@@ -446,26 +446,28 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
                   <span>Reader account NPSSO</span>
 
                   <div className="settings-secret-input-row">
-                    <input
-                      type={npssoFocused ? "text" : "password"}
-                      value={npssoDraft}
-                      disabled={isSaving}
-                      autoComplete="new-password"
-                      spellCheck={false}
-                      placeholder={
-                        playStationSettings?.hasNpsso === true &&
-                        !removeStoredNpsso
-                          ? "••••••••••••••••"
-                          : "Paste the 64-character NPSSO"
-                      }
-                      aria-describedby="npsso-field-description"
-                      onFocus={() => setNpssoFocused(true)}
-                      onBlur={() => setNpssoFocused(false)}
-                      onChange={(event) => {
-                        setNpssoDraft(event.target.value);
-                        setRemoveStoredNpsso(false);
-                      }}
-                    />
+                    <div className="settings-secret-input-control">
+                      <input
+                        type={npssoFocused ? "text" : "password"}
+                        value={npssoDraft}
+                        disabled={isSaving}
+                        autoComplete="new-password"
+                        spellCheck={false}
+                        placeholder={
+                          playStationSettings?.hasNpsso === true &&
+                          !removeStoredNpsso
+                            ? "••••••••••••••••"
+                            : "Paste the 64-character NPSSO"
+                        }
+                        aria-describedby="npsso-field-description"
+                        onFocus={() => setNpssoFocused(true)}
+                        onBlur={() => setNpssoFocused(false)}
+                        onChange={(event) => {
+                          setNpssoDraft(event.target.value);
+                          setRemoveStoredNpsso(false);
+                        }}
+                      />
+                    </div>
 
                     <Tooltip
                       content="Open PlayStation sign-in"
@@ -473,13 +475,13 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
                       alignment="center"
                     >
                       <a
-                        className="icon-button settings-external-link"
+                        className="icon-button settings-external-link settings-external-link--account"
                         href="https://www.playstation.com/"
                         target="_blank"
                         rel="noreferrer"
                         aria-label="Open PlayStation sign-in"
                       >
-                        <ExternalLinkIcon />
+                        <AccountLoginIcon />
                       </a>
                     </Tooltip>
 
@@ -489,13 +491,13 @@ export function SettingsPage({ onBacklogDeleted }: SettingsPageProps) {
                       alignment="end"
                     >
                       <a
-                        className="icon-button settings-external-link"
+                        className="icon-button settings-external-link settings-external-link--key"
                         href="https://ca.account.sony.com/api/v1/ssocookie"
                         target="_blank"
                         rel="noreferrer"
                         aria-label="Open the NPSSO cookie page"
                       >
-                        <ExternalLinkIcon />
+                        <KeyIcon />
                       </a>
                     </Tooltip>
                   </div>

@@ -87,6 +87,28 @@ export function ExternalLinkIcon() {
   );
 }
 
+export function AccountLoginIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="8" cy="8" r="3" />
+      <path d="M3 19c0-3.3 2-5 5-5 1.7 0 3.1.5 4 1.5" />
+      <path d="M14 12h7" />
+      <path d="m18 8 4 4-4 4" />
+    </svg>
+  );
+}
+
+export function KeyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="7.5" cy="16.5" r="3.5" />
+      <path d="m10 14 9-9" />
+      <path d="m16 5 3 3" />
+      <path d="m14 10 2 2" />
+    </svg>
+  );
+}
+
 export function PinIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">

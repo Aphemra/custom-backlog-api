@@ -923,25 +923,29 @@ export function LibraryPage({ onAlertsChanged }: LibraryPageProps) {
               <span>No trophy data yet</span>
             ) : (
               <>
-                <strong>
-                  {pinnedEarnedTrophies.toLocaleString()} /{" "}
-                  {pinnedAttainableTrophies.toLocaleString()}
-                  {pinnedHasUnobtainableTrophies
-                    ? ` (${pinnedTotalTrophies.toLocaleString()})`
-                    : ""}
-                </strong>
+                <div className="pinned-collection-summary__total-row">
+                  <strong>
+                    {pinnedEarnedTrophies.toLocaleString()} /{" "}
+                    {pinnedAttainableTrophies.toLocaleString()}
+                    {pinnedHasUnobtainableTrophies
+                      ? ` (${pinnedTotalTrophies.toLocaleString()})`
+                      : ""}
+                  </strong>
 
-                <span>Trophies earned</span>
+                  <span>Trophies earned</span>
+                </div>
 
-                <strong>
-                  {pinnedAttainablePointsRemaining.toLocaleString()}
-                </strong>
+                <div className="pinned-collection-summary__total-row">
+                  <strong>
+                    {pinnedAttainablePointsRemaining.toLocaleString()}
+                  </strong>
 
-                <span>
-                  {pinnedHasUnobtainableTrophies
-                    ? "Attainable points remaining"
-                    : "Points remaining"}
-                </span>
+                  <span>
+                    {pinnedHasUnobtainableTrophies
+                      ? "Attainable points remaining"
+                      : "Points remaining"}
+                  </span>
+                </div>
               </>
             )}
           </div>

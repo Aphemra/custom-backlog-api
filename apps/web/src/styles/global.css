@@ -2428,6 +2428,8 @@ textarea:focus-visible {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
   margin-top: 0.55rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  padding-top: 0.55rem;
 }
 
 .collection-card__metric {
@@ -7000,7 +7002,11 @@ textarea:focus-visible {
 .pinned-collection-summary__progress {
   display: grid;
   min-width: 0;
+  align-self: stretch;
+  align-content: center;
   gap: 0.35rem;
+  border-inline-start: 1px solid rgba(148, 163, 184, 0.14);
+  padding-inline-start: var(--space-4);
 }
 
 .pinned-collection-summary__progress-heading {
@@ -7052,11 +7058,26 @@ textarea:focus-visible {
 
 .pinned-collection-summary__totals {
   display: grid;
-  grid-template-columns: auto auto;
-  align-items: baseline;
-  gap: 0.1rem 0.45rem;
   min-width: max-content;
+  align-self: stretch;
+  align-content: center;
+  border-inline-start: 1px solid rgba(148, 163, 184, 0.14);
+  padding-inline-start: var(--space-4);
   font-size: var(--font-size-caption);
+}
+
+.pinned-collection-summary__total-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding-block: 0.15rem;
+}
+
+.pinned-collection-summary__total-row + .pinned-collection-summary__total-row {
+  margin-top: 0.15rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  padding-top: 0.3rem;
 }
 
 .pinned-collection-summary__totals strong {
@@ -7074,8 +7095,20 @@ textarea:focus-visible {
     gap: var(--space-3);
   }
 
+  .pinned-collection-summary__progress,
   .pinned-collection-summary__totals {
-    grid-template-columns: auto 1fr;
+    border-inline-start: 0;
+    padding-inline-start: 0;
+  }
+
+  .pinned-collection-summary__progress,
+  .pinned-collection-summary__totals {
+    align-self: auto;
+    border-inline-start: 0;
+    padding-inline-start: 0;
+  }
+
+  .pinned-collection-summary__totals {
     min-width: 0;
   }
 }

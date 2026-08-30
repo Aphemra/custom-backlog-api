@@ -271,10 +271,6 @@ function TrophyTitleRow({
                   {platform}
                 </span>
               ))}
-
-              {title.hasTrophyGroups ? (
-                <span className="psn-title-row__dlc">Additional groups</span>
-              ) : null}
             </div>
           </div>
 

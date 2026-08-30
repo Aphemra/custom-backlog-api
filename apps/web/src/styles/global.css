@@ -5060,15 +5060,6 @@ textarea:focus-visible {
   margin-top: 0.35rem;
 }
 
-.psn-title-row__dlc {
-  border-radius: var(--radius-pill);
-  padding: 0.18rem 0.4rem;
-  background: rgba(251, 191, 36, 0.12);
-  color: #fde68a;
-  font-size: 0.58rem;
-  font-weight: 800;
-}
-
 .psn-match-badge {
   flex: 0 0 auto;
   border-radius: var(--radius-pill);

@@ -39,6 +39,7 @@ export interface CollectionSummary {
   readonly gameCount: number;
   readonly visibleGameCount: number;
   readonly hiddenGameCount: number;
+  readonly averageTrophyProgressPercent: number;
   readonly trophySummary: CollectionTrophySummary | null;
   readonly timeEstimateSummary: CollectionTimeEstimateSummary | null;
   readonly createdAt: string;

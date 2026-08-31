@@ -186,7 +186,7 @@ export function createIgdbRoutes(
   );
 
   const client = new IgdbClient(credentials, fetchIgdb);
-  const searchService = new IgdbSearchService(client, imageCache);
+  const searchService = new IgdbSearchService(database, client, imageCache);
   const importService = new IgdbImportService(database, client, imageCache);
   const enrichmentService = new IgdbEnrichmentService(
     database,

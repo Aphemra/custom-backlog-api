@@ -93,6 +93,7 @@ export interface IgdbGameSearchResult extends Omit<
   IgdbGame,
   "coverImageId" | "payload"
 > {
+  libraryPlatforms: readonly PlayStationPlatform[];
   cover: {
     imageId: string;
     url: string;

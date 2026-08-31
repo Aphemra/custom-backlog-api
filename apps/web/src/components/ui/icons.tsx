@@ -22,6 +22,26 @@ export function DragHandleIcon() {
   );
 }
 
+export function MoveToTopIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 5h14" />
+      <path d="m7 14 5-5 5 5" />
+      <path d="M12 9v10" />
+    </svg>
+  );
+}
+
+export function MoveToBottomIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 19h14" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M12 5v10" />
+    </svg>
+  );
+}
+
 export function EditIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">

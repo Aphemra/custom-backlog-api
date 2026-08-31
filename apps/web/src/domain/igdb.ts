@@ -70,6 +70,7 @@ export interface IgdbTimeToBeat {
 export interface IgdbGameSearchResult {
   readonly externalId: string;
   readonly title: string;
+  readonly libraryPlatforms: readonly PlayStationPlatform[];
   readonly slug: string | null;
   readonly igdbUrl: string | null;
   readonly summary: string | null;

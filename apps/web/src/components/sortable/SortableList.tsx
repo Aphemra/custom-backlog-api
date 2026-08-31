@@ -26,10 +26,14 @@ interface SortableListItem {
 export interface SortableItemControls {
   readonly dragHandle: ReactNode;
   readonly position: number;
+  readonly itemCount: number;
   readonly canMoveUp: boolean;
   readonly canMoveDown: boolean;
   readonly moveUp: () => void;
   readonly moveDown: () => void;
+  readonly moveToPosition: (position: number) => void;
+  readonly moveToTop: () => void;
+  readonly moveToBottom: () => void;
 }
 
 interface SortableListProps<Item extends SortableListItem> {
@@ -97,6 +101,7 @@ function SortableEntry<Item extends SortableListItem>({
       />
     ),
     position: index + 1,
+    itemCount,
     canMoveUp: !disabled && index > 0,
     canMoveDown: !disabled && index < itemCount - 1,
     moveUp: () => {
@@ -107,6 +112,29 @@ function SortableEntry<Item extends SortableListItem>({
     moveDown: () => {
       if (!disabled && index < itemCount - 1) {
         onMove(index, index + 1);
+      }
+    },
+    moveToPosition: (position) => {
+      const targetIndex = position - 1;
+
+      if (
+        !disabled &&
+        Number.isInteger(position) &&
+        targetIndex >= 0 &&
+        targetIndex < itemCount &&
+        targetIndex !== index
+      ) {
+        onMove(index, targetIndex);
+      }
+    },
+    moveToTop: () => {
+      if (!disabled && index > 0) {
+        onMove(index, 0);
+      }
+    },
+    moveToBottom: () => {
+      if (!disabled && index < itemCount - 1) {
+        onMove(index, itemCount - 1);
       }
     },
   };

@@ -6,7 +6,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { SortableList } from "../../../components/sortable/SortableList";
+import {
+  SortableList,
+  type SortableItemControls,
+} from "../../../components/sortable/SortableList";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Dropdown } from "../../../components/ui/Dropdown";
@@ -234,13 +237,10 @@ export function LibraryPage({ onAlertsChanged }: LibraryPageProps) {
   const pinnedHasUnobtainableTrophies = pinnedUnobtainableTrophies > 0;
 
   const pinnedProgressPercent =
-    pinnedTrophySummary?.availability.attainableProgressPercent ?? 0;
+    pinnedCollection?.averageTrophyProgressPercent ?? 0;
 
-  const pinnedEarnedProgressShare =
-    pinnedTrophySummary?.availability.earnedProgressSharePercent ?? 0;
-
-  const pinnedUnobtainableProgressShare =
-    pinnedTrophySummary?.availability.unobtainableProgressSharePercent ?? 0;
+  const pinnedTrackedGameCount =
+    pinnedTrophySummary?.gameCountWithTrophies ?? 0;
 
   const pinnedAttainablePointsRemaining =
     pinnedTrophySummary === null
@@ -744,13 +744,18 @@ export function LibraryPage({ onAlertsChanged }: LibraryPageProps) {
     game: LibraryGameListItem,
     dragHandle: ReactNode | null,
     position: number | null,
+    positionControls: SortableItemControls | null = null,
   ) {
     return (
       <LibraryGameRow
         game={game}
         position={position}
+        positionCount={positionControls?.itemCount ?? null}
         dragHandle={dragHandle}
         busy={busyKey !== null || isSynchronizingTrophies}
+        onMoveToPosition={positionControls?.moveToPosition ?? null}
+        onMoveToTop={positionControls?.moveToTop ?? null}
+        onMoveToBottom={positionControls?.moveToBottom ?? null}
         onOpenDetails={() => setDetailsGame(game)}
         onEdit={() => openEditForm(game)}
         onHide={() => void handleHide(game)}
@@ -886,8 +891,8 @@ export function LibraryPage({ onAlertsChanged }: LibraryPageProps) {
               <strong>{pinnedProgressPercent}%</strong>
 
               <span>
-                {pinnedTrophySummary?.completedGameCount ?? 0} of{" "}
-                {pinnedCollection.gameCount} games at 100%
+                Average trophy progress · {pinnedTrackedGameCount} of{" "}
+                {pinnedCollection.gameCount} tracked
                 {pinnedHasUnobtainableTrophies
                   ? ` · ${pinnedUnobtainableTrophies.toLocaleString()} unobtainable`
                   : ""}
@@ -897,24 +902,15 @@ export function LibraryPage({ onAlertsChanged }: LibraryPageProps) {
             <div
               className="pinned-collection-summary__track"
               role="progressbar"
-              aria-label={`${pinnedCollection.name} attainable trophy progress`}
+              aria-label={`${pinnedCollection.name} average trophy progress`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={pinnedProgressPercent}
             >
               <span
                 className="pinned-collection-summary__progress-earned"
-                style={{ width: `${pinnedEarnedProgressShare}%` }}
+                style={{ width: `${pinnedProgressPercent}%` }}
               />
-
-              {pinnedHasUnobtainableTrophies ? (
-                <span
-                  className="pinned-collection-summary__progress-unobtainable"
-                  style={{
-                    width: `${pinnedUnobtainableProgressShare}%`,
-                  }}
-                />
-              ) : null}
             </div>
           </div>
 
@@ -1332,6 +1328,7 @@ export function LibraryPage({ onAlertsChanged }: LibraryPageProps) {
                           game,
                           controls.dragHandle,
                           controls.position,
+                          controls,
                         )
                       }
                     />

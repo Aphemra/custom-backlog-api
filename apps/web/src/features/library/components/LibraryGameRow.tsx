@@ -1,9 +1,16 @@
-import { useState, type ReactNode } from "react";
+import {
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { IconButton } from "../../../components/ui/IconButton";
 import {
   DeleteIcon,
   EditIcon,
   HideIcon,
+  MoveToBottomIcon,
+  MoveToTopIcon,
   ShowIcon,
   TrophyGradeIcon,
 } from "../../../components/ui/icons";
@@ -22,8 +29,12 @@ import { GameResourceLinks } from "./GameResourceLinks";
 interface LibraryGameRowProps {
   readonly game: LibraryGameListItem;
   readonly position: number | null;
+  readonly positionCount: number | null;
   readonly dragHandle: ReactNode | null;
   readonly busy: boolean;
+  readonly onMoveToPosition: ((position: number) => void) | null;
+  readonly onMoveToTop: (() => void) | null;
+  readonly onMoveToBottom: (() => void) | null;
   readonly onOpenDetails: () => void;
   readonly onEdit: () => void;
   readonly onHide: () => void;
@@ -172,11 +183,130 @@ function compactCompletionTimingLabel(
   return null;
 }
 
+interface GamePositionEditorProps {
+  readonly position: number;
+  readonly positionCount: number;
+  readonly busy: boolean;
+  readonly onMoveToPosition: (position: number) => void;
+  readonly onMoveToTop: () => void;
+  readonly onMoveToBottom: () => void;
+}
+
+function GamePositionEditor({
+  position,
+  positionCount,
+  busy,
+  onMoveToPosition,
+  onMoveToTop,
+  onMoveToBottom,
+}: GamePositionEditorProps) {
+  const [draftPosition, setDraftPosition] = useState(String(position));
+
+  function commitPosition(): void {
+    const normalizedPosition = draftPosition.trim();
+
+    if (!/^\d+$/.test(normalizedPosition)) {
+      setDraftPosition(String(position));
+
+      return;
+    }
+
+    const nextPosition = Number(normalizedPosition);
+
+    if (
+      !Number.isSafeInteger(nextPosition) ||
+      nextPosition < 1 ||
+      nextPosition > positionCount
+    ) {
+      setDraftPosition(String(position));
+
+      return;
+    }
+
+    setDraftPosition(String(nextPosition));
+
+    if (nextPosition !== position) {
+      onMoveToPosition(nextPosition);
+    }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    commitPosition();
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setDraftPosition(String(position));
+      event.currentTarget.select();
+    }
+  }
+
+  return (
+    <form
+      className="game-row__position-form"
+      aria-label={`Change position ${position} of ${positionCount}`}
+      onSubmit={handleSubmit}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <input
+        className="game-row__position-input"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        aria-label={`Position from 1 through ${positionCount}`}
+        value={draftPosition}
+        disabled={busy}
+        onChange={(event) => setDraftPosition(event.target.value)}
+        onFocus={(event) => event.currentTarget.select()}
+        onBlur={commitPosition}
+        onKeyDown={handleKeyDown}
+      />
+
+      <div className="game-row__position-shortcuts">
+        <IconButton
+          className="game-row__position-shortcut"
+          label="Move to top"
+          tooltip="Move to top"
+          tooltipPlacement="top"
+          tooltipAlignment="start"
+          icon={<MoveToTopIcon />}
+          disabled={busy || position === 1}
+          onClick={() => {
+            setDraftPosition("1");
+            onMoveToTop();
+          }}
+        />
+
+        <IconButton
+          className="game-row__position-shortcut"
+          label="Move to bottom of active backlog"
+          tooltip="Move to bottom"
+          tooltipPlacement="top"
+          tooltipAlignment="start"
+          icon={<MoveToBottomIcon />}
+          disabled={busy || position === positionCount}
+          onClick={() => {
+            setDraftPosition(String(positionCount));
+            onMoveToBottom();
+          }}
+        />
+      </div>
+    </form>
+  );
+}
+
 export function LibraryGameRow({
   game,
   position,
+  positionCount,
   dragHandle,
   busy,
+  onMoveToPosition,
+  onMoveToTop,
+  onMoveToBottom,
   onOpenDetails,
   onEdit,
   onHide,
@@ -263,7 +393,23 @@ export function LibraryGameRow({
           <>
             {dragHandle}
 
-            <span className="order-number">{position}</span>
+            {position !== null &&
+            positionCount !== null &&
+            onMoveToPosition !== null &&
+            onMoveToTop !== null &&
+            onMoveToBottom !== null ? (
+              <GamePositionEditor
+                key={position}
+                position={position}
+                positionCount={positionCount}
+                busy={busy}
+                onMoveToPosition={onMoveToPosition}
+                onMoveToTop={onMoveToTop}
+                onMoveToBottom={onMoveToBottom}
+              />
+            ) : (
+              <span className="order-number">{position}</span>
+            )}
           </>
         )}
       </div>

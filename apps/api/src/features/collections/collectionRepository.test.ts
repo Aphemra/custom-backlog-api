@@ -389,3 +389,122 @@ test("rejects stale collection and membership lists without changing data", () =
     database.close();
   }
 });
+
+test("averages trophy progress across every Collection member", () => {
+  const database = openDatabase(":memory:");
+  const games = new LibraryGameRepository(database);
+  const collections = new CollectionRepository(database);
+
+  try {
+    const firstGame = games.create({
+      title: "Game One",
+      platform: "PS5",
+    });
+
+    const secondGame = games.create({
+      title: "Game Two",
+      platform: "PS5",
+    });
+
+    const unreleasedGame = games.create({
+      title: "Game Three",
+      platform: "PS5",
+      playStatus: "unreleased",
+    });
+
+    const completedGame = games.create({
+      title: "Game Four",
+      platform: "PS5",
+      playStatus: "completed",
+    });
+
+    const fifthGame = games.create({
+      title: "Game Five",
+      platform: "PS5",
+    });
+
+    const untrackedGame = games.create({
+      title: "Game Six",
+      platform: "PS5",
+    });
+
+    const insertSnapshot = database.prepare(`
+      INSERT INTO trophy_snapshots (
+        id,
+        game_id,
+        captured_at,
+        bronze_total,
+        silver_total,
+        gold_total,
+        platinum_total,
+        bronze_earned,
+        silver_earned,
+        gold_earned,
+        platinum_earned,
+        progress_percent,
+        is_100_percent,
+        has_platinum
+      ) VALUES (?, ?, ?, 50, 0, 0, 0, ?, 0, 0, 0, ?, ?, 0)
+    `);
+
+    insertSnapshot.run(
+      "game-one-snapshot",
+      firstGame.id,
+      "2026-08-30T12:00:00.000Z",
+      30,
+      60,
+      0,
+    );
+
+    insertSnapshot.run(
+      "game-two-snapshot",
+      secondGame.id,
+      "2026-08-30T12:00:00.000Z",
+      25,
+      50,
+      0,
+    );
+
+    insertSnapshot.run(
+      "game-four-snapshot",
+      completedGame.id,
+      "2026-08-30T12:00:00.000Z",
+      50,
+      100,
+      1,
+    );
+
+    insertSnapshot.run(
+      "game-five-snapshot",
+      fifthGame.id,
+      "2026-08-30T12:00:00.000Z",
+      10,
+      20,
+      0,
+    );
+
+    const collection = collections.create({
+      name: "Average Progress",
+    });
+
+    assert.equal(
+      collections.replaceGames(collection.id, [
+        firstGame.id,
+        secondGame.id,
+        unreleasedGame.id,
+        completedGame.id,
+        fifthGame.id,
+        untrackedGame.id,
+      ]),
+      true,
+    );
+
+    const populated = collections.findById(collection.id);
+
+    assert.equal(populated?.gameCount, 6);
+    assert.equal(populated?.trophySummary?.gameCountWithTrophies, 4);
+    assert.equal(populated?.averageTrophyProgressPercent, 38);
+  } finally {
+    database.close();
+  }
+});

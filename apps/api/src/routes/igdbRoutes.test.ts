@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { createApp } from "../app.js";
 import { openDatabase } from "../database/database.js";
+import { LibraryGameRepository } from "../features/library/libraryGameRepository.js";
 import type { IgdbGameSearchResult } from "../features/igdb/igdbTypes.js";
 
 interface SearchResponse {
@@ -35,6 +36,45 @@ function readUrl(input: string | URL | Request): string {
 test("searches IGDB and lazily stores its artwork in the local cache", async () => {
   const database = openDatabase(":memory:");
   const cacheDirectory = await mkdtemp(join(tmpdir(), "backlog-igdb-"));
+
+  const existingGame = new LibraryGameRepository(database).create({
+    title: "Astro Bot",
+    platform: "PS4",
+    playStatus: "not_started",
+    notes: null,
+  });
+
+  const storedAt = "2026-08-30T12:00:00.000Z";
+  const metadataId = "existing-astro-bot-metadata";
+
+  database
+    .prepare(
+      `
+      INSERT INTO external_game_metadata (
+        id,
+        provider,
+        external_id,
+        title,
+        cover_url,
+        release_date,
+        payload_json,
+        fetched_at
+      ) VALUES (?, 'igdb', ?, ?, NULL, NULL, '{}', ?)
+    `,
+    )
+    .run(metadataId, "250766", "Astro Bot", storedAt);
+
+  database
+    .prepare(
+      `
+      INSERT INTO game_metadata_links (
+        game_id,
+        metadata_id,
+        linked_at
+      ) VALUES (?, ?, ?)
+    `,
+    )
+    .run(existingGame.id, metadataId, storedAt);
 
   const requestCounts = {
     authentication: 0,
@@ -161,6 +201,7 @@ test("searches IGDB and lazily stores its artwork in the local cache", async () 
     assert.equal(search.games.length, 1);
     assert.equal(search.games[0]?.isDlc, false);
     assert.deepEqual(search.games[0]?.platforms, ["PS4", "PS5"]);
+    assert.deepEqual(search.games[0]?.libraryPlatforms, ["PS4"]);
     assert.equal(search.games[0]?.releaseDate, "2024-09-06");
     assert.match(search.games[0]?.cover?.url ?? "", /^\/api\/images\//);
 

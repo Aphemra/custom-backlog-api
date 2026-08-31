@@ -50,6 +50,28 @@ interface CollectionRow {
   updated_at: string;
 }
 
+interface CollectionGameProgressRow {
+  collection_id: string;
+  progress_percent: number | null;
+  bronze_earned: number | null;
+  silver_earned: number | null;
+  gold_earned: number | null;
+  platinum_earned: number | null;
+  bronze_total: number | null;
+  silver_total: number | null;
+  gold_total: number | null;
+  platinum_total: number | null;
+  unobtainable_bronze: number;
+  unobtainable_silver: number;
+  unobtainable_gold: number;
+  unobtainable_platinum: number;
+}
+
+interface CollectionProgressAccumulator {
+  totalProgress: number;
+  gameCount: number;
+}
+
 interface CollectionGameRow {
   id: string;
   title: string;
@@ -202,7 +224,134 @@ const COLLECTION_SELECT = `
     igdb_time.metadata_id = metadata.id
 `;
 
-function mapCollection(row: CollectionRow): CollectionSummary {
+const COLLECTION_GAME_PROGRESS_SELECT = `
+  SELECT
+    cg.collection_id,
+    ts.progress_percent,
+    ts.bronze_earned,
+    ts.silver_earned,
+    ts.gold_earned,
+    ts.platinum_earned,
+    ts.bronze_total,
+    ts.silver_total,
+    ts.gold_total,
+    ts.platinum_total,
+    COALESCE(trophy_availability.bronze, 0)
+      AS unobtainable_bronze,
+    COALESCE(trophy_availability.silver, 0)
+      AS unobtainable_silver,
+    COALESCE(trophy_availability.gold, 0)
+      AS unobtainable_gold,
+    COALESCE(trophy_availability.platinum, 0)
+      AS unobtainable_platinum
+  FROM collection_games cg
+  LEFT JOIN trophy_snapshots ts ON ts.id = (
+    SELECT latest.id
+    FROM trophy_snapshots latest
+    WHERE latest.game_id = cg.game_id
+    ORDER BY latest.captured_at DESC, latest.id DESC
+    LIMIT 1
+  )
+  LEFT JOIN (
+    SELECT
+      trophies.game_id,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'bronze' THEN 1 ELSE 0 END
+      ) AS bronze,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'silver' THEN 1 ELSE 0 END
+      ) AS silver,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'gold' THEN 1 ELSE 0 END
+      ) AS gold,
+      SUM(
+        CASE WHEN trophies.trophy_type = 'platinum' THEN 1 ELSE 0 END
+      ) AS platinum
+    FROM playstation_trophies trophies
+    INNER JOIN playstation_trophy_availability_overrides availability
+      ON availability.game_id = trophies.game_id
+      AND availability.trophy_id = trophies.trophy_id
+    WHERE trophies.is_earned = 0
+    GROUP BY trophies.game_id
+  ) trophy_availability
+    ON trophy_availability.game_id = cg.game_id
+`;
+
+function countTrophies(counts: PlayStationTrophyCounts): number {
+  return counts.bronze + counts.silver + counts.gold + counts.platinum;
+}
+
+function calculateAverageTrophyProgress(
+  rows: readonly CollectionGameProgressRow[],
+): ReadonlyMap<string, number> {
+  const accumulators = new Map<string, CollectionProgressAccumulator>();
+
+  for (const row of rows) {
+    const earnedTrophies: PlayStationTrophyCounts = {
+      bronze: row.bronze_earned ?? 0,
+      silver: row.silver_earned ?? 0,
+      gold: row.gold_earned ?? 0,
+      platinum: row.platinum_earned ?? 0,
+    };
+
+    const totalTrophies: PlayStationTrophyCounts = {
+      bronze: row.bronze_total ?? 0,
+      silver: row.silver_total ?? 0,
+      gold: row.gold_total ?? 0,
+      platinum: row.platinum_total ?? 0,
+    };
+
+    const unobtainableTrophies: PlayStationTrophyCounts = {
+      bronze: row.unobtainable_bronze,
+      silver: row.unobtainable_silver,
+      gold: row.unobtainable_gold,
+      platinum: row.unobtainable_platinum,
+    };
+
+    let displayedProgress = 0;
+
+    if (row.progress_percent !== null) {
+      const availability = calculateLibraryTrophyAvailability(
+        earnedTrophies,
+        totalTrophies,
+        unobtainableTrophies,
+      );
+
+      displayedProgress =
+        countTrophies(availability.unobtainableTrophies) > 0
+          ? availability.attainableProgressPercent
+          : row.progress_percent;
+    }
+
+    const accumulator = accumulators.get(row.collection_id) ?? {
+      totalProgress: 0,
+      gameCount: 0,
+    };
+
+    accumulator.totalProgress += displayedProgress;
+    accumulator.gameCount += 1;
+
+    accumulators.set(row.collection_id, accumulator);
+  }
+
+  const averages = new Map<string, number>();
+
+  for (const [collectionId, accumulator] of accumulators) {
+    averages.set(
+      collectionId,
+      accumulator.gameCount === 0
+        ? 0
+        : Math.floor(accumulator.totalProgress / accumulator.gameCount),
+    );
+  }
+
+  return averages;
+}
+
+function mapCollection(
+  row: CollectionRow,
+  averageTrophyProgressPercent: number,
+): CollectionSummary {
   const earnedTrophies: PlayStationTrophyCounts = {
     bronze: row.bronze_earned,
     silver: row.silver_earned,
@@ -240,6 +389,7 @@ function mapCollection(row: CollectionRow): CollectionSummary {
     gameCount: row.game_count,
     visibleGameCount: row.visible_game_count,
     hiddenGameCount: row.hidden_game_count,
+    averageTrophyProgressPercent,
     trophySummary:
       row.trophy_game_count === 0
         ? null
@@ -300,6 +450,17 @@ function mapCollectionGame(row: CollectionGameRow): CollectionGame {
 export class CollectionRepository {
   constructor(private readonly database: DatabaseSync) {}
 
+  private findAverageTrophyProgressByCollectionId(): ReadonlyMap<
+    string,
+    number
+  > {
+    const rows = this.database
+      .prepare(COLLECTION_GAME_PROGRESS_SELECT)
+      .all() as unknown as CollectionGameProgressRow[];
+
+    return calculateAverageTrophyProgress(rows);
+  }
+
   list(): readonly CollectionSummary[] {
     const rows = this.database
       .prepare(
@@ -310,7 +471,12 @@ export class CollectionRepository {
       )
       .all() as unknown as CollectionRow[];
 
-    return rows.map(mapCollection);
+    const averageProgressByCollectionId =
+      this.findAverageTrophyProgressByCollectionId();
+
+    return rows.map((row) =>
+      mapCollection(row, averageProgressByCollectionId.get(row.id) ?? 0),
+    );
   }
 
   findById(collectionId: string): CollectionDetail | null {
@@ -327,8 +493,11 @@ export class CollectionRepository {
       return null;
     }
 
+    const averageProgressByCollectionId =
+      this.findAverageTrophyProgressByCollectionId();
+
     return {
-      ...mapCollection(row),
+      ...mapCollection(row, averageProgressByCollectionId.get(row.id) ?? 0),
       games: this.listGames(collectionId),
     };
   }

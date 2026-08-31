@@ -130,56 +130,33 @@ export function CollectionCard({
           )}
         </div>
 
-        {trophySummary === null ? null : (
-          <div className="collection-card__progress">
-            <div className="collection-card__progress-heading">
-              <strong>
-                {trophySummary.availability.attainableProgressPercent}%
-              </strong>
+        <div className="collection-card__progress">
+          <div className="collection-card__progress-heading">
+            <strong>{collection.averageTrophyProgressPercent}%</strong>
 
-              <span
-                className={
-                  hasUnobtainableTrophies
-                    ? "collection-card__availability-summary"
-                    : undefined
-                }
-              >
-                {trophySummary.availability.isMaxAttainable
-                  ? "Maximum attainable"
-                  : hasUnobtainableTrophies
-                    ? `${formatNumber(unobtainableTrophyCount)} unobtainable`
-                    : "Combined trophy progress"}
-              </span>
-            </div>
-
-            <div
-              className="collection-card__progress-track"
-              role="progressbar"
-              aria-label={`${collection.name} attainable trophy progress`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={
-                trophySummary.availability.attainableProgressPercent
-              }
-            >
-              <span
-                className="collection-card__progress-earned"
-                style={{
-                  width: `${trophySummary.availability.earnedProgressSharePercent}%`,
-                }}
-              />
-
-              {hasUnobtainableTrophies ? (
-                <span
-                  className="collection-card__progress-unobtainable"
-                  style={{
-                    width: `${trophySummary.availability.unobtainableProgressSharePercent}%`,
-                  }}
-                />
-              ) : null}
-            </div>
+            <span>
+              Average trophy progress ·{" "}
+              {trophySummary?.gameCountWithTrophies ?? 0} of{" "}
+              {collection.gameCount} tracked
+            </span>
           </div>
-        )}
+
+          <div
+            className="collection-card__progress-track"
+            role="progressbar"
+            aria-label={`${collection.name} average trophy progress`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={collection.averageTrophyProgressPercent}
+          >
+            <span
+              className="collection-card__progress-earned"
+              style={{
+                width: `${collection.averageTrophyProgressPercent}%`,
+              }}
+            />
+          </div>
+        </div>
 
         <div className="collection-card__metrics">
           {trophySummary === null ? (

@@ -343,23 +343,36 @@ export function IgdbGameSearch({ onAdded }: IgdbGameSearchProps) {
                         {selectedGame.platforms.map((gamePlatform) => {
                           const key = `${selectedGame.externalId}:${gamePlatform}`;
 
+                          const alreadyInLibrary =
+                            selectedGame.libraryPlatforms.includes(
+                              gamePlatform,
+                            );
+
                           const wasAdded = addedKeys.has(key);
+
+                          const unavailable = alreadyInLibrary || wasAdded;
 
                           return (
                             <button
-                              className="button button--primary"
+                              className={`button button--primary${
+                                unavailable
+                                  ? " igdb-search__add-button--existing"
+                                  : ""
+                              }`}
                               type="button"
                               key={gamePlatform}
-                              disabled={addingKey !== null || wasAdded}
+                              disabled={addingKey !== null || unavailable}
                               onClick={() =>
                                 void handleAdd(selectedGame, gamePlatform)
                               }
                             >
-                              {wasAdded
-                                ? `${gamePlatform} added`
-                                : addingKey === key
-                                  ? `Adding ${gamePlatform}…`
-                                  : `Add ${gamePlatform}`}
+                              {alreadyInLibrary
+                                ? `${gamePlatform} in Library`
+                                : wasAdded
+                                  ? `${gamePlatform} added`
+                                  : addingKey === key
+                                    ? `Adding ${gamePlatform}…`
+                                    : `Add ${gamePlatform}`}
                             </button>
                           );
                         })}

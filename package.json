@@ -19,7 +19,8 @@
     "start:api": "npm run start --workspace apps/api",
     "production:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-production-task.ps1",
     "production:start": "schtasks.exe /Run /TN \"Trophy Backlog\"",
-    "production:stop": "schtasks.exe /End /TN \"Trophy Backlog\"",
+    "production:stop": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/stop-production-task.ps1",
+    "production:restart": "npm run production:stop && npm run production:start",
     "production:uninstall": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/uninstall-production-task.ps1"
   },
   "engines": {

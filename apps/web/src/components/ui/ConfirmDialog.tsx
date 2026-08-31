@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import { Dialog } from "./Dialog";
 
 interface ConfirmDialogProps {
@@ -28,11 +28,19 @@ function OpenConfirmDialog({
   const textMatches =
     requiredText === undefined || confirmationText === requiredText;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  function confirm(): void {
     if (!busy && textMatches) {
       onConfirm();
+    }
+  }
+
+  function handleConfirmationKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+  ): void {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      confirm();
     }
   }
 
@@ -45,7 +53,7 @@ function OpenConfirmDialog({
       dismissible={!busy}
       onClose={onCancel}
     >
-      <form className="confirmation-dialog" onSubmit={handleSubmit}>
+      <div className="confirmation-dialog">
         <div className="confirmation-dialog__message">{description}</div>
 
         {requiredText === undefined ? null : (
@@ -61,6 +69,7 @@ function OpenConfirmDialog({
               autoComplete="off"
               spellCheck={false}
               onChange={(event) => setConfirmationText(event.target.value)}
+              onKeyDown={handleConfirmationKeyDown}
             />
           </label>
         )}
@@ -77,7 +86,8 @@ function OpenConfirmDialog({
 
           <button
             className="button button--danger"
-            type="submit"
+            type="button"
+            onClick={confirm}
             data-dialog-initial-focus={
               requiredText === undefined ? "" : undefined
             }
@@ -86,7 +96,7 @@ function OpenConfirmDialog({
             {busy ? "Working…" : confirmLabel}
           </button>
         </div>
-      </form>
+      </div>
     </Dialog>
   );
 }
